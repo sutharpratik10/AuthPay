@@ -1,0 +1,1 @@
+ALTER TABLE "resource_comments" DROP CONSTRAINT "resource_comments_reply_to_comment_id_resource_comments_id_fk";
