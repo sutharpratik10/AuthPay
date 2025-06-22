@@ -1,58 +1,156 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import { useRouter } from "next/navigation"
+import { signIn, signOut, useSession } from "next-auth/react"
+import { Session } from "next-auth"
+
+// Extended user interface with our custom properties
+interface ExtendedUser {
+  id?: string;
+  email?: string | null;
+  name?: string | null;
+  image?: string | null;
+  isEmailVerified?: boolean;
+}
+
+// Extended session interface
+interface ExtendedSession extends Session {
+  user?: ExtendedUser;
+}
 
 interface AuthContextType {
-  isAuthenticated: boolean
-  login: (email: string, password: string) => Promise<void>
-  logout: () => void
-  loading: boolean
+  session: ExtendedSession | null;
+  isAuthenticated: boolean;
+  isEmailVerified: boolean;
+  login: (email: string, password: string) => Promise<{ error?: string }>;
+  socialLogin: (provider: string) => Promise<void>;
+  register: (email: string, password: string, name?: string) => Promise<{ error?: string }>;
+  logout: () => Promise<void>;
+  verifyEmail: (code: string) => Promise<{ success: boolean; error?: string }>;
+  resendVerificationEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const { data: sessionData, status } = useSession()
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
   
-  // Check if user is authenticated on mount
+  // Cast the session to our extended type
+  const session = sessionData as ExtendedSession | null
+  
   useEffect(() => {
-    // In a real app, this would check a token in localStorage or cookies
-    const checkAuth = () => {
-      // For demo purposes, we'll use localStorage
-      const token = localStorage.getItem("auth_token")
-      setIsAuthenticated(!!token)
-      setLoading(false)
-    }
-    
-    checkAuth()
-  }, [])
-    const login = async (email: string, password: string) => {
-    // This would be an API call in a real app
-    setLoading(true)
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // For demo, only fail if email is test@example.com or password is empty
-    if (email === "test@example.com" || !password.trim()) {
-      setLoading(false)
-      throw new Error("Invalid credentials")
-    }
-    
-    // Set token in localStorage with encoded email (simulating JWT)
-    localStorage.setItem("auth_token", "demo_token_" + btoa(email + ":" + password) + "_" + Date.now())
-    setIsAuthenticated(true)
-    setLoading(false)
-  }
+    // Update loading state based on session status
+    setLoading(status === "loading")
+  }, [status])
   
-  const logout = () => {
-    localStorage.removeItem("auth_token")
-    setIsAuthenticated(false)
+  const isAuthenticated = !!session
+  const isEmailVerified = !!session?.user?.isEmailVerified
+
+  const login = async (email: string, password: string) => {
+    try {
+      const result = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      })
+
+      if (result?.error) {
+        return { error: result.error }
+      }
+
+      return {}
+    } catch (error) {
+      console.error("Login error:", error)
+      return { error: "An unexpected error occurred" }
+    }
   }
-  
-  return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, loading }}>
+
+  const socialLogin = async (provider: string) => {
+    await signIn(provider, { callbackUrl: "/protected/dashboard" })
+  }
+
+  const register = async (email: string, password: string, name?: string) => {
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        return { error: data.error }
+      }
+
+      router.push("/auth/verify-request")
+      return {}
+    } catch (error) {
+      console.error("Registration error:", error)
+      return { error: "An unexpected error occurred" }
+    }
+  }
+
+  const logout = async () => {
+    await signOut({ redirect: false })
+    router.push("/")
+  }
+
+  const verifyEmail = async (code: string) => {
+    try {
+      const res = await fetch(`/api/auth/verify?code=${code}`)
+      const data = await res.json()
+
+      if (!res.ok) {
+        return { success: false, error: data.error }
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error("Email verification error:", error)
+      return { success: false, error: "An unexpected error occurred" }
+    }
+  }
+
+  const resendVerificationEmail = async (email: string) => {
+    try {
+      const res = await fetch("/api/auth/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        return { success: false, error: data.error }
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error("Resend verification error:", error)
+      return { success: false, error: "An unexpected error occurred" }
+    }
+  }
+    return (
+    <AuthContext.Provider 
+      value={{ 
+        session, 
+        isAuthenticated, 
+        isEmailVerified,
+        login, 
+        socialLogin,
+        register,
+        logout, 
+        verifyEmail,
+        resendVerificationEmail,
+        loading 
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

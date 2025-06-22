@@ -19,17 +19,22 @@ export function ProtectedRoute({
   children, 
   redirectPath
 }: ProtectedRouteProps) {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, isEmailVerified, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      // If no specific redirect path is provided, create one with returnTo parameter
-      const redirectUrl = redirectPath || getLoginRedirectUrl(pathname)
-      router.push(redirectUrl)
+    if (!loading) {
+      if (!isAuthenticated) {
+        // If no specific redirect path is provided, create one with returnTo parameter
+        const redirectUrl = redirectPath || getLoginRedirectUrl(pathname)
+        router.push(redirectUrl)
+      } else if (!isEmailVerified) {
+        // If authenticated but email not verified, redirect to verification page
+        router.push("/auth/verify-request")
+      }
     }
-  }, [isAuthenticated, loading, router, redirectPath, pathname])
+  }, [isAuthenticated, isEmailVerified, loading, router, redirectPath, pathname])
   
   // Show loading state if still checking authentication
   if (loading) {
@@ -42,12 +47,11 @@ export function ProtectedRoute({
       </div>
     )
   }
-  
-  // If not authenticated, render nothing (redirect happens in useEffect)
-  if (!isAuthenticated) {
+    // If not authenticated or email not verified, render nothing (redirect happens in useEffect)
+  if (!isAuthenticated || !isEmailVerified) {
     return null
   }
   
-  // If authenticated, render children
+  // If authenticated and email verified, render children
   return <>{children}</>
 }

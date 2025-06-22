@@ -4,11 +4,13 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Navigationbar } from "@/components/navigationbar";
 import { Footer } from "@/components/footer";
 import { AuthProvider } from "@/lib/auth-context";
+import { SessionProvider } from "next-auth/react";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      <ThemeProvider
+    <SessionProvider>
+      <AuthProvider>
+        <ThemeProvider
         attribute="class"
         defaultTheme="system"
         enableSystem
@@ -19,9 +21,9 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
         <div className="h-16"></div>
         <main className="min-h-[calc(100vh-148px)]">
           {children}
-        </main>
-        <Footer />
+        </main>        <Footer />
       </ThemeProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </SessionProvider>
   );
 }

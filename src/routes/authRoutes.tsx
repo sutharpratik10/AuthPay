@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactNode } from "react"
+import { ReactNode, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { ROUTES } from "./routeUtils"
@@ -26,10 +26,17 @@ export function AuthRoute({
   const { isAuthenticated, loading } = useAuth()
   const router = useRouter()
   
-  // If user is already authenticated and we're on an auth page,
-  // redirect them to the dashboard
-  if (!loading && isAuthenticated && redirectIfAuthenticated) {
-    router.push(redirectPath)
+  // Use useEffect to handle redirection instead of doing it during render
+  useEffect(() => {
+    // Only redirect if authentication state is confirmed (not loading)
+    // and the user is authenticated and we want to redirect
+    if (!loading && isAuthenticated && redirectIfAuthenticated) {
+      router.push(redirectPath)
+    }
+  }, [loading, isAuthenticated, redirectIfAuthenticated, redirectPath, router])
+  
+  // Show nothing while loading or when authenticated and should redirect
+  if (loading || (isAuthenticated && redirectIfAuthenticated)) {
     return null
   }
   

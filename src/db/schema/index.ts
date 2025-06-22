@@ -6,3 +6,4 @@ export * from './resources';
 export * from './otp';
 export * from './audit';
 export * from './admin/analytics';
+export * from './auth';
