@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -10,8 +10,7 @@ export default function VerificationForm() {
   const { verifyEmail, resendVerificationEmail, loading } = useAuth()
   const searchParams = useSearchParams()
   const router = useRouter()
-  
-  const [code, setCode] = useState("")
+    const [code, setCode] = useState("")
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
@@ -19,31 +18,7 @@ export default function VerificationForm() {
   const [resendDisabled, setResendDisabled] = useState(false)
   const [countdown, setCountdown] = useState(0)
   
-  // Use the code from URL if available
-  useEffect(() => {
-    const codeFromUrl = searchParams.get("code")
-    if (codeFromUrl) {
-      setCode(codeFromUrl)
-      handleVerify(codeFromUrl)
-    }
-    
-    const emailFromUrl = searchParams.get("email")
-    if (emailFromUrl) {
-      setEmail(emailFromUrl)
-    }
-  }, [searchParams])
-  
-  // Handle countdown for resend button
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
-      return () => clearTimeout(timer)
-    } else if (countdown === 0 && resendDisabled) {
-      setResendDisabled(false)
-    }
-  }, [countdown, resendDisabled])
-  
-  const handleVerify = async (verificationCode = code) => {
+  const handleVerify = useCallback(async (verificationCode = code) => {
     if (!verificationCode) {
       return setError("Please enter your verification code")
     }
@@ -69,7 +44,30 @@ export default function VerificationForm() {
     } finally {
       setIsSubmitting(false)
     }
-  }
+  }, [code, verifyEmail, router])
+  
+  // Use the code from URL if available
+  useEffect(() => {
+    const codeFromUrl = searchParams.get("code")
+    if (codeFromUrl) {
+      setCode(codeFromUrl)
+      handleVerify(codeFromUrl)
+    }
+    
+    const emailFromUrl = searchParams.get("email")
+    if (emailFromUrl) {
+      setEmail(emailFromUrl)
+    }
+  }, [searchParams, handleVerify])  // Add handleVerify to dependency array
+  
+  // Handle countdown for resend button
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+      return () => clearTimeout(timer)
+    } else if (countdown === 0 && resendDisabled) {
+      setResendDisabled(false)
+    }  }, [countdown, resendDisabled])
   
   const handleResend = async () => {
     if (!email) {

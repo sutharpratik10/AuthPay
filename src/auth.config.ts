@@ -4,13 +4,13 @@ import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import Facebook from "next-auth/providers/facebook";
 import AzureAD from "next-auth/providers/azure-ad";
+import Apple from "next-auth/providers/apple";
 import bcrypt from "bcrypt";
 
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
 
-const authConfig: NextAuthConfig = {
-  providers: [
+const authConfig: NextAuthConfig = {  providers: [
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
@@ -18,6 +18,10 @@ const authConfig: NextAuthConfig = {
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+    Apple({
+      clientId: process.env.APPLE_CLIENT_ID!,
+      clientSecret: process.env.APPLE_CLIENT_SECRET!,
     }),
     Facebook({
       clientId: process.env.FACEBOOK_CLIENT_ID!,
