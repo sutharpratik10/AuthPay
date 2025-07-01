@@ -1,10 +1,6 @@
 "use client"
 
-<<<<<<< HEAD
 import { useState, useEffect, useCallback } from "react"
-=======
-import { useState, useEffect } from "react"
->>>>>>> d76ea7b (implemented signup and login forms with error handling and validation)
 import { useSearchParams, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -14,12 +10,7 @@ export default function VerificationForm() {
   const { verifyEmail, resendVerificationEmail, loading } = useAuth()
   const searchParams = useSearchParams()
   const router = useRouter()
-<<<<<<< HEAD
     const [code, setCode] = useState("")
-=======
-  
-  const [code, setCode] = useState("")
->>>>>>> d76ea7b (implemented signup and login forms with error handling and validation)
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
@@ -27,35 +18,7 @@ export default function VerificationForm() {
   const [resendDisabled, setResendDisabled] = useState(false)
   const [countdown, setCountdown] = useState(0)
   
-<<<<<<< HEAD
   const handleVerify = useCallback(async (verificationCode = code) => {
-=======
-  // Use the code from URL if available
-  useEffect(() => {
-    const codeFromUrl = searchParams.get("code")
-    if (codeFromUrl) {
-      setCode(codeFromUrl)
-      handleVerify(codeFromUrl)
-    }
-    
-    const emailFromUrl = searchParams.get("email")
-    if (emailFromUrl) {
-      setEmail(emailFromUrl)
-    }
-  }, [searchParams])
-  
-  // Handle countdown for resend button
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
-      return () => clearTimeout(timer)
-    } else if (countdown === 0 && resendDisabled) {
-      setResendDisabled(false)
-    }
-  }, [countdown, resendDisabled])
-  
-  const handleVerify = async (verificationCode = code) => {
->>>>>>> d76ea7b (implemented signup and login forms with error handling and validation)
     if (!verificationCode) {
       return setError("Please enter your verification code")
     }
@@ -81,7 +44,6 @@ export default function VerificationForm() {
     } finally {
       setIsSubmitting(false)
     }
-<<<<<<< HEAD
   }, [code, verifyEmail, router])
   
   // Use the code from URL if available
@@ -106,9 +68,6 @@ export default function VerificationForm() {
     } else if (countdown === 0 && resendDisabled) {
       setResendDisabled(false)
     }  }, [countdown, resendDisabled])
-=======
-  }
->>>>>>> d76ea7b (implemented signup and login forms with error handling and validation)
   
   const handleResend = async () => {
     if (!email) {
