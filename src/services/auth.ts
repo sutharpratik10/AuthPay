@@ -3,7 +3,7 @@ import { users, otpCodes } from "@/db/schema";
 import { emailService } from "./email";
 import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
-import { eq, and, or, lt } from "drizzle-orm";
+import { eq, and, lt } from "drizzle-orm";
 
 export class AuthService {
   /**
@@ -15,14 +15,14 @@ export class AuthService {
       const existingUser = await db.query.users.findFirst({
         where: (users, { eq }) => eq(users.email, email.toLowerCase())
       });
-      
+
       if (existingUser) {
         return { success: false, error: "Email already in use" };
       }
-      
+
       // Hash the password
       const hashedPassword = await bcrypt.hash(password, 10);
-      
+
       // Create the user
       const [newUser] = await db.insert(users).values({
         id: uuidv4(),
@@ -33,82 +33,82 @@ export class AuthService {
         createdAt: new Date(),
         updatedAt: new Date(),
       }).returning();
-      
-      if (!newUser) {
-        return { success: false, error: "Failed to create user" };
-      }
-      
+
       // Generate verification code
       const verificationCode = this.generateVerificationCode();
-        // Store verification code with 15-minute expiration
+
+      // Store verification code with 15-minute expiration
       await db.insert(otpCodes).values({
         userId: newUser.id,
         code: verificationCode,
         type: "email_verification",
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes from now
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
         isValid: true,
         createdAt: new Date(),
       });
-      
+
       // Send verification email
-      await emailService.sendVerificationEmail(email, verificationCode);
-      
-      return { 
-        success: true, 
-        user: { 
-          id: newUser.id, 
-          email: newUser.email, 
-          name: newUser.name 
-        } 
+      await emailService.sendVerificationEmail(newUser.email, verificationCode);
+
+      return {
+        success: true,
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          name: newUser.name,
+          isEmailVerified: newUser.isEmailVerified,
+        },
       };
     } catch (error) {
       console.error("Registration error:", error);
       return { success: false, error: "An error occurred during registration" };
     }
   }
-  
+
   /**
-   * Generate a random 6-digit verification code
+   * Verify email with OTP code
    */
-  private static generateVerificationCode(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  }
-  
-  /**
-   * Verify user email with verification code
-   */  static async verifyEmail(code: string) {
+  static async verifyEmail(code: string) {
     try {
       // Clean up expired codes first
-      await this.cleanupExpiredCodes();
-      
-      // Find the OTP record
+      await this.cleanupExpiredOtpCodes();
+
+      // Find valid OTP code
       const otpRecord = await db.query.otpCodes.findFirst({
-        where: (otpCodes, { eq, and, gt }) => and(
-          eq(otpCodes.code, code),
-          eq(otpCodes.type, "email_verification"),
-          eq(otpCodes.isValid, true),
-          gt(otpCodes.expiresAt, new Date())
-        ),
+        where: (otpCodes, { eq, and }) => 
+          and(
+            eq(otpCodes.code, code),
+            eq(otpCodes.type, "email_verification"),
+            eq(otpCodes.isValid, true)
+          ),
         with: {
-          user: true
-        }
+          user: true,
+        },
       });
-      
+
       if (!otpRecord) {
         return { success: false, error: "Invalid or expired verification code" };
       }
-        // Update user as verified
-      await db.update(users)
+
+      // Check if code is expired
+      if (otpRecord.expiresAt < new Date()) {
+        // Delete expired code
+        await db.delete(otpCodes).where(eq(otpCodes.id, otpRecord.id));
+        return { success: false, error: "Verification code has expired" };
+      }
+
+      // Mark user as verified
+      await db
+        .update(users)
         .set({ 
-          isEmailVerified: true,
-          updatedAt: new Date()
+          isEmailVerified: true, 
+          updatedAt: new Date() 
         })
         .where(eq(users.id, otpRecord.userId));
-      
-      // Delete the OTP code after successful verification
-      await db.delete(otpCodes)
-        .where(eq(otpCodes.id, otpRecord.id));
-      
+
+      // Delete the OTP code immediately after successful verification
+      await db.delete(otpCodes).where(eq(otpCodes.id, otpRecord.id));
+
       // Send welcome email
       if (otpRecord.user) {
         await emailService.sendWelcomeEmail(
@@ -116,17 +116,17 @@ export class AuthService {
           otpRecord.user.name || ''
         );
       }
-      
-      return { 
-        success: true, 
-        user: otpRecord.user 
+
+      return {
+        success: true,
+        user: otpRecord.user
       };
     } catch (error) {
       console.error("Email verification error:", error);
       return { success: false, error: "An error occurred during verification" };
     }
   }
-  
+
   /**
    * Resend verification email
    */
@@ -136,17 +136,19 @@ export class AuthService {
       const user = await db.query.users.findFirst({
         where: (users, { eq }) => eq(users.email, email.toLowerCase())
       });
-      
+
       if (!user) {
         return { success: false, error: "User not found" };
       }
-      
+
       if (user.isEmailVerified) {
         return { success: false, error: "Email already verified" };
       }
-        // Generate new verification code
+
+      // Generate new verification code
       const verificationCode = this.generateVerificationCode();
-        // Delete old codes instead of just invalidating them
+
+      // Delete old codes instead of just invalidating them
       await db.delete(otpCodes)
         .where(
           and(
@@ -154,62 +156,205 @@ export class AuthService {
             eq(otpCodes.type, "email_verification")
           )
         );
-      
+
       // Store new verification code with 15-minute expiration
       await db.insert(otpCodes).values({
         userId: user.id,
         code: verificationCode,
         type: "email_verification",
-        expiresAt: new Date(Date.now() + 1 * 60 * 1000), // 1 minute from now
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
         isValid: true,
         createdAt: new Date(),
       });
-      
+
       // Send verification email
-      await emailService.sendVerificationEmail(email, verificationCode);
-      
+      await emailService.sendVerificationEmail(user.email, verificationCode);
+
       return { success: true };
     } catch (error) {
       console.error("Resend verification email error:", error);
       return { success: false, error: "An error occurred while resending verification email" };
     }
   }
-  
+
   /**
-   * Clean up expired OTP codes from the database
-   * This should be called periodically (e.g., via a cron job)
+   * Initiate password reset process
    */
-  static async cleanupExpiredOtpCodes() {
+  static async initiatePasswordReset(email: string) {
     try {
-      const result = await db.delete(otpCodes)
+      // Check if email exists in user table
+      const user = await db.query.users.findFirst({
+        where: (users, { eq }) => eq(users.email, email.toLowerCase())
+      });
+
+      if (!user) {
+        return { 
+          success: false, 
+          error: `Account with email ${email} doesn't exist` 
+        };
+      }
+
+      // Generate OTP code for password reset
+      const resetCode = this.generateVerificationCode();
+
+      // Delete any existing password reset codes for this user
+      await db.delete(otpCodes)
         .where(
-          or(
-            // Delete codes that have expired
-            lt(otpCodes.expiresAt, new Date()),
-            // Delete codes that are no longer valid
-            eq(otpCodes.isValid, false)
+          and(
+            eq(otpCodes.userId, user.id),
+            eq(otpCodes.type, "password_reset")
           )
         );
-      
-      console.log(`Cleaned up expired OTP codes`);
-      return { success: true, deletedCount: result.length || 0 };
+
+      // Store password reset code with 15-minute expiration
+      await db.insert(otpCodes).values({
+        userId: user.id,
+        code: resetCode,
+        type: "password_reset",
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+        isValid: true,
+        createdAt: new Date(),
+      });
+
+      // Send password reset email
+      await emailService.sendPasswordResetEmail(user.email, resetCode, user.name || '');
+
+      return { 
+        success: true,
+        message: "Password reset code sent to your email" 
+      };
     } catch (error) {
-      console.error("Cleanup expired OTP codes error:", error);
-      return { success: false, error: "An error occurred during cleanup" };
+      console.error("Password reset initiation error:", error);
+      return { 
+        success: false, 
+        error: "An error occurred while initiating password reset" 
+      };
     }
   }
 
   /**
-   * Automatically delete expired OTP codes when verifying
-   * This ensures expired codes are cleaned up during normal operation
+   * Verify password reset OTP code
    */
-  private static async cleanupExpiredCodes() {
+  static async verifyPasswordResetCode(code: string) {
     try {
-      await db.delete(otpCodes)
-        .where(lt(otpCodes.expiresAt, new Date()));
+      // Clean up expired codes first
+      await this.cleanupExpiredOtpCodes();
+
+      // Find valid password reset OTP code
+      const otpRecord = await db.query.otpCodes.findFirst({
+        where: (otpCodes, { eq, and }) => 
+          and(
+            eq(otpCodes.code, code),
+            eq(otpCodes.type, "password_reset"),
+            eq(otpCodes.isValid, true)
+          ),
+        with: {
+          user: true,
+        },
+      });
+
+      if (!otpRecord) {
+        return { 
+          success: false, 
+          error: "Invalid or expired password reset code" 
+        };
+      }
+
+      // Check if code is expired
+      if (otpRecord.expiresAt < new Date()) {
+        // Delete expired code
+        await db.delete(otpCodes).where(eq(otpCodes.id, otpRecord.id));
+        return { 
+          success: false, 
+          error: "Password reset code has expired" 
+        };
+      }
+
+      return {
+        success: true,
+        userId: otpRecord.userId,
+        email: otpRecord.user?.email
+      };
     } catch (error) {
-      console.error("Auto cleanup error:", error);
-      // Don't throw error, just log it
+      console.error("Password reset code verification error:", error);
+      return { 
+        success: false, 
+        error: "An error occurred during code verification" 
+      };
+    }
+  }
+
+  /**
+   * Reset password with verified OTP
+   */
+  static async resetPassword(code: string, newPassword: string) {
+    try {
+      // First verify the code is still valid
+      const verificationResult = await this.verifyPasswordResetCode(code);
+      
+      if (!verificationResult.success) {
+        return verificationResult;
+      }
+
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update user password
+      await db
+        .update(users)
+        .set({ 
+          password: hashedPassword,
+          updatedAt: new Date() 
+        })
+        .where(eq(users.id, verificationResult.userId!));
+
+      // Delete the used password reset code
+      await db.delete(otpCodes)
+        .where(
+          and(
+            eq(otpCodes.code, code),
+            eq(otpCodes.type, "password_reset")
+          )
+        );
+
+      return { 
+        success: true,
+        message: "Password reset successfully" 
+      };
+    } catch (error) {
+      console.error("Password reset error:", error);
+      return { 
+        success: false, 
+        error: "An error occurred while resetting password" 
+      };
+    }
+  }
+
+  /**
+   * Generate a 6-digit verification code
+   */
+  private static generateVerificationCode(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+  /**
+   * Clean up expired OTP codes
+   */
+  static async cleanupExpiredOtpCodes() {
+    try {
+      const now = new Date();
+      const result = await db.delete(otpCodes)
+        .where(lt(otpCodes.expiresAt, now));
+      
+      return {
+        success: true,
+        deletedCount: result.length || 0
+      };
+    } catch (error) {
+      console.error("OTP cleanup error:", error);
+      return {
+        success: false,
+        error: "Failed to cleanup expired OTP codes"
+      };
     }
   }
 }

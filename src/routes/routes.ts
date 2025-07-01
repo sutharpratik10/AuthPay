@@ -151,6 +151,101 @@ class ResendVerificationEmailRouteHandler extends BaseRouteHandler {
  */
 
 /**
+ * Password reset initiation route handler
+ */
+class InitiatePasswordResetRouteHandler extends BaseRouteHandler {
+  async handle(req: NextRequest): Promise<NextResponse> {
+    try {
+      const body = await req.json();
+      const { email } = body;
+
+      if (!email) {
+        return this.createErrorResponse('Email is required', 400);
+      }
+
+      if (!this.validateEmail(email)) {
+        return this.createErrorResponse('Invalid email format', 400);
+      }
+
+      const result = await AuthService.initiatePasswordReset(email);
+
+      if (!result.success) {
+        return this.createErrorResponse(result.error || 'Failed to initiate password reset', 400);
+      }
+
+      return this.createSuccessResponse({
+        message: result.message || 'Password reset code sent successfully'
+      });
+    } catch (error) {
+      return this.handleError(error, 'Password reset initiation error');
+    }
+  }
+}
+
+/**
+ * Password reset code verification route handler
+ */
+class VerifyPasswordResetCodeRouteHandler extends BaseRouteHandler {
+  async handle(req: NextRequest): Promise<NextResponse> {
+    try {
+      const body = await req.json();
+      const { code } = body;
+
+      if (!code) {
+        return this.createErrorResponse('Verification code is required', 400);
+      }
+
+      const result = await AuthService.verifyPasswordResetCode(code);
+
+      if (!result.success) {
+        return this.createErrorResponse(result.error || 'Invalid or expired code', 400);
+      }
+
+      return this.createSuccessResponse({
+        message: 'Code verified successfully',
+        userId: result.userId,
+        email: result.email
+      });
+    } catch (error) {
+      return this.handleError(error, 'Password reset code verification error');
+    }
+  }
+}
+
+/**
+ * Password reset route handler
+ */
+class PasswordResetRouteHandler extends BaseRouteHandler {
+  async handle(req: NextRequest): Promise<NextResponse> {
+    try {
+      const body = await req.json();
+      const { code, newPassword } = body;
+
+      if (!code || !newPassword) {
+        return this.createErrorResponse('Code and new password are required', 400);
+      }
+
+      if (newPassword.length < 8) {
+        return this.createErrorResponse('Password must be at least 8 characters', 400);
+      }      const result = await AuthService.resetPassword(code, newPassword);
+
+      if (!result.success) {
+        return this.createErrorResponse(
+          'error' in result ? result.error : 'Failed to reset password', 
+          400
+        );
+      }
+
+      return this.createSuccessResponse({
+        message: 'message' in result ? result.message : 'Password reset successfully'
+      });
+    } catch (error) {
+      return this.handleError(error, 'Password reset error');
+    }
+  }
+}
+
+/**
  * Authentication state handler - checks current auth status
  */
 class AuthStateHandler extends BaseRouteHandler {
@@ -947,11 +1042,16 @@ class RouteFactory {
   private routePatterns: Map<RegExp, IRouteHandler>;
     private constructor() {
     this.routes = new Map();
-    this.routePatterns = new Map();
-      // Register default routes
+    this.routePatterns = new Map();    // Register default routes
     this.registerRoute('register', new RegistrationRouteHandler());
     this.registerRoute('verify', new VerifyEmailRouteHandler());
-    this.registerRoute('resendVerification', new ResendVerificationEmailRouteHandler());    
+    this.registerRoute('resendVerification', new ResendVerificationEmailRouteHandler());
+    
+    // Password reset routes
+    this.registerRoute('initiatePasswordReset', new InitiatePasswordResetRouteHandler());
+    this.registerRoute('verifyPasswordResetCode', new VerifyPasswordResetCodeRouteHandler());
+    this.registerRoute('resetPassword', new PasswordResetRouteHandler());
+    
     // Login is handled by NextAuth, not our custom routes
     this.registerRoute('authState', new AuthStateHandler());
     this.registerRoute('logout', new LogoutRouteHandler());
@@ -1045,12 +1145,32 @@ export class Routes {
     const handler = RouteFactory.getInstance().getRouteHandler('verify');
     return handler.handle(req);
   }
-
   /**
    * Resend verification email
    */
   static async resendVerificationEmail(req: NextRequest): Promise<NextResponse> {
     return RouteFactory.getInstance().getRouteHandler('resendVerification').handle(req);
+  }
+
+  /**
+   * Initiate password reset
+   */
+  static async initiatePasswordReset(req: NextRequest): Promise<NextResponse> {
+    return RouteFactory.getInstance().getRouteHandler('initiatePasswordReset').handle(req);
+  }
+
+  /**
+   * Verify password reset code
+   */
+  static async verifyPasswordResetCode(req: NextRequest): Promise<NextResponse> {
+    return RouteFactory.getInstance().getRouteHandler('verifyPasswordResetCode').handle(req);
+  }
+
+  /**
+   * Reset password
+   */
+  static async resetPassword(req: NextRequest): Promise<NextResponse> {
+    return RouteFactory.getInstance().getRouteHandler('resetPassword').handle(req);
   }
   
   /**
@@ -1091,8 +1211,7 @@ export class Routes {
   }  static async POST(req: NextRequest): Promise<NextResponse> {
     const url = new URL(req.url);
     const path = url.pathname;
-    
-    if (path.includes('/api/auth/register')) {
+      if (path.includes('/api/auth/register')) {
       return Routes.registerUser(req);
     }
     
@@ -1129,6 +1248,19 @@ export class Routes {
           headers: { 'Content-Type': 'application/json' }
         });
       }
+    }
+
+    // Password reset routes
+    if (path.includes('/api/auth/forgot-password')) {
+      return Routes.initiatePasswordReset(req);
+    }
+
+    if (path.includes('/api/auth/verify-reset-code')) {
+      return Routes.verifyPasswordResetCode(req);
+    }
+
+    if (path.includes('/api/auth/reset-password')) {
+      return Routes.resetPassword(req);
     }
     
     // Process other POST requests through the dynamic router

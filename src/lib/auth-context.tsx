@@ -30,6 +30,10 @@ interface AuthContextType {
   logout: () => Promise<void>;
   verifyEmail: (code: string) => Promise<{ success: boolean; error?: string }>;
   resendVerificationEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
+  // Password reset functions
+  initiatePasswordReset: (email: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  verifyPasswordResetCode: (code: string) => Promise<{ success: boolean; error?: string; userId?: string; email?: string }>;
+  resetPassword: (code: string, newPassword: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   loading: boolean;
 }
 
@@ -133,7 +137,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: "An unexpected error occurred" }
     }
   }
-
   const resendVerificationEmail = async (email: string) => {
     try {
       const res = await fetch("/api/auth/verify", {
@@ -155,6 +158,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Password reset functions
+  const initiatePasswordReset = async (email: string) => {
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        return { success: false, error: data.error }
+      }
+
+      return { success: true, message: data.message }
+    } catch (error) {
+      console.error("Password reset initiation error:", error)
+      return { success: false, error: "An unexpected error occurred" }
+    }
+  }
+
+  const verifyPasswordResetCode = async (code: string) => {
+    try {
+      const res = await fetch("/api/auth/verify-reset-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        return { success: false, error: data.error }
+      }
+
+      return { 
+        success: true, 
+        userId: data.userId, 
+        email: data.email 
+      }
+    } catch (error) {
+      console.error("Password reset code verification error:", error)
+      return { success: false, error: "An unexpected error occurred" }
+    }
+  }
+
+  const resetPassword = async (code: string, newPassword: string) => {
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, newPassword }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        return { success: false, error: data.error }
+      }
+
+      return { success: true, message: data.message }
+    } catch (error) {
+      console.error("Password reset error:", error)
+      return { success: false, error: "An unexpected error occurred" }
+    }
+  }
   return (
     <AuthContext.Provider 
       value={{ 
@@ -168,6 +238,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout, 
         verifyEmail,
         resendVerificationEmail,
+        // Password reset functions
+        initiatePasswordReset,
+        verifyPasswordResetCode,
+        resetPassword,
         loading 
       }}
     >
