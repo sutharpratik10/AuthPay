@@ -3,7 +3,7 @@ import { users, otpCodes } from "@/db/schema";
 import { emailService } from "./email";
 import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, lt } from "drizzle-orm";
 
 export class AuthService {
   /**
@@ -40,13 +40,12 @@ export class AuthService {
       
       // Generate verification code
       const verificationCode = this.generateVerificationCode();
-      
-      // Store verification code
+        // Store verification code with 15-minute expiration
       await db.insert(otpCodes).values({
         userId: newUser.id,
         code: verificationCode,
         type: "email_verification",
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes from now
         isValid: true,
         createdAt: new Date(),
       });
@@ -77,9 +76,11 @@ export class AuthService {
   
   /**
    * Verify user email with verification code
-   */
-  static async verifyEmail(code: string) {
+   */  static async verifyEmail(code: string) {
     try {
+      // Clean up expired codes first
+      await this.cleanupExpiredCodes();
+      
       // Find the OTP record
       const otpRecord = await db.query.otpCodes.findFirst({
         where: (otpCodes, { eq, and, gt }) => and(
@@ -96,8 +97,7 @@ export class AuthService {
       if (!otpRecord) {
         return { success: false, error: "Invalid or expired verification code" };
       }
-      
-      // Update user as verified
+        // Update user as verified
       await db.update(users)
         .set({ 
           isEmailVerified: true,
@@ -105,12 +105,8 @@ export class AuthService {
         })
         .where(eq(users.id, otpRecord.userId));
       
-      // Invalidate the OTP
-      await db.update(otpCodes)
-        .set({ 
-          isValid: false,
-          usedAt: new Date()
-        })
+      // Delete the OTP code after successful verification
+      await db.delete(otpCodes)
         .where(eq(otpCodes.id, otpRecord.id));
       
       // Send welcome email
@@ -148,26 +144,23 @@ export class AuthService {
       if (user.isEmailVerified) {
         return { success: false, error: "Email already verified" };
       }
-      
-      // Generate new verification code
+        // Generate new verification code
       const verificationCode = this.generateVerificationCode();
-        // Invalidate old codes
-      await db.update(otpCodes)
-        .set({ isValid: false })
+        // Delete old codes instead of just invalidating them
+      await db.delete(otpCodes)
         .where(
           and(
             eq(otpCodes.userId, user.id),
-            eq(otpCodes.type, "email_verification"),
-            eq(otpCodes.isValid, true)
+            eq(otpCodes.type, "email_verification")
           )
         );
       
-      // Store new verification code
+      // Store new verification code with 15-minute expiration
       await db.insert(otpCodes).values({
         userId: user.id,
         code: verificationCode,
         type: "email_verification",
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+        expiresAt: new Date(Date.now() + 1 * 60 * 1000), // 1 minute from now
         isValid: true,
         createdAt: new Date(),
       });
@@ -179,6 +172,44 @@ export class AuthService {
     } catch (error) {
       console.error("Resend verification email error:", error);
       return { success: false, error: "An error occurred while resending verification email" };
+    }
+  }
+  
+  /**
+   * Clean up expired OTP codes from the database
+   * This should be called periodically (e.g., via a cron job)
+   */
+  static async cleanupExpiredOtpCodes() {
+    try {
+      const result = await db.delete(otpCodes)
+        .where(
+          or(
+            // Delete codes that have expired
+            lt(otpCodes.expiresAt, new Date()),
+            // Delete codes that are no longer valid
+            eq(otpCodes.isValid, false)
+          )
+        );
+      
+      console.log(`Cleaned up expired OTP codes`);
+      return { success: true, deletedCount: result.length || 0 };
+    } catch (error) {
+      console.error("Cleanup expired OTP codes error:", error);
+      return { success: false, error: "An error occurred during cleanup" };
+    }
+  }
+
+  /**
+   * Automatically delete expired OTP codes when verifying
+   * This ensures expired codes are cleaned up during normal operation
+   */
+  private static async cleanupExpiredCodes() {
+    try {
+      await db.delete(otpCodes)
+        .where(lt(otpCodes.expiresAt, new Date()));
+    } catch (error) {
+      console.error("Auto cleanup error:", error);
+      // Don't throw error, just log it
     }
   }
 }

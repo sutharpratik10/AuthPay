@@ -21,6 +21,7 @@ interface ExtendedSession extends Session {
 
 interface AuthContextType {
   session: ExtendedSession | null;
+  user: ExtendedUser | null;
   isAuthenticated: boolean;
   isEmailVerified: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
@@ -38,7 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: sessionData, status } = useSession()
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  
   // Cast the session to our extended type
   const session = sessionData as ExtendedSession | null
   
@@ -72,7 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const socialLogin = async (provider: string) => {
     await signIn(provider, { callbackUrl: "/protected/dashboard" })
   }
-
   const register = async (email: string, password: string, name?: string) => {
     try {
       const res = await fetch("/api/auth/register", {
@@ -87,28 +86,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: data.error }
       }
 
-      router.push("/auth/verify-request")
+      // After successful registration, automatically log the user in
+      const loginResult = await signIn("credentials", {        redirect: false,
+        email,
+        password,
+      })
+
+      if (loginResult?.error) {
+        // If auto-login fails, still redirect to verify but user will need to login manually
+        console.warn("Auto-login after registration failed:", loginResult.error)
+        router.push("/auth/login?message=Registration successful. Please login to verify your email.")
+        return {}
+      }
+
+      // If auto-login succeeds, redirect to verification page
+      router.push("/auth/verify")
       return {}
     } catch (error) {
       console.error("Registration error:", error)
       return { error: "An unexpected error occurred" }
     }
   }
-
+  
   const logout = async () => {
     await signOut({ redirect: false })
     router.push("/")
   }
-
   const verifyEmail = async (code: string) => {
     try {
-      const res = await fetch(`/api/auth/verify?code=${code}`)
+      const res = await fetch("/api/auth/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      })
       const data = await res.json()
 
       if (!res.ok) {
         return { success: false, error: data.error }
       }
 
+      // Force session update after successful verification
+      window.location.reload()
       return { success: true }
     } catch (error) {
       console.error("Email verification error:", error)
@@ -130,16 +148,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error }
       }
 
-      return { success: true }
+            return { success: true }
     } catch (error) {
       console.error("Resend verification error:", error)
       return { success: false, error: "An unexpected error occurred" }
     }
   }
-    return (
+
+  return (
     <AuthContext.Provider 
       value={{ 
-        session, 
+        session,
+        user: session?.user || null,
         isAuthenticated, 
         isEmailVerified,
         login, 

@@ -1,24 +1,17 @@
-import type { NextAuthConfig } from "next-auth";
+﻿import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import Facebook from "next-auth/providers/facebook";
 import AzureAD from "next-auth/providers/azure-ad";
-<<<<<<< HEAD
 import Apple from "next-auth/providers/apple";
-=======
->>>>>>> d76ea7b (implemented signup and login forms with error handling and validation)
 import bcrypt from "bcrypt";
 
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
 
-<<<<<<< HEAD
-const authConfig: NextAuthConfig = {  providers: [
-=======
 const authConfig: NextAuthConfig = {
   providers: [
->>>>>>> d76ea7b (implemented signup and login forms with error handling and validation)
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
@@ -27,13 +20,10 @@ const authConfig: NextAuthConfig = {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
-<<<<<<< HEAD
     Apple({
       clientId: process.env.APPLE_CLIENT_ID!,
       clientSecret: process.env.APPLE_CLIENT_SECRET!,
     }),
-=======
->>>>>>> d76ea7b (implemented signup and login forms with error handling and validation)
     Facebook({
       clientId: process.env.FACEBOOK_CLIENT_ID!,
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,

@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -10,7 +9,6 @@ import { AlertCircle, Mail, Facebook, CreditCard, Github } from "lucide-react"
 
 export default function LoginForm() {
   const { login, socialLogin, loading } = useAuth()
-  const router = useRouter()
   
   const [formData, setFormData] = useState({
     email: "",
@@ -19,12 +17,11 @@ export default function LoginForm() {
   
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
-  
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
@@ -36,12 +33,10 @@ export default function LoginForm() {
     try {
       setIsSubmitting(true)
       const result = await login(formData.email, formData.password)
-      
-      if (result.error) {
+          if (result.error) {
         setError(result.error)
-      } else {
-        router.push("/protected/dashboard")
       }
+      // Let the LoginPage handle redirection based on auth state
     } catch (err) {
       setError("An error occurred during login")
       console.error(err)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthService } from '@/services/auth';
-import { auth, signIn, signOut } from '@/auth';
+import { auth, signOut } from '@/auth';
 import { db } from "@/db";
 import { tenants, tenantSettings } from "@/db/schema/tenants";
 import { eq, and, sql } from "drizzle-orm";
@@ -71,13 +71,35 @@ class RegistrationRouteHandler extends AuthRouteHandler {
 class VerifyEmailRouteHandler extends BaseRouteHandler {
   async handle(req: NextRequest): Promise<NextResponse> {
     try {
-      const searchParams = req.nextUrl.searchParams;
-      const code = searchParams.get('code');      if (!code) {
+      let code: string | null = null;
+      
+      console.log(`[VERIFY] Method: ${req.method}`);
+      
+      if (req.method === 'GET') {
+        // Legacy URL-based verification (for backwards compatibility)
+        const searchParams = req.nextUrl.searchParams;
+        code = searchParams.get('code');
+        console.log(`[VERIFY] GET request, code from URL: ${code}`);
+      } else if (req.method === 'POST') {
+        // New OTP-based verification
+        const body = await req.json();
+        code = body.code;
+        console.log(`[VERIFY] POST request, code from body: ${code}`, body);
+      } else {
+        console.log(`[VERIFY] Unsupported method: ${req.method}`);
+        return this.createErrorResponse('Method not allowed', 405);
+      }
+
+      if (!code) {
+        console.log(`[VERIFY] No code provided`);
         return this.createErrorResponse('Verification code is required', 400);
       }
 
+      console.log(`[VERIFY] Attempting to verify code: ${code}`);
       const result = await AuthService.verifyEmail(code);
 
+      console.log(`[VERIFY] Verification result:`, result);
+      
       if (!result.success) {
         return this.createErrorResponse(result.error || 'Email verification failed', 400);
       }
@@ -87,6 +109,7 @@ class VerifyEmailRouteHandler extends BaseRouteHandler {
         user: result.user
       });
     } catch (error) {
+      console.error(`[VERIFY] Error:`, error);
       return this.handleError(error, 'Verification error');
     }
   }
@@ -123,47 +146,9 @@ class ResendVerificationEmailRouteHandler extends BaseRouteHandler {
 }
 
 /**
- * Login handler - processes credential-based login requests
+ * Login handler - removed to avoid conflicts with NextAuth
+ * Authentication is now handled entirely by NextAuth through /api/auth/[...nextauth]
  */
-class LoginRouteHandler extends AuthRouteHandler {
-  async handle(req: NextRequest): Promise<NextResponse> {
-    try {
-      const body = await req.json();
-      const { email, password } = body;
-
-      // Validate input
-      const validation = this.validateAuthInput(email, password);
-      if (!validation.isValid) {
-        return this.createErrorResponse(validation.error!, 400);
-      }
-
-      // We'll delegate the actual authentication to NextAuth
-      try {
-        // Call NextAuth signIn
-        const result = await signIn("credentials", {
-          email,
-          password,
-          redirect: false,
-        });
-
-        if (result?.error) {
-          return this.createErrorResponse('Invalid email or password', 401);
-        }
-
-        // Return success
-        return this.createSuccessResponse({
-          success: true,
-          message: 'Login successful'
-        });
-      } catch (authError) {
-        console.error('Authentication error:', authError);
-        return this.createErrorResponse('Authentication failed', 401);
-      }
-    } catch (error) {
-      return this.handleError(error, 'Login error');
-    }
-  }
-}
 
 /**
  * Authentication state handler - checks current auth status
@@ -963,12 +948,11 @@ class RouteFactory {
     private constructor() {
     this.routes = new Map();
     this.routePatterns = new Map();
-    
-    // Register default routes
+      // Register default routes
     this.registerRoute('register', new RegistrationRouteHandler());
     this.registerRoute('verify', new VerifyEmailRouteHandler());
     this.registerRoute('resendVerification', new ResendVerificationEmailRouteHandler());    
-    this.registerRoute('login', new LoginRouteHandler());
+    // Login is handled by NextAuth, not our custom routes
     this.registerRoute('authState', new AuthStateHandler());
     this.registerRoute('logout', new LogoutRouteHandler());
     
@@ -1094,54 +1078,81 @@ export class Routes {
 
   /**
    * HTTP method handlers for API routes
-   */
-  static async GET(req: NextRequest): Promise<NextResponse> {
+   */  static async GET(req: NextRequest): Promise<NextResponse> {
     const url = new URL(req.url);
     const path = url.pathname;
     
     if (path.includes('/api/auth/verify')) {
-      return this.verifyEmail(req);
+      return Routes.verifyEmail(req);
     }
     
     // Process other GET requests through the dynamic router
-    return this.processRequest(req);
-  }
-
-  static async POST(req: NextRequest): Promise<NextResponse> {
+    return Routes.processRequest(req);
+  }  static async POST(req: NextRequest): Promise<NextResponse> {
     const url = new URL(req.url);
     const path = url.pathname;
     
     if (path.includes('/api/auth/register')) {
-      return this.registerUser(req);
+      return Routes.registerUser(req);
     }
     
     if (path.includes('/api/auth/verify')) {
-      return this.resendVerificationEmail(req);
+      // We need to clone the request to read the body without consuming it
+      const requestClone = req.clone();
+      
+      try {
+        const body = await requestClone.json();
+        
+        // If body contains 'code', it's a verification request
+        if (body.code) {
+          return Routes.verifyEmail(req);
+        }
+        
+        // If body contains 'email', it's a resend verification request
+        if (body.email) {
+          return Routes.resendVerificationEmail(req);
+        }
+        
+        // If neither, return error
+        return new NextResponse(JSON.stringify({
+          error: 'Invalid request: either code or email is required'
+        }), { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+      } catch {
+        return new NextResponse(JSON.stringify({
+          error: 'Invalid JSON in request body'
+        }), { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
     }
     
     // Process other POST requests through the dynamic router
-    return this.processRequest(req);
+    return Routes.processRequest(req);
   }
   
   /**
    * Support for PUT requests
    */
   static async PUT(req: NextRequest): Promise<NextResponse> {
-    return this.processRequest(req);
+    return Routes.processRequest(req);
   }
   
   /**
    * Support for DELETE requests
    */
   static async DELETE(req: NextRequest): Promise<NextResponse> {
-    return this.processRequest(req);
+    return Routes.processRequest(req);
   }
-  
-  /**
+    /**
    * Support for PATCH requests
    */
   static async PATCH(req: NextRequest): Promise<NextResponse> {
-    return this.processRequest(req);
+    return Routes.processRequest(req);
   }
     /**
    * Handle tenant API routes

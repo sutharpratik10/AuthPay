@@ -36,31 +36,49 @@ class EmailService {
       return { success: false, error };
     }
   }
-
-  async sendVerificationEmail(email: string, token: string) {
-    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify?token=${token}`;
-    
+  async sendVerificationEmail(email: string, otpCode: string) {
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Verify your email address</h2>
-        <p>Thank you for signing up! Please verify your email address to get started.</p>
-        <a 
-          href="${verificationUrl}" 
-          style="display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; 
-                 text-decoration: none; border-radius: 4px; margin: 16px 0;"
-        >
-          Verify Email
-        </a>
-        <p>Or copy and paste this URL into your browser:</p>
-        <p>${verificationUrl}</p>
-        <p>This link will expire in 24 hours.</p>
-        <p>If you didn't create an account, you can safely ignore this email.</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #333333; font-size: 24px; margin-bottom: 10px;">Verify Your Email Address</h1>
+          <p style="color: #666666; font-size: 16px; margin: 0;">Enter the verification code below to complete your registration.</p>
+        </div>
+        
+        <div style="background-color: #f8f9fa; border: 2px dashed #e9ecef; border-radius: 8px; padding: 30px; text-align: center; margin: 30px 0;">
+          <p style="color: #333333; font-size: 14px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Your Verification Code</p>
+          <div style="font-size: 32px; font-weight: bold; color: #4F46E5; letter-spacing: 4px; font-family: 'Courier New', monospace;">
+            ${otpCode}
+          </div>
+          <p style="color: #666666; font-size: 12px; margin-top: 10px;">This code will expire in 15 minutes</p>
+        </div>
+        
+        <div style="margin: 30px 0;">
+          <p style="color: #333333; font-size: 14px; margin-bottom: 10px;"><strong>Instructions:</strong></p>
+          <ol style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0; padding-left: 20px;">
+            <li>Go to the verification page in your browser</li>
+            <li>Enter the 6-digit code above</li>
+            <li>Click "Verify Email" to complete your registration</li>
+          </ol>
+        </div>
+        
+        <div style="border-top: 1px solid #e9ecef; padding-top: 20px; margin-top: 30px;">
+          <p style="color: #666666; font-size: 12px; margin: 0;">
+            <strong>Security Note:</strong> For your security, never share this verification code with anyone. 
+            If you didn't create an account, you can safely ignore this email.
+          </p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+          <p style="color: #999999; font-size: 12px; margin: 0;">
+            This is an automated message from ${process.env.NEXT_PUBLIC_APP_NAME || 'RSVP App'}. Please do not reply to this email.
+          </p>
+        </div>
       </div>
     `;
 
     return this.sendEmail({
       to: email,
-      subject: "Verify your email address",
+      subject: `Your verification code: ${otpCode}`,
       html,
     });
   }

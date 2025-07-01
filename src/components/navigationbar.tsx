@@ -29,7 +29,7 @@ import {
 import { ModeToggle } from "@/components/mode-toggle"
 
 export function Navigationbar() {
-  const { isAuthenticated, logout, loading } = useAuth()
+  const { isAuthenticated, isEmailVerified, user, logout, loading } = useAuth()
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = React.useState(false)
   const sidebarRef = React.useRef<HTMLDivElement>(null)
@@ -149,8 +149,7 @@ export function Navigationbar() {
         </NavigationMenu>
         
         {/* Right side with theme toggle and mobile menu button */}
-        <div className="flex items-center gap-2">
-          {/* Auth links on desktop */}
+        <div className="flex items-center gap-2">          {/* Auth links on desktop */}
           <div className="hidden md:block">
             {!loading && !isAuthenticated ? (
               <div className="flex items-center space-x-4">
@@ -169,6 +168,20 @@ export function Navigationbar() {
               </div>
             ) : !loading && isAuthenticated ? (
               <div className="flex items-center space-x-4">
+                {/* Show user email and verification status */}
+                <div className="flex items-center space-x-2 text-sm">
+                  <span className="font-medium">{user?.email}</span>
+                  {!isEmailVerified && (
+                    <span className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-2 py-1 rounded-full">
+                      Pending Verification
+                    </span>
+                  )}
+                  {isEmailVerified && (
+                    <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full">
+                      Verified
+                    </span>
+                  )}
+                </div>
                 <Link
                   href={ROUTES.PROTECTED.DASHBOARD}
                   className="text-sm font-medium hover:text-primary transition-colors"
@@ -284,7 +297,25 @@ export function Navigationbar() {
                     </Link>
                   </>
                 ) : !loading && isAuthenticated ? (
-                  <>                    <Link 
+                  <>
+                    {/* User info section */}
+                    <div className="px-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-md">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {user?.email}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {!isEmailVerified ? (
+                          <span className="text-yellow-600 dark:text-yellow-400">
+                            ⚠️ Pending verification
+                          </span>
+                        ) : (
+                          <span className="text-green-600 dark:text-green-400">
+                            ✅ Verified
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Link 
                       href={ROUTES.PROTECTED.DASHBOARD} 
                       onClick={closeMenu}
                       className="block py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md px-3"

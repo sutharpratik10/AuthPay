@@ -10,6 +10,7 @@ export const ROUTES = {
     LOGIN: "/auth/login",
     SIGNUP: "/auth/signup",
     FORGOT_PASSWORD: "/auth/forgot-password",
+    VERIFY: "/auth/verify",
   },
   
   // Protected routes
@@ -56,6 +57,7 @@ export const URL = {
   login: () => ROUTES.AUTH.LOGIN,
   signup: () => ROUTES.AUTH.SIGNUP,
   forgotPassword: () => ROUTES.AUTH.FORGOT_PASSWORD,
+  verify: () => ROUTES.AUTH.VERIFY,
   
   // Protected
   dashboard: () => ROUTES.PROTECTED.DASHBOARD,

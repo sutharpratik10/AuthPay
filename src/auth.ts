@@ -19,7 +19,7 @@ export const {
     // Note: NextAuth v5 beta doesn't support 'signup' in PagesOptions
     // The signIn page should handle the signup flow as well
     error: "/auth/error",
-    verifyRequest: "/auth/verify-request",
+    verifyRequest: "/auth/verify",
   },  events: {
     async linkAccount({ user }) {
       // When an account is linked (OAuth sign-in), automatically verify the email
