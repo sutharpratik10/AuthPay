@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { users, otpCodes } from "@/db/schema";
 import { emailService } from "./email";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { eq, and, lt } from "drizzle-orm";
 

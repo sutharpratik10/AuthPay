@@ -27,6 +27,7 @@ import {
   AccordionTrigger 
 } from "@/components/ui/accordion"
 import { ModeToggle } from "@/components/mode-toggle"
+import { UserProfileDropdown } from "@/components/UserProfileDropdown"
 
 export function Navigationbar() {
   const { isAuthenticated, isEmailVerified, user, logout, loading } = useAuth()
@@ -96,9 +97,13 @@ export function Navigationbar() {
       document.body.style.overflow = '';
     };
   }, [isMenuOpen]);
-
   // Get navigation items directly from the service
   const navItems = NavigationService.navigationItems;
+
+  // Add Dashboard link for authenticated users
+  const navigationItems = isAuthenticated 
+    ? [{ title: "Dashboard", href: ROUTES.PROTECTED.DASHBOARD }, ...navItems]
+    : navItems;
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-background/80 shadow-sm">
@@ -111,11 +116,10 @@ export function Navigationbar() {
             </div>
           </Link>
         </div>
-        
-        {/* Desktop Navigation in the middle - hidden on mobile */}
+          {/* Desktop Navigation in the middle - hidden on mobile */}
         <NavigationMenu className="mx-auto hidden md:flex">
           <NavigationMenuList>
-            {navItems.map((item, index) => (
+            {navigationItems.map((item, index) => (
               item.href ? (
                 // Direct link, no dropdown
                 <NavigationMenuItem key={index}>
@@ -167,35 +171,7 @@ export function Navigationbar() {
                 </Link>
               </div>
             ) : !loading && isAuthenticated ? (
-              <div className="flex items-center space-x-4">
-                {/* Show user email and verification status */}
-                <div className="flex items-center space-x-2 text-sm">
-                  <span className="font-medium">{user?.email}</span>
-                  {!isEmailVerified && (
-                    <span className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-2 py-1 rounded-full">
-                      Pending Verification
-                    </span>
-                  )}
-                  {isEmailVerified && (
-                    <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full">
-                      Verified
-                    </span>
-                  )}
-                </div>
-                <Link
-                  href={ROUTES.PROTECTED.DASHBOARD}
-                  className="text-sm font-medium hover:text-primary transition-colors"
-                >
-                  Dashboard
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </Button>
-              </div>
+              <UserProfileDropdown />
             ) : null}
           </div>
 
@@ -242,12 +218,11 @@ export function Navigationbar() {
               <X className="h-5 w-5" />
             </button>
           </div>
-          
-          {/* Menu items with accordion dropdowns */}
+            {/* Menu items with accordion dropdowns */}
           <div className="py-4 flex-1 overflow-y-auto overflow-x-hidden">
             <Accordion type="single" collapsible className="w-full">
-              {navItems.map((item, index) => 
-                item.href ? (                  <div key={index} className="mb-1 px-4">
+              {navigationItems.map((item, index) => 
+                item.href ? (<div key={index} className="mb-1 px-4">
                     <Link 
                       href={item.href}
                       className="block py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md px-3"
@@ -295,26 +270,58 @@ export function Navigationbar() {
                     >
                       Sign Up
                     </Link>
-                  </>
-                ) : !loading && isAuthenticated ? (
+                  </>                ) : !loading && isAuthenticated ? (
                   <>
-                    {/* User info section */}
-                    <div className="px-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-md">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {user?.email}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {!isEmailVerified ? (
-                          <span className="text-yellow-600 dark:text-yellow-400">
-                            ⚠️ Pending verification
-                          </span>
-                        ) : (
-                          <span className="text-green-600 dark:text-green-400">
-                            ✅ Verified
-                          </span>
-                        )}
+                    {/* User profile section */}
+                    <div className="px-3 py-3 border border-gray-200 dark:border-zinc-700 rounded-md">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-medium">
+                            {(user?.name || user?.email)?.charAt(0).toUpperCase()}
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {user?.name || user?.email?.split("@")[0] || "User"}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {user?.email}
+                          </div>
+                          <div className="mt-1">
+                            {isEmailVerified ? (
+                              <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full">
+                                Verified
+                              </span>
+                            ) : (
+                              <span className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-2 py-1 rounded-full">
+                                Pending
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
+                    <Link 
+                      href="/profile" 
+                      onClick={closeMenu}
+                      className="block py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md px-3"
+                    >
+                      Profile
+                    </Link>
+                    <Link 
+                      href="/account" 
+                      onClick={closeMenu}
+                      className="block py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md px-3"
+                    >
+                      Account
+                    </Link>
+                    <Link 
+                      href="/settings" 
+                      onClick={closeMenu}
+                      className="block py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md px-3"
+                    >
+                      Settings
+                    </Link>
                     <Link 
                       href={ROUTES.PROTECTED.DASHBOARD} 
                       onClick={closeMenu}

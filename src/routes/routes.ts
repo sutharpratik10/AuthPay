@@ -183,36 +183,6 @@ class InitiatePasswordResetRouteHandler extends BaseRouteHandler {
 }
 
 /**
- * Password reset code verification route handler
- */
-class VerifyPasswordResetCodeRouteHandler extends BaseRouteHandler {
-  async handle(req: NextRequest): Promise<NextResponse> {
-    try {
-      const body = await req.json();
-      const { code } = body;
-
-      if (!code) {
-        return this.createErrorResponse('Verification code is required', 400);
-      }
-
-      const result = await AuthService.verifyPasswordResetCode(code);
-
-      if (!result.success) {
-        return this.createErrorResponse(result.error || 'Invalid or expired code', 400);
-      }
-
-      return this.createSuccessResponse({
-        message: 'Code verified successfully',
-        userId: result.userId,
-        email: result.email
-      });
-    } catch (error) {
-      return this.handleError(error, 'Password reset code verification error');
-    }
-  }
-}
-
-/**
  * Password reset route handler
  */
 class PasswordResetRouteHandler extends BaseRouteHandler {
@@ -1046,10 +1016,8 @@ class RouteFactory {
     this.registerRoute('register', new RegistrationRouteHandler());
     this.registerRoute('verify', new VerifyEmailRouteHandler());
     this.registerRoute('resendVerification', new ResendVerificationEmailRouteHandler());
-    
-    // Password reset routes
+      // Password reset routes
     this.registerRoute('initiatePasswordReset', new InitiatePasswordResetRouteHandler());
-    this.registerRoute('verifyPasswordResetCode', new VerifyPasswordResetCodeRouteHandler());
     this.registerRoute('resetPassword', new PasswordResetRouteHandler());
     
     // Login is handled by NextAuth, not our custom routes
@@ -1158,14 +1126,6 @@ export class Routes {
   static async initiatePasswordReset(req: NextRequest): Promise<NextResponse> {
     return RouteFactory.getInstance().getRouteHandler('initiatePasswordReset').handle(req);
   }
-
-  /**
-   * Verify password reset code
-   */
-  static async verifyPasswordResetCode(req: NextRequest): Promise<NextResponse> {
-    return RouteFactory.getInstance().getRouteHandler('verifyPasswordResetCode').handle(req);
-  }
-
   /**
    * Reset password
    */
@@ -1248,15 +1208,9 @@ export class Routes {
           headers: { 'Content-Type': 'application/json' }
         });
       }
-    }
-
-    // Password reset routes
+    }    // Password reset routes
     if (path.includes('/api/auth/forgot-password')) {
       return Routes.initiatePasswordReset(req);
-    }
-
-    if (path.includes('/api/auth/verify-reset-code')) {
-      return Routes.verifyPasswordResetCode(req);
     }
 
     if (path.includes('/api/auth/reset-password')) {

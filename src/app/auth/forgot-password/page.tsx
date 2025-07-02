@@ -85,9 +85,8 @@ export default function ForgotPasswordPage() {
     e.preventDefault()
     setIsLoading(true)
     setError("")
-    
-    try {
-      const response = await fetch('/api/auth/verify-reset-code', {
+      try {
+      const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code })

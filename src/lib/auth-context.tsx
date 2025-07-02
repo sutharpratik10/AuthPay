@@ -179,10 +179,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: "An unexpected error occurred" }
     }
   }
-
   const verifyPasswordResetCode = async (code: string) => {
     try {
-      const res = await fetch("/api/auth/verify-reset-code", {
+      const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),

@@ -5,7 +5,7 @@ import Google from "next-auth/providers/google";
 import Facebook from "next-auth/providers/facebook";
 import AzureAD from "next-auth/providers/azure-ad";
 import Apple from "next-auth/providers/apple";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
