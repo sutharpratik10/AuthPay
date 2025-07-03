@@ -12,11 +12,13 @@ export const ROUTES = {
     FORGOT_PASSWORD: "/auth/forgot-password",
     VERIFY: "/auth/verify",
   },
-  
   // Protected routes
   PROTECTED: {
     ROOT: "/protected",
     DASHBOARD: "/protected/dashboard",
+    SETTINGS: "/protected/settings",
+    PROFILE: "/protected/profile",
+    ACCOUNT: "/protected/account",
   },
   
   // Public routes
@@ -58,9 +60,11 @@ export const URL = {
   signup: () => ROUTES.AUTH.SIGNUP,
   forgotPassword: () => ROUTES.AUTH.FORGOT_PASSWORD,
   verify: () => ROUTES.AUTH.VERIFY,
-  
-  // Protected
+    // Protected
   dashboard: () => ROUTES.PROTECTED.DASHBOARD,
+  settings: () => ROUTES.PROTECTED.SETTINGS,
+  profile: () => ROUTES.PROTECTED.PROFILE,
+  account: () => ROUTES.PROTECTED.ACCOUNT,
   
   // Public
   home: () => ROUTES.PUBLIC.HOME,
