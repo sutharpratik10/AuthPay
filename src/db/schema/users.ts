@@ -43,7 +43,7 @@ export const sessions = pgTable('sessions', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   token: text('token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
-  userAgent: text('user_agent'),
+  browserName: varchar('browser_name', { length: 50 }), // Store parsed browser name instead of full user agent
   ipAddress: varchar('ip_address', { length: 45 }),
   lastActiveAt: timestamp('last_active_at').defaultNow(),
   createdAt: timestamp('created_at').defaultNow().notNull(),

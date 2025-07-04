@@ -8,7 +8,7 @@ import { Bell, Shield, Palette, Globe, Check } from "lucide-react"
 import { useTheme } from "next-themes"
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useTheme()
+  const { setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
@@ -18,30 +18,64 @@ export default function SettingsPage() {
     productUpdates: false,
     profileVisibility: true,
     language: 'en-US',
-    timezone: 'UTC-8'
+    timezone: 'UTC-8',
+    theme: 'system'
   })
-
   useEffect(() => {
     setMounted(true)
+    // Load user preferences when component mounts
+    loadUserPreferences()
   }, [])
+  const loadUserPreferences = async () => {
+    try {
+      const response = await fetch('/api/user/preferences')
+      if (response.ok) {
+        const data = await response.json()
+        setPreferences(data)
+        // Sync theme with next-themes
+        if (data.theme) {
+          setTheme(data.theme)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load user preferences:', error)
+    }
+  }
 
   const handleSaveSettings = async () => {
     setIsLoading(true)
     setMessage(null)
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setMessage({ type: 'success', text: 'Settings saved successfully!' })
-    } catch {
+      const response = await fetch('/api/user/preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(preferences),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setMessage({ type: 'success', text: data.message || 'Settings saved successfully!' })
+      } else {
+        const errorData = await response.json()
+        setMessage({ type: 'error', text: errorData.error || 'Failed to save settings.' })
+      }
+    } catch (error) {
+      console.error('Error saving preferences:', error)
       setMessage({ type: 'error', text: 'Failed to save settings. Please try again.' })
     } finally {
       setIsLoading(false)
     }
   }
-
   const updatePreference = (key: string, value: boolean | string) => {
     setPreferences(prev => ({ ...prev, [key]: value }))
+    
+    // Sync theme changes immediately with next-themes
+    if (key === 'theme') {
+      setTheme(value as string)
+    }
   }
 
   if (!mounted) {
@@ -79,26 +113,25 @@ export default function SettingsPage() {
           </h2>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Theme</label>
-              <div className="flex space-x-2 mt-2">
+              <label className="text-sm font-medium">Theme</label>              <div className="flex space-x-2 mt-2">
                 <Button 
-                  variant={theme === "light" ? "default" : "outline"} 
+                  variant={preferences.theme === "light" ? "default" : "outline"} 
                   size="sm"
-                  onClick={() => setTheme("light")}
+                  onClick={() => updatePreference('theme', 'light')}
                 >
                   Light
                 </Button>
                 <Button 
-                  variant={theme === "dark" ? "default" : "outline"} 
+                  variant={preferences.theme === "dark" ? "default" : "outline"} 
                   size="sm"
-                  onClick={() => setTheme("dark")}
+                  onClick={() => updatePreference('theme', 'dark')}
                 >
                   Dark
                 </Button>
                 <Button 
-                  variant={theme === "system" ? "default" : "outline"} 
+                  variant={preferences.theme === "system" ? "default" : "outline"} 
                   size="sm"
-                  onClick={() => setTheme("system")}
+                  onClick={() => updatePreference('theme', 'system')}
                 >
                   System
                 </Button>

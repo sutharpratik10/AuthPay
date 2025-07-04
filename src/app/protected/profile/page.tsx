@@ -2,7 +2,6 @@
 
 import { useAuth } from "@/lib"
 import { Avatar } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
 import { Mail, User, Shield } from "lucide-react"
 
 export default function ProfilePage() {
@@ -92,30 +91,6 @@ export default function ProfilePage() {
                 <p className="text-sm">Standard User</p>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="border rounded-lg p-6 bg-card">
-          <h2 className="text-lg font-semibold mb-2">Account Actions</h2>
-          <p className="text-muted-foreground mb-4">
-            Manage your account settings and preferences
-          </p>
-          <div className="flex flex-wrap gap-4">
-            <Button variant="outline">
-              Edit Profile
-            </Button>
-            <Button variant="outline">
-              Change Password
-            </Button>
-            <Button variant="outline">
-              Privacy Settings
-            </Button>
-            {!isEmailVerified && (
-              <Button variant="default">
-                Resend Verification Email
-              </Button>
-            )}
           </div>
         </div>
       </div>

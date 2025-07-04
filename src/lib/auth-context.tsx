@@ -53,7 +53,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   const isAuthenticated = !!session
   const isEmailVerified = !!session?.user?.isEmailVerified
-
   const login = async (email: string, password: string) => {
     try {
       const result = await signIn("credentials", {
@@ -64,6 +63,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (result?.error) {
         return { error: result.error }
+      }      // Create session record after successful login
+      try {
+        await fetch('/api/auth/track-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (sessionError) {
+        console.warn('Failed to create session record:', sessionError);
+        // Don't fail the login process if session recording fails
       }
 
       return {}
@@ -88,9 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!res.ok) {
         return { error: data.error }
-      }
-
-      // After successful registration, automatically log the user in
+      }      // After successful registration, automatically log the user in
       const loginResult = await signIn("credentials", {        redirect: false,
         email,
         password,
@@ -101,6 +109,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn("Auto-login after registration failed:", loginResult.error)
         router.push("/auth/login?message=Registration successful. Please login to verify your email.")
         return {}
+      }
+
+      // Create session record after successful auto-login
+      try {
+        await fetch('/api/auth/session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (sessionError) {
+        console.warn('Failed to create session record:', sessionError);
+        // Don't fail the registration process if session recording fails
       }
 
       // If auto-login succeeds, redirect to verification page
