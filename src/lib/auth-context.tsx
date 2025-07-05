@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useRouter } from "next/navigation"
 import { signIn, signOut, useSession } from "next-auth/react"
 import { Session } from "next-auth"
+import { useTheme } from "next-themes"
 
 // Extended user interface with our custom properties
 interface ExtendedUser {
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: sessionData, status } = useSession()
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const { setTheme } = useTheme()
   // Cast the session to our extended type
   const session = sessionData as ExtendedSession | null
   
@@ -50,9 +52,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Update loading state based on session status
     setLoading(status === "loading")
   }, [status])
+
+  // Load user preferences and apply theme when user is authenticated
+  useEffect(() => {
+    const loadUserTheme = async () => {
+      if (session?.user?.id && status === "authenticated") {
+        try {
+          const response = await fetch('/api/user/preferences')
+          if (response.ok) {
+            const preferences = await response.json()
+            if (preferences.theme) {
+              setTheme(preferences.theme)
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to load user theme preference:', error)
+        }
+      }
+    }
+
+    loadUserTheme()  }, [session?.user?.id, status, setTheme])
   
   const isAuthenticated = !!session
   const isEmailVerified = !!session?.user?.isEmailVerified
+  
   const login = async (email: string, password: string) => {
     try {
       const result = await signIn("credentials", {
@@ -63,7 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (result?.error) {
         return { error: result.error }
-      }      // Create session record after successful login
+      }
+
+      // Create session record after successful login
       try {
         await fetch('/api/auth/track-session', {
           method: 'POST',
@@ -74,6 +99,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (sessionError) {
         console.warn('Failed to create session record:', sessionError);
         // Don't fail the login process if session recording fails
+      }
+
+      // Load and apply user theme preference immediately after login
+      try {
+        const preferencesResponse = await fetch('/api/user/preferences')
+        if (preferencesResponse.ok) {
+          const preferences = await preferencesResponse.json()
+          if (preferences.theme) {
+            setTheme(preferences.theme)
+          }
+        }
+      } catch (themeError) {
+        console.warn('Failed to load user theme preference:', themeError)
       }
 
       return {}
@@ -132,8 +170,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: "An unexpected error occurred" }
     }
   }
-  
-  const logout = async () => {
+    const logout = async () => {
+    // Reset theme to system default on logout
+    setTheme('system')
     await signOut({ redirect: false })
     router.push("/")
   }
