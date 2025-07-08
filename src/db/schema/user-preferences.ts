@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, boolean, timestamp, text } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { users } from './users';
 
@@ -23,9 +23,8 @@ export const userPreferences = pgTable('user_preferences', {
   
   // Theme preferences
   theme: varchar('theme', { length: 20 }).default('system'), // light, dark, system
-  
-  // Additional preferences (stored as JSON for flexibility)
-  additionalSettings: jsonb('additional_settings'),
+    // Additional preferences (stored as text for now, will convert to JSON later)
+  additionalSettings: text('additional_settings'),
   
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

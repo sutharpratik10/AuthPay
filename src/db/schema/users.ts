@@ -11,8 +11,15 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   password: varchar('password', { length: 255 }), // Hashed password
   name: varchar('name', { length: 100 }),
-  avatarUrl: varchar('avatar_url', { length: 255 }),
-  isEmailVerified: boolean('is_email_verified').default(false),
+  
+  // NextAuth compatibility columns
+  image: varchar('image', { length: 255 }), // NextAuth image field
+  emailVerified: timestamp('emailVerified'), // NextAuth emailVerified field
+  
+  // Custom columns
+  avatarUrl: varchar('avatar_url', { length: 255 }), // Our custom avatar field
+  isEmailVerified: boolean('is_email_verified').default(false), // Our custom verification field
+  
   lastLoginAt: timestamp('last_login_at'),
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),

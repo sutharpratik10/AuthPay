@@ -71,17 +71,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    loadUserTheme()  }, [session?.user?.id, status, setTheme])
-  
-  const isAuthenticated = !!session
+    loadUserTheme()
+  }, [session?.user?.id, status, setTheme])
+    const isAuthenticated = !!session
   const isEmailVerified = !!session?.user?.isEmailVerified
-  
-  const login = async (email: string, password: string) => {
+    const login = async (email: string, password: string) => {
     try {
+      // For NextAuth v5, we need to call signIn with proper parameters
       const result = await signIn("credentials", {
-        redirect: false,
         email,
         password,
+        redirect: false,
       })
 
       if (result?.error) {
@@ -113,7 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (themeError) {
         console.warn('Failed to load user theme preference:', themeError)
       }
-
+      
+      // Don't redirect here - let middleware handle the redirect based on email verification status
       return {}
     } catch (error) {
       console.error("Login error:", error)
@@ -136,45 +137,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!res.ok) {
         return { error: data.error }
-      }      // After successful registration, automatically log the user in
-      const loginResult = await signIn("credentials", {        redirect: false,
-        email,
-        password,
-      })
-
-      if (loginResult?.error) {
-        // If auto-login fails, still redirect to verify but user will need to login manually
-        console.warn("Auto-login after registration failed:", loginResult.error)
-        router.push("/auth/login?message=Registration successful. Please login to verify your email.")
-        return {}
       }
 
-      // Create session record after successful auto-login
-      try {
-        await fetch('/api/auth/session', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (sessionError) {
-        console.warn('Failed to create session record:', sessionError);
-        // Don't fail the registration process if session recording fails
-      }
-
-      // If auto-login succeeds, redirect to verification page
-      router.push("/auth/verify")
+      // After successful registration, redirect to verification page
+      router.push("/auth/verify?email=" + encodeURIComponent(email))
       return {}
     } catch (error) {
       console.error("Registration error:", error)
       return { error: "An unexpected error occurred" }
     }
   }
-    const logout = async () => {
-    // Reset theme to system default on logout
-    setTheme('system')
-    await signOut({ redirect: false })
-    router.push("/")
+
+  const logout = async () => {
+    await signOut({ callbackUrl: "/" })
   }
   const verifyEmail = async (code: string) => {
     try {
@@ -183,23 +158,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       })
+
       const data = await res.json()
 
       if (!res.ok) {
         return { success: false, error: data.error }
       }
 
-      // Force session update after successful verification
-      window.location.reload()
+      // After successful verification, reload the page to update the session
+      // The middleware will then redirect to the appropriate page
+      setTimeout(() => {
+        window.location.href = '/protected/dashboard'
+      }, 1500)
+
       return { success: true }
     } catch (error) {
       console.error("Email verification error:", error)
       return { success: false, error: "An unexpected error occurred" }
     }
   }
+
   const resendVerificationEmail = async (email: string) => {
     try {
-      const res = await fetch("/api/auth/verify", {
+      const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -211,9 +192,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error }
       }
 
-            return { success: true }
+      return { success: true }
     } catch (error) {
-      console.error("Resend verification error:", error)
+      console.error("Resend verification email error:", error)
       return { success: false, error: "An unexpected error occurred" }
     }
   }
@@ -239,9 +220,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: "An unexpected error occurred" }
     }
   }
+
   const verifyPasswordResetCode = async (code: string) => {
     try {
-      const res = await fetch("/api/auth/reset-password", {
+      const res = await fetch("/api/auth/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
@@ -253,11 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error }
       }
 
-      return { 
-        success: true, 
-        userId: data.userId, 
-        email: data.email 
-      }
+      return { success: true, userId: data.userId, email: data.email }
     } catch (error) {
       console.error("Password reset code verification error:", error)
       return { success: false, error: "An unexpected error occurred" }
@@ -284,24 +262,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: "An unexpected error occurred" }
     }
   }
+
   return (
-    <AuthContext.Provider 
-      value={{ 
+    <AuthContext.Provider
+      value={{
         session,
         user: session?.user || null,
-        isAuthenticated, 
+        isAuthenticated,
         isEmailVerified,
-        login, 
+        login,
         socialLogin,
         register,
-        logout, 
+        logout,
         verifyEmail,
         resendVerificationEmail,
         // Password reset functions
         initiatePasswordReset,
         verifyPasswordResetCode,
         resetPassword,
-        loading 
+        loading
       }}
     >
       {children}

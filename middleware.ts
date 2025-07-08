@@ -5,31 +5,92 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   
   console.log(`[MIDDLEWARE] ⚡ RUNNING: ${request.method} ${path}`);
-    // Define protected routes - now everything is under /protected/*
-  const protectedRoutes = [
-    '/protected'
+  
+  // Define route categories
+  const publicRoutes = [
+    '/',
+    '/auth/login',
+    '/auth/signup',
+    '/auth/forgot-password'
   ];
   
-  // Check if the current path needs protection
+  const authRoutes = [
+    '/auth/login',
+    '/auth/signup', 
+    '/auth/forgot-password'
+  ];
+  
+  const protectedRoutes = [
+    '/protected/dashboard',
+    '/protected/profile',
+    '/protected/account',
+    '/protected/settings'
+  ];
+  
+  const verificationRoute = '/auth/verify';
+  
+  // Get session
+  const session = await auth();
+  const isAuthenticated = !!session?.user;
+  const isEmailVerified = session?.user?.isEmailVerified === true;
+  
+  // Allow public routes for everyone
+  if (publicRoutes.includes(path)) {
+    console.log(`[MIDDLEWARE] ✅ Public route allowed: ${path}`);
+    return NextResponse.next();
+  }
+  
+  // Handle verification page access
+  if (path === verificationRoute) {
+    if (!isAuthenticated) {
+      console.log(`[MIDDLEWARE] 🔒 Unauthenticated user trying to access verify page, redirecting to login`);
+      return NextResponse.redirect(new URL('/auth/login', request.url));
+    }
+    
+    if (isEmailVerified) {
+      console.log(`[MIDDLEWARE] ✅ Email already verified, redirecting to dashboard`);
+      return NextResponse.redirect(new URL('/protected/dashboard', request.url));
+    }
+    
+    console.log(`[MIDDLEWARE] ✅ Authenticated unverified user accessing verify page`);
+    return NextResponse.next();
+  }
+  
+  // Handle auth pages (login, signup, forgot-password)
+  if (authRoutes.includes(path)) {
+    if (isAuthenticated) {
+      if (isEmailVerified) {
+        console.log(`[MIDDLEWARE] ✅ Authenticated verified user, redirecting to dashboard`);
+        return NextResponse.redirect(new URL('/protected/dashboard', request.url));
+      } else {
+        console.log(`[MIDDLEWARE] ⚠️ Authenticated unverified user, redirecting to verify`);
+        return NextResponse.redirect(new URL('/auth/verify', request.url));
+      }
+    }
+    console.log(`[MIDDLEWARE] ✅ Unauthenticated user accessing auth page: ${path}`);
+    return NextResponse.next();
+  }
+  
+  // Handle protected routes
   const needsProtection = protectedRoutes.some(route => 
     path.startsWith(route) || path === route
   );
   
   if (needsProtection) {
-    // Get session to check authentication
-    const session = await auth();
-    
-    if (!session?.user) {
+    if (!isAuthenticated) {
       console.log(`[MIDDLEWARE] 🔒 Redirecting unauthenticated user from ${path} to login`);
-      
-      // Create login URL with returnTo parameter
       const loginUrl = new URL('/auth/login', request.url);
       loginUrl.searchParams.set('returnTo', path);
-      
       return NextResponse.redirect(loginUrl);
     }
     
-    console.log(`[MIDDLEWARE] ✅ Authenticated user accessing: ${path}`);
+    if (!isEmailVerified) {
+      console.log(`[MIDDLEWARE] ⚠️ Authenticated but unverified user, redirecting to verify page`);
+      return NextResponse.redirect(new URL('/auth/verify', request.url));
+    }
+    
+    console.log(`[MIDDLEWARE] ✅ Authenticated verified user accessing: ${path}`);
+    return NextResponse.next();
   }
   
   console.log(`[MIDDLEWARE] ✅ Allowing access to: ${path}`);

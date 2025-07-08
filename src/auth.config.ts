@@ -62,9 +62,7 @@ const authConfig: NextAuthConfig = {
 
           if (!isPasswordValid) {
             return null;
-          }
-
-          return {
+          }          return {
             id: user.id,
             email: user.email,
             name: user.name,
@@ -77,7 +75,28 @@ const authConfig: NextAuthConfig = {
       }
     })
   ],
-  trustHost: true
+  // Configure security settings
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    },
+    csrfToken: {
+      name: `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    }
+  }
 };
 
 export default authConfig;

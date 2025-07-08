@@ -18,6 +18,9 @@ export const {
     error: "/auth/error",
     verifyRequest: "/auth/verify",
   },
+  debug: process.env.NODE_ENV === 'development',
+  trustHost: true,
+  basePath: "/api/auth",
   events: {
     async linkAccount({ user }) {
       // When an account is linked (OAuth sign-in), automatically verify the email
