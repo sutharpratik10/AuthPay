@@ -78,7 +78,6 @@ export default function SettingsPage() {
           }          // Load user preferences
           if (preferencesResponse.ok) {
             const preferencesData = await preferencesResponse.json()
-            console.log('Loaded preferences data:', preferencesData)
             setPreferences(preferencesData)
             // Only set theme from loaded preferences if it's different from current theme
             if (preferencesData.theme && preferencesData.theme !== theme) {
@@ -119,8 +118,6 @@ export default function SettingsPage() {
         timezoneId: preferences.timezoneId,
         theme: preferences.theme
       }
-
-      console.log('Saving preferences data:', dataToSave)
 
       const response = await fetch('/api/user/preferences', {
         method: 'POST',
