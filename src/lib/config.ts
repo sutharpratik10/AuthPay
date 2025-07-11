@@ -12,18 +12,61 @@ export { validateConfig };
 export { isDevelopment, isProduction, isTest };
 
 // App information helpers
+/**
+ * Get the application name from the configuration.
+ * @returns {string} Application name.
+ */
 export const getAppName = () => APP_CONFIG.APP_NAME;
+
+/**
+ * Get the application description from the configuration.
+ * @returns {string} Application description.
+ */
 export const getAppDescription = () => APP_CONFIG.APP_DESCRIPTION;
+
+/**
+ * Get the application version from the configuration.
+ * @returns {string} Application version.
+ */
 export const getAppVersion = () => APP_CONFIG.APP_VERSION;
+
+/**
+ * Get the application URL from the configuration.
+ * @returns {string} Application URL.
+ */
 export const getAppUrl = () => APP_CONFIG.APP_URL;
 
 // Company information helpers
+/**
+ * Get the company name from the configuration.
+ * @returns {string} Company name.
+ */
 export const getCompanyName = () => APP_CONFIG.COMPANY_NAME;
+
+/**
+ * Get the company URL from the configuration.
+ * @returns {string} Company URL.
+ */
 export const getCompanyUrl = () => APP_CONFIG.COMPANY_URL;
+
+/**
+ * Get the company logo path from the configuration.
+ * @returns {string} Company logo path.
+ */
 export const getCompanyLogo = () => APP_CONFIG.COMPANY_LOGO;
 
 // Route helpers
+/**
+ * Get a specific route by its key.
+ * @param {keyof typeof APP_CONFIG.ROUTES} routeKey - The key of the route to retrieve.
+ * @returns {string} The route path.
+ */
 export const getRoute = (routeKey: keyof typeof APP_CONFIG.ROUTES) => APP_CONFIG.ROUTES[routeKey];
+
+/**
+ * Get all routes from the configuration.
+ * @returns {object} All routes.
+ */
 export const getAllRoutes = () => APP_CONFIG.ROUTES;
 
 // Message helpers
