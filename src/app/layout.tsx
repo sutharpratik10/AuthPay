@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./style/globals.css";
 import { ClientLayout } from "@/components/client-layout";
+import { APP_CONFIG } from "@/lib/constants";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RSVP App",
-  description: "An application for event management and RSVPs",
+  title: APP_CONFIG.APP_NAME,
+  description: APP_CONFIG.APP_DESCRIPTION,
 };
 
 export default function RootLayout({

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { userPreferences } from '@/db/schema';
+import { userPreferences, languages, timezones } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export async function GET() {
@@ -12,23 +12,64 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user preferences
+    // Get user preferences with related language and timezone data
     const preferences = await db
-      .select()
+      .select({
+        id: userPreferences.id,
+        userId: userPreferences.userId,
+        emailNotifications: userPreferences.emailNotifications,
+        securityAlerts: userPreferences.securityAlerts,
+        productUpdates: userPreferences.productUpdates,
+        profileVisibility: userPreferences.profileVisibility,
+        languageId: userPreferences.languageId,
+        timezoneId: userPreferences.timezoneId,
+        theme: userPreferences.theme,
+        additionalSettings: userPreferences.additionalSettings,
+        createdAt: userPreferences.createdAt,
+        updatedAt: userPreferences.updatedAt,
+        language: {
+          id: languages.id,
+          name: languages.name,
+          code: languages.code,
+          nativeName: languages.nativeName
+        },
+        timezone: {
+          id: timezones.id,
+          name: timezones.name,
+          code: timezones.code,
+          utcOffset: timezones.utcOffset,
+          description: timezones.description
+        }
+      })
       .from(userPreferences)
+      .leftJoin(languages, eq(userPreferences.languageId, languages.id))
+      .leftJoin(timezones, eq(userPreferences.timezoneId, timezones.id))
       .where(eq(userPreferences.userId, session.user.id))
-      .limit(1);
+      .limit(1);    if (preferences.length === 0) {
+      // Get default English language and UTC timezone
+      const [defaultLanguage] = await db
+        .select()
+        .from(languages)
+        .where(eq(languages.code, 'en'))
+        .limit(1);
 
-    if (preferences.length === 0) {
+      const [defaultTimezone] = await db
+        .select()
+        .from(timezones)
+        .where(eq(timezones.code, 'UTC'))
+        .limit(1);
+
       // Return default preferences if none exist
       return NextResponse.json({
         emailNotifications: true,
         securityAlerts: true,
         productUpdates: false,
         profileVisibility: true,
-        language: 'en-US',
-        timezone: 'UTC',
-        theme: 'system'
+        languageId: defaultLanguage?.id || 1,
+        timezoneId: defaultTimezone?.id || 1,
+        theme: 'system',
+        language: defaultLanguage || { id: 1, name: 'English', code: 'en', nativeName: 'English' },
+        timezone: defaultTimezone || { id: 1, name: 'UTC', code: 'UTC', utcOffset: '+00:00', description: 'Coordinated Universal Time' }
       });
     }
 
@@ -56,8 +97,8 @@ export async function POST(request: NextRequest) {
       securityAlerts,
       productUpdates,
       profileVisibility,
-      language,
-      timezone,
+      languageId,
+      timezoneId,
       theme,
       additionalSettings
     } = body;
@@ -79,8 +120,8 @@ export async function POST(request: NextRequest) {
           securityAlerts,
           productUpdates,
           profileVisibility,
-          language,
-          timezone,
+          languageId,
+          timezoneId,
           theme,
           additionalSettings,
           updatedAt: new Date()
@@ -101,8 +142,8 @@ export async function POST(request: NextRequest) {
           securityAlerts,
           productUpdates,
           profileVisibility,
-          language,
-          timezone,
+          languageId,
+          timezoneId,
           theme,
           additionalSettings,
           updatedAt: new Date()

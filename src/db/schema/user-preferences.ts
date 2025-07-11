@@ -1,6 +1,7 @@
 import { pgTable, uuid, varchar, boolean, timestamp, text } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { users } from './users';
+import { languages, timezones } from './localization';
 
 /**
  * User Preferences table - stores user customization settings
@@ -13,13 +14,12 @@ export const userPreferences = pgTable('user_preferences', {
   emailNotifications: boolean('email_notifications').default(true),
   securityAlerts: boolean('security_alerts').default(true),
   productUpdates: boolean('product_updates').default(false),
-  
-  // Privacy preferences
+    // Privacy preferences
   profileVisibility: boolean('profile_visibility').default(true),
   
-  // Localization preferences
-  language: varchar('language', { length: 10 }).default('en-US'),
-  timezone: varchar('timezone', { length: 50 }).default('UTC'),
+  // Localization preferences - foreign keys to localization tables
+  languageId: uuid('language_id').references(() => languages.id),
+  timezoneId: uuid('timezone_id').references(() => timezones.id),
   
   // Theme preferences
   theme: varchar('theme', { length: 20 }).default('system'), // light, dark, system
@@ -62,6 +62,14 @@ export const userPreferencesRelations = relations(userPreferences, ({ one }) => 
   user: one(users, {
     fields: [userPreferences.userId],
     references: [users.id],
+  }),
+  language: one(languages, {
+    fields: [userPreferences.languageId],
+    references: [languages.id],
+  }),
+  timezone: one(timezones, {
+    fields: [userPreferences.timezoneId],
+    references: [timezones.id],
   }),
 }));
 

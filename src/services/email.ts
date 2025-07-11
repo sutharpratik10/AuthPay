@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { APP_CONFIG, getAppName } from "@/lib/config";
 
 interface EmailOptions {
   to: string;
@@ -8,23 +9,21 @@ interface EmailOptions {
 
 class EmailService {
   private transporter: nodemailer.Transporter;
-
   constructor() {
     this.transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: Number(process.env.EMAIL_PORT) || 465,
-      secure: process.env.EMAIL_SECURE === 'true',
+      host: APP_CONFIG.EMAIL.HOST,
+      port: APP_CONFIG.EMAIL.PORT,
+      secure: APP_CONFIG.EMAIL.SECURE,
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: APP_CONFIG.EMAIL.USER,
+        pass: APP_CONFIG.EMAIL.PASS,
       },
     });
   }
-
   async sendEmail({ to, subject, html }: EmailOptions) {
     try {
       const result = await this.transporter.sendMail({
-        from: `"${process.env.NEXT_PUBLIC_APP_NAME || 'RSVP App'}" <${process.env.EMAIL_USER}>`,
+        from: `"${getAppName()}" <${APP_CONFIG.EMAIL.USER}>`,
         to,
         subject,
         html,
@@ -60,8 +59,7 @@ class EmailService {
             <li>Click "Verify Email" to complete your registration</li>
           </ol>
         </div>
-        
-        <div style="border-top: 1px solid #e9ecef; padding-top: 20px; margin-top: 30px;">
+          <div style="border-top: 1px solid #e9ecef; padding-top: 20px; margin-top: 30px;">
           <p style="color: #666666; font-size: 12px; margin: 0;">
             <strong>Security Note:</strong> For your security, never share this verification code with anyone. 
             If you didn't create an account, you can safely ignore this email.
@@ -70,7 +68,7 @@ class EmailService {
         
         <div style="text-align: center; margin-top: 30px;">
           <p style="color: #999999; font-size: 12px; margin: 0;">
-            This is an automated message from ${process.env.NEXT_PUBLIC_APP_NAME || 'RSVP App'}. Please do not reply to this email.
+            This is an automated message from ${getAppName()}. Please do not reply to this email.
           </p>
         </div>
       </div>
@@ -81,13 +79,12 @@ class EmailService {
       subject: `Your verification code: ${otpCode}`,
       html,
     });
-  }
-  async sendWelcomeEmail(email: string, name: string) {
-    const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/login`;
+  }  async sendWelcomeEmail(email: string, name: string) {
+    const loginUrl = `${APP_CONFIG.APP_URL}/auth/login`;
     
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Welcome to ${process.env.NEXT_PUBLIC_APP_NAME || 'RSVP App'}!</h2>
+        <h2>Welcome to ${getAppName()}!</h2>
         <p>Hi ${name || 'there'},</p>
         <p>Your email has been verified successfully. You can now start using all the features of our application.</p>
         <a 
@@ -103,13 +100,12 @@ class EmailService {
 
     return this.sendEmail({
       to: email,
-      subject: `Welcome to ${process.env.NEXT_PUBLIC_APP_NAME || 'RSVP App'}!`,
+      subject: `Welcome to ${getAppName()}!`,
       html,
     });
   }
-
   async sendPasswordResetEmail(email: string, otpCode: string, name: string) {
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/forgot-password?step=verify&email=${encodeURIComponent(email)}`;
+    const resetUrl = `${APP_CONFIG.APP_URL}/auth/forgot-password?step=verify&email=${encodeURIComponent(email)}`;
     
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
@@ -154,10 +150,9 @@ class EmailService {
             Your password will remain unchanged. For your security, never share this code with anyone.
           </p>
         </div>
-        
-        <div style="text-align: center; margin-top: 30px;">
+          <div style="text-align: center; margin-top: 30px;">
           <p style="color: #999999; font-size: 12px; margin: 0;">
-            This is an automated message from ${process.env.NEXT_PUBLIC_APP_NAME || 'RSVP App'}. Please do not reply to this email.
+            This is an automated message from ${getAppName()}. Please do not reply to this email.
           </p>
         </div>
       </div>

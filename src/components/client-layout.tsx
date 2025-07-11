@@ -9,12 +9,11 @@ import { SessionProvider } from "next-auth/react";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
-      <ThemeProvider
+    <SessionProvider>        <ThemeProvider
         attribute="class"
         defaultTheme="system"
         enableSystem
-        disableTransitionOnChange
+        storageKey="rolekit-theme"
       >
         <AuthProvider>
           {/* Navigationbar component is already fixed positioned */}

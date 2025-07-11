@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { APP_CONFIG } from "@/lib/constants";
 
 export function Footer() {
   return (
@@ -7,9 +8,9 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="space-y-3">
-            <h3 className="font-semibold text-lg">RSVP App</h3>
+            <h3 className="font-semibold text-lg">{APP_CONFIG.APP_NAME}</h3>
             <p className="text-sm text-muted-foreground">
-              Simplify event planning and management with our comprehensive RSVP solution.
+              {APP_CONFIG.APP_DESCRIPTION}
             </p>
             <div className="flex space-x-4 pt-2">
               <a href="https://twitter.com" className="text-muted-foreground hover:text-foreground">
@@ -114,7 +115,7 @@ export function Footer() {
           </div>
         </div>        <div className="border-t border-secondary/30 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} RSVP App. All rights reserved.
+            © {new Date().getFullYear()} {APP_CONFIG.APP_NAME}. All rights reserved.
           </p>
           <div className="flex gap-4 text-sm text-muted-foreground">
             <Link href="/privacy" className="hover:text-foreground">

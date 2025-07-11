@@ -146,3 +146,24 @@ export const customUserPermissionsRelations = relations(customUserPermissions, (
     references: [permissions.id],
   }),
 }));
+
+/**
+ * Define relations for the permission groups table
+ */
+export const permissionGroupsRelations = relations(permissionGroups, ({ many }) => ({
+  groupItems: many(permissionGroupItems),
+}));
+
+/**
+ * Define relations for the permission group items table
+ */
+export const permissionGroupItemsRelations = relations(permissionGroupItems, ({ one }) => ({
+  group: one(permissionGroups, {
+    fields: [permissionGroupItems.groupId],
+    references: [permissionGroups.id],
+  }),
+  permission: one(permissions, {
+    fields: [permissionGroupItems.permissionId],
+    references: [permissions.id],
+  }),
+}));

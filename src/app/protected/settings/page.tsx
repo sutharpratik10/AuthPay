@@ -7,79 +7,165 @@ import { Switch } from "@/components/ui/switch"
 import { Bell, Shield, Palette, Globe, Check } from "lucide-react"
 import { useTheme } from "next-themes"
 
+interface Language {
+  id: number
+  name: string
+  code: string
+  nativeName: string
+}
+
+interface Timezone {
+  id: number
+  name: string
+  code: string
+  utcOffset: string
+  description: string
+}
+
+interface UserPreferences {
+  emailNotifications: boolean
+  securityAlerts: boolean
+  productUpdates: boolean
+  profileVisibility: boolean
+  languageId: number | null
+  timezoneId: number | null
+  theme: string
+  language?: Language | null
+  timezone?: Timezone | null
+}
+
 export default function SettingsPage() {
-  const { setTheme } = useTheme()
+  const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingData, setIsLoadingData] = useState(true)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
-  const [preferences, setPreferences] = useState({
+  const [languages, setLanguages] = useState<Language[]>([])
+  const [timezones, setTimezones] = useState<Timezone[]>([])
+  const [preferences, setPreferences] = useState<UserPreferences>({
     emailNotifications: true,
     securityAlerts: true,
     productUpdates: false,
     profileVisibility: true,
-    language: 'en-US',
-    timezone: 'UTC-8',
+    languageId: null,
+    timezoneId: null,
     theme: 'system'
-  })
+  })  // Load data - languages, timezones, and user preferences
   useEffect(() => {
-    setMounted(true)
-    // Load user preferences when component mounts
-    loadUserPreferences()
-  }, [])
-  const loadUserPreferences = async () => {
-    try {
-      const response = await fetch('/api/user/preferences')
-      if (response.ok) {
-        const data = await response.json()
-        setPreferences(data)
-        // Sync theme with next-themes
-        if (data.theme) {
-          setTheme(data.theme)
+    let isMounted = true;
+    
+    const loadData = async () => {
+      setIsLoadingData(true)
+      try {
+        // Load languages and timezones in parallel
+        const [languagesResponse, timezonesResponse, preferencesResponse] = await Promise.all([
+          fetch('/api/languages'),
+          fetch('/api/timezones'),
+          fetch('/api/user/preferences')
+        ])
+
+        if (isMounted) {
+          // Load languages
+          if (languagesResponse.ok) {
+            const languagesData = await languagesResponse.json()
+            setLanguages(languagesData)
+          }
+
+          // Load timezones
+          if (timezonesResponse.ok) {
+            const timezonesData = await timezonesResponse.json()
+            setTimezones(timezonesData)
+          }          // Load user preferences
+          if (preferencesResponse.ok) {
+            const preferencesData = await preferencesResponse.json()
+            console.log('Loaded preferences data:', preferencesData)
+            setPreferences(preferencesData)
+            // Only set theme from loaded preferences if it's different from current theme
+            if (preferencesData.theme && preferencesData.theme !== theme) {
+              setTheme(preferencesData.theme)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load data:', error)
+        if (isMounted) {
+          setMessage({ type: 'error', text: 'Failed to load settings data' })
+        }
+      } finally {        if (isMounted) {
+          setIsLoadingData(false)
         }
       }
-    } catch (error) {
-      console.error('Failed to load user preferences:', error)
     }
-  }
 
+    setMounted(true)
+    loadData()
+
+    return () => {
+      isMounted = false;
+    }
+  }, [setTheme, theme])
   const handleSaveSettings = async () => {
     setIsLoading(true)
     setMessage(null)
 
     try {
+      // Prepare data with languageId and timezoneId
+      const dataToSave = {
+        emailNotifications: preferences.emailNotifications,
+        securityAlerts: preferences.securityAlerts,
+        productUpdates: preferences.productUpdates,
+        profileVisibility: preferences.profileVisibility,
+        languageId: preferences.languageId,
+        timezoneId: preferences.timezoneId,
+        theme: preferences.theme
+      }
+
+      console.log('Saving preferences data:', dataToSave)
+
       const response = await fetch('/api/user/preferences', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(preferences),
+        body: JSON.stringify(dataToSave),
       })
 
       if (response.ok) {
         const data = await response.json()
+        
+        // Apply theme change after successful save
+        if (preferences.theme !== theme) {
+          setTheme(preferences.theme)
+        }
+        
         setMessage({ type: 'success', text: data.message || 'Settings saved successfully!' })
       } else {
         const errorData = await response.json()
         setMessage({ type: 'error', text: errorData.error || 'Failed to save settings.' })
-      }
-    } catch (error) {
+      }    } catch (error) {
       console.error('Error saving preferences:', error)
       setMessage({ type: 'error', text: 'Failed to save settings. Please try again.' })
     } finally {
       setIsLoading(false)
     }
   }
-  const updatePreference = (key: string, value: boolean | string) => {
+
+  const updatePreference = (key: keyof UserPreferences, value: boolean | string | number | null) => {
+    // Update local state only - don't change theme immediately
     setPreferences(prev => ({ ...prev, [key]: value }))
-    
-    // Sync theme changes immediately with next-themes
-    if (key === 'theme') {
-      setTheme(value as string)
-    }
   }
 
-  if (!mounted) {
-    return null
+  if (!mounted || isLoadingData) {
+    return (
+      <div className="container mx-auto py-8 px-4 max-w-4xl">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+            <p className="text-muted-foreground">Loading settings...</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -111,8 +197,7 @@ export default function SettingsPage() {
             <Palette className="w-5 h-5 mr-2" />
             Appearance
           </h2>
-          <div className="space-y-4">
-            <div>
+          <div className="space-y-4">            <div>
               <label className="text-sm font-medium">Theme</label>              <div className="flex space-x-2 mt-2">
                 <Button 
                   variant={preferences.theme === "light" ? "default" : "outline"} 
@@ -136,6 +221,9 @@ export default function SettingsPage() {
                   System
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Active theme: {theme} | Saved preference: {preferences.theme}
+              </p>
             </div>
           </div>
         </div>
@@ -146,7 +234,8 @@ export default function SettingsPage() {
             <Bell className="w-5 h-5 mr-2" />
             Notifications
           </h2>
-          <div className="space-y-4">            <div className="flex items-center justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
               <div>
                 <label htmlFor="email-notifications" className="text-sm font-medium">Email Notifications</label>
                 <p className="text-xs text-muted-foreground">Receive notifications via email</p>
@@ -156,7 +245,9 @@ export default function SettingsPage() {
                 checked={preferences.emailNotifications}
                 onCheckedChange={(checked) => updatePreference('emailNotifications', checked)}
               />
-            </div>              <div className="flex items-center justify-between">
+            </div>
+            
+            <div className="flex items-center justify-between">
               <div>
                 <label htmlFor="security-alerts" className="text-sm font-medium">Security Alerts</label>
                 <p className="text-xs text-muted-foreground">Get notified about security events</p>
@@ -166,7 +257,9 @@ export default function SettingsPage() {
                 checked={preferences.securityAlerts}
                 onCheckedChange={(checked) => updatePreference('securityAlerts', checked)}
               />
-            </div>              <div className="flex items-center justify-between">
+            </div>
+            
+            <div className="flex items-center justify-between">
               <div>
                 <label htmlFor="product-updates" className="text-sm font-medium">Product Updates</label>
                 <p className="text-xs text-muted-foreground">Receive updates about new features</p>
@@ -186,7 +279,8 @@ export default function SettingsPage() {
             <Shield className="w-5 h-5 mr-2" />
             Privacy & Security
           </h2>
-          <div className="space-y-4">            <div className="flex items-center justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
               <div>
                 <label htmlFor="profile-visibility" className="text-sm font-medium">Profile Visibility</label>
                 <p className="text-xs text-muted-foreground">Make your profile visible to others</p>
@@ -218,43 +312,47 @@ export default function SettingsPage() {
               </Button>
             </div>
           </div>
-        </div>
-
-        {/* Language & Region */}
+        </div>        {/* Language & Region */}
         <div className="border rounded-lg p-6 bg-card">
           <h2 className="flex items-center text-lg font-semibold mb-4">
             <Globe className="w-5 h-5 mr-2" />
             Language & Region
           </h2>
           <div className="space-y-4">            <div>
-              <label htmlFor="language-select" className="text-sm font-medium">Language</label>
-              <div className="mt-1">
-                <Select
-                  value={preferences.language}
-                  onValueChange={(value) => updatePreference('language', value)}
-                  options={[
-                    { value: "en-US", label: "English (US)" },
-                    { value: "en-GB", label: "English (UK)" },
-                    { value: "es", label: "Spanish" },
-                    { value: "fr", label: "French" },
-                    { value: "de", label: "German" }
-                  ]}
-                />
+              <label htmlFor="language-select" className="text-sm font-medium">Language</label>              <div className="mt-1">
+                {languages.length > 0 ? (
+                  <Select
+                    value={preferences.languageId?.toString() || ''}
+                    onValueChange={(value) => updatePreference('languageId', value || null)}
+                    placeholder="Select Language"
+                    options={languages.map(lang => ({
+                      value: lang.id.toString(),
+                      label: `${lang.name} (${lang.nativeName})`
+                    }))}
+                  />
+                ) : (
+                  <div className="text-sm text-muted-foreground">Loading languages...</div>
+                )}
               </div>
+              
+              
             </div>
               <div>
-              <label htmlFor="timezone-select" className="text-sm font-medium">Timezone</label>
+              <label htmlFor="timezone-select" className="text-sm font-medium">Timezone</label>              
               <div className="mt-1">
-                <Select
-                  value={preferences.timezone}
-                  onValueChange={(value) => updatePreference('timezone', value)}
-                  options={[
-                    { value: "UTC-8", label: "UTC-8 (Pacific Time)" },
-                    { value: "UTC-5", label: "UTC-5 (Eastern Time)" },
-                    { value: "UTC+0", label: "UTC+0 (Greenwich Mean Time)" },
-                    { value: "UTC+1", label: "UTC+1 (Central European Time)" }
-                  ]}
-                />
+                {timezones.length > 0 ? (
+                  <Select
+                    value={preferences.timezoneId?.toString() || ''}
+                    onValueChange={(value) => updatePreference('timezoneId', value || null)}
+                    placeholder="Select Timezone"
+                    options={timezones.map(tz => ({
+                      value: tz.id.toString(),
+                      label: `${tz.description} (${tz.utcOffset})`
+                    }))}
+                  />
+                ) : (
+                  <div className="text-sm text-muted-foreground">Loading timezones...</div>
+                )}
               </div>
             </div>
           </div>
