@@ -9,10 +9,17 @@ export default function VerifyPage() {
   const { isAuthenticated, isEmailVerified, loading } = useAuth()
   const router = useRouter()
   
-  // Redirect if user is already verified
+  // Redirect if user is already verified or not authenticated
   useEffect(() => {
-    if (!loading && isAuthenticated && isEmailVerified) {
-      router.push("/protected/dashboard")
+    if (!loading) {
+      if (!isAuthenticated) {
+        router.push("/auth/login")
+        return
+      }
+      if (isEmailVerified) {
+        router.push("/protected/dashboard")
+        return
+      }
     }
   }, [isAuthenticated, isEmailVerified, loading, router])
 

@@ -21,7 +21,7 @@ export interface AuthRouteProps {
 export function AuthRoute({ 
   children, 
   redirectIfAuthenticated = true,
-  redirectPath = ROUTES.PROTECTED.DASHBOARD
+  redirectPath = ROUTES.PROTECTED.DASHBOARD,
 }: AuthRouteProps) {
   const { isAuthenticated, isEmailVerified, loading } = useAuth()
   const router = useRouter()
@@ -43,9 +43,14 @@ export function AuthRoute({
         router.push(redirectPath)
         return
       }
-      
+      // // Prevent unauthenticated users from accessing /auth/verify
+      // if (!isAuthenticated && pathname === '/auth/verify') {
+      //   console.log('[AUTH_ROUTE] Redirecting unauthenticated user from verify page to login')
+      //   router.push('/auth/login')
+      //   return
+      // }
       // For unverified users on other auth pages, redirect to verify
-      if (!isEmailVerified && pathname !== '/auth/verify') {
+      if (isAuthenticated && !isEmailVerified) {
         console.log('[AUTH_ROUTE] Redirecting unverified user to verify')
         router.push('/auth/verify')
         return

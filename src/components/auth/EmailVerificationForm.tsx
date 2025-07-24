@@ -17,7 +17,7 @@ interface EmailVerificationFormProps {
 }
 
 export default function EmailVerificationForm({ 
-  requiresAuth = false,
+  requiresAuth = true,
   title = "Verify Your Email",
   description
 }: EmailVerificationFormProps) {
@@ -225,22 +225,7 @@ export default function EmailVerificationForm({
           </div>
           
           <div className="space-y-3">
-            {/* Email input for non-authenticated users */}
-            {!requiresAuth && (
-              <div className="space-y-2">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Your Email
-                </label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  className="w-full"
-                />
-              </div>
-            )}
+            // ...existing code...
 
             <Button
               variant="outline"

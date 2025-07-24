@@ -5,7 +5,10 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 // Parse DATABASE_URL for credentials
-const databaseUrl = new URL(process.env.DATABASE_URL || 'postgres://localhost:5432/rsvp');
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is not set.');
+}
+const databaseUrl = new URL(process.env.DATABASE_URL);
 
 // Drizzle configuration
 export default {
