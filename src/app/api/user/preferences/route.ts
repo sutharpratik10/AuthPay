@@ -103,6 +103,10 @@ export async function POST(request: NextRequest) {
       additionalSettings
     } = body;
 
+    // Ensure languageId and timezoneId are valid UUIDs or null
+    const validLanguageId = typeof languageId === 'string' && languageId.match(/^([0-9a-fA-F-]{36})$/) ? languageId : null;
+    const validTimezoneId = typeof timezoneId === 'string' && timezoneId.match(/^([0-9a-fA-F-]{36})$/) ? timezoneId : null;
+
     // Check if preferences already exist
     const existingPreferences = await db
       .select()
@@ -120,8 +124,8 @@ export async function POST(request: NextRequest) {
           securityAlerts,
           productUpdates,
           profileVisibility,
-          languageId,
-          timezoneId,
+          languageId: validLanguageId,
+          timezoneId: validTimezoneId,
           theme,
           additionalSettings,
           updatedAt: new Date()
@@ -142,8 +146,8 @@ export async function POST(request: NextRequest) {
           securityAlerts,
           productUpdates,
           profileVisibility,
-          languageId,
-          timezoneId,
+          languageId: validLanguageId,
+          timezoneId: validTimezoneId,
           theme,
           additionalSettings,
           updatedAt: new Date()

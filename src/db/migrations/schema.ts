@@ -1,7 +1,4 @@
 import { pgTable, uuid, varchar, text, boolean, jsonb, timestamp, integer, foreignKey, unique, primaryKey } from "drizzle-orm/pg-core"
-import { sql } from "drizzle-orm"
-
-
 
 export const adminNotifications = pgTable("admin_notifications", {
 	id: uuid().defaultRandom().primaryKey().notNull(),

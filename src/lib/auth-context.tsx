@@ -13,6 +13,7 @@ interface ExtendedUser {
   name?: string | null;
   image?: string | null;
   isEmailVerified?: boolean;
+  role?: string; // Add role property
 }
 
 // Extended session interface
