@@ -100,9 +100,11 @@ export function Navigationbar() {
     };
   }, [isMenuOpen]);  // Get navigation items from the new configuration
   const navItems = APP_CONFIG.NAVIGATION.MAIN;
-    // Add Dashboard link for authenticated users
-  const navigationItems: readonly NavigationItem[] = isAuthenticated 
-    ? [{ title: "Dashboard", href: ROUTES.PROTECTED.DASHBOARD }, ...navItems]
+    // Add Dashboard link for authenticated users, but only once and not if already present in navItems
+  const dashboardLink = { title: "Dashboard", href: ROUTES.PROTECTED.DASHBOARD };
+  const navItemsHasDashboard = navItems.some(item => item.title === "Dashboard" && item.href === ROUTES.PROTECTED.DASHBOARD);
+  const navigationItems: readonly NavigationItem[] = isAuthenticated && !navItemsHasDashboard
+    ? [dashboardLink, ...navItems]
     : navItems;
 
   // Type guard functions

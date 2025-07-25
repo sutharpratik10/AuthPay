@@ -52,7 +52,16 @@ export default function DashboardPage() {
     const fetchData = async () => {
       await new Promise(resolve => setTimeout(resolve, 1000))
       setEvents(mockEvents)
-      setUserName("John Doe")
+      // Parse the name of the logged in user from localStorage or fallback
+      const storedName = localStorage.getItem("userName")
+      // Simulate fetching user name from database
+      const fetchUserNameFromDB = async () => {
+        // Replace this with actual API/database call
+        await new Promise(resolve => setTimeout(resolve, 500))
+        return "Pratik" // Example fetched name
+      }
+      const nameFromDB = await fetchUserNameFromDB()
+      setUserName(nameFromDB || (storedName ? storedName : "User"))
       setIsLoading(false)
     }
     
@@ -60,20 +69,21 @@ export default function DashboardPage() {
   }, [])
   
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+
+    <div className="w-full max-w-full px-2 sm:px-4 py-6 mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">
             Welcome back, {userName}! Here&#39;s an overview of your events.
           </p>
         </div>
-        <Button>
+        <Button className="w-full sm:w-auto">
           Create New Event
         </Button>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mt-6">
         <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
           <div className="flex flex-col space-y-1.5">
             <h3 className="text-lg font-semibold">Total Events</h3>
@@ -106,7 +116,7 @@ export default function DashboardPage() {
         </div>
       </div>
       
-      <div className="rounded-lg border">
+      <div className="rounded-lg border mt-6 overflow-x-auto">
         <div className="p-4 border-b">
           <h2 className="text-lg font-semibold">Your Events</h2>
         </div>
@@ -117,25 +127,25 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="w-full">
+            <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b bg-secondary/20">
-                  <th className="text-left p-4 font-medium">Event Name</th>
-                  <th className="text-left p-4 font-medium">Date</th>
-                  <th className="text-left p-4 font-medium">Attendees</th>
-                  <th className="text-left p-4 font-medium">Status</th>
-                  <th className="text-left p-4 font-medium">Actions</th>
+                  <th className="text-left p-3 font-medium">Event Name</th>
+                  <th className="text-left p-3 font-medium">Date</th>
+                  <th className="text-left p-3 font-medium">Attendees</th>
+                  <th className="text-left p-3 font-medium">Status</th>
+                  <th className="text-left p-3 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {events.map(event => (
                   <tr key={event.id} className="border-b">
-                    <td className="p-4">{event.title}</td>
-                    <td className="p-4">{new Date(event.date).toLocaleDateString()}</td>
-                    <td className="p-4">{event.attendees}</td>
-                    <td className="p-4">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    <td className="sm:p-0 sm:pl-1">{event.title}</td>
+                    <td className="sm:p-0 sm:pl-1">{new Date(event.date).toLocaleDateString()}</td>
+                    <td className="sm:p-0 sm:pl-1">{event.attendees}</td>
+                    <td className="sm:p-0 sm:pl-1">
+                      <span className={`inline-flex items-center rounded-full sm:p-0.5 p-2 text-xs font-semibold ${
                         event.status === 'upcoming'
                           ? 'bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                           : event.status === 'active'
