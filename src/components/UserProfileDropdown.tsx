@@ -1,5 +1,4 @@
 "use client"
-
 import * as React from "react"
 import Link from "next/link"
 import { User, Settings, UserCircle, LogOut } from "lucide-react"
@@ -24,6 +23,7 @@ export function UserProfileDropdown({ className }: UserProfileDropdownProps) {
   const handleLogout = () => {
     logout()
   }
+
   const getInitials = (name?: string | null) => {
     if (!name) return "U"
     return name.charAt(0).toUpperCase()
@@ -36,7 +36,8 @@ export function UserProfileDropdown({ className }: UserProfileDropdownProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className={`relative flex items-center space-x-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-ring ${className}`}>          <Avatar
+        <button className={`relative flex items-center space-x-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-ring ${className}`}>
+          <Avatar
             src={user?.image || undefined}
             fallback={getInitials(user?.name || user?.email)}
             size="md"
@@ -47,43 +48,57 @@ export function UserProfileDropdown({ className }: UserProfileDropdownProps) {
           </span>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="w-56 bg-background border border-border shadow-lg rounded-md p-2">
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{getDisplayName()}</p>
+            <p className="text-sm font-medium leading-none text-foreground">{getDisplayName()}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {user?.email}
             </p>
             {isEmailVerified && (
-              <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full w-fit">
+              <span className="text-xs bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200 px-2 py-1 rounded-full w-fit">
                 Verified
               </span>
             )}
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />        <DropdownMenuItem asChild>
-          <Link href="/protected/profile" className="cursor-pointer">
+        <DropdownMenuSeparator className="bg-border" />
+        
+        <DropdownMenuItem 
+          asChild
+          className="cursor-pointer focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          <Link href="/protected/profile">
             <UserCircle className="mr-2 h-4 w-4" />
             <span>Profile</span>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/protected/account" className="cursor-pointer">
+        
+        <DropdownMenuItem 
+          asChild
+          className="cursor-pointer focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          <Link href="/protected/account">
             <User className="mr-2 h-4 w-4" />
             <span>Account</span>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/protected/settings" className="cursor-pointer">
+        
+        <DropdownMenuItem 
+          asChild
+          className="cursor-pointer focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          <Link href="/protected/settings">
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
+        
+        <DropdownMenuSeparator className="bg-border" />
+        
         <DropdownMenuItem
           onClick={handleLogout}
-          className="cursor-pointer text-red-600 dark:text-red-400"
-        >
+          className="cursor-pointer text-red-600 dark:text-red-400 focus:bg-red-100 dark:focus:bg-red-800 hover:bg-red-100 dark:hover:bg-red-100 focus:text-red-600 dark:focus:text-red-400">
           <LogOut className="mr-2 h-4 w-4" />
           <span>Logout</span>
         </DropdownMenuItem>

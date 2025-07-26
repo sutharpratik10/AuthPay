@@ -1,16 +1,13 @@
 "use client"
-
 import * as React from "react"
 import Link from "next/link"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-
 import { cn } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/constants"
 import { getAppName } from "@/lib/config"
 import type { NavigationItem, NavigationSubItem } from "@/lib/constants" 
-import { Menu, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Menu, X, ChevronRight, User, Settings, LogOut, Shield } from "lucide-react"
 import { useAuth } from "@/lib"
 import { ROUTES } from "@/routes/routeUtils"
 import {
@@ -98,9 +95,12 @@ export function Navigationbar() {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isMenuOpen]);  // Get navigation items from the new configuration
+  }, [isMenuOpen]);
+
+  // Get navigation items from the new configuration
   const navItems = APP_CONFIG.NAVIGATION.MAIN;
-    // Add Dashboard link for authenticated users, but only once and not if already present in navItems
+  
+  // Add Dashboard link for authenticated users, but only once and not if already present in navItems
   const dashboardLink = { title: "Dashboard", href: ROUTES.PROTECTED.DASHBOARD };
   const navItemsHasDashboard = navItems.some(item => item.title === "Dashboard" && item.href === ROUTES.PROTECTED.DASHBOARD);
   const navigationItems: readonly NavigationItem[] = isAuthenticated && !navItemsHasDashboard
@@ -117,18 +117,24 @@ export function Navigationbar() {
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-background/80 shadow-sm">
-      <div className="flex items-center justify-between h-16 px-4 border-b border-border/40">        
-        {/* Logo on the left */}          <div className="flex items-center">
+    <div className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-neutral-800 border-b border-border/40">
+      <div className="flex items-center justify-between h-16 px-4">        
+        {/* Logo on the left */}          
+        <div className="flex items-center">
           <Link href={ROUTES.PUBLIC.HOME}>
             <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">{getAppName().charAt(0)}</span>
+              </div>
               <span className="font-semibold text-lg">{getAppName()}</span>
             </div>
           </Link>
         </div>
-          {/* Desktop Navigation in the middle - hidden on mobile */}
+
+        {/* Desktop Navigation in the middle - hidden on mobile */}
         <NavigationMenu className="mx-auto hidden md:flex">
-          <NavigationMenuList>            {navigationItems.map((item, index) => (
+          <NavigationMenuList>
+            {navigationItems.map((item, index) => (
               hasHref(item) ? (
                 // Direct link, no dropdown
                 <NavigationMenuItem key={index}>
@@ -162,7 +168,8 @@ export function Navigationbar() {
         </NavigationMenu>
         
         {/* Right side with theme toggle and mobile menu button */}
-        <div className="flex items-center gap-2">          {/* Auth links on desktop */}
+        <div className="flex items-center gap-2">
+          {/* Auth links on desktop */}
           <div className="hidden md:block">
             {!loading && !isAuthenticated ? (
               <div className="flex items-center space-x-4">
@@ -178,7 +185,8 @@ export function Navigationbar() {
                 >
                   Sign Up
                 </Link>
-              </div>            ) : !loading && isAuthenticated ? (
+              </div>
+            ) : !loading && isAuthenticated ? (
               <UserProfileDropdown />
             ) : null}
           </div>
@@ -189,166 +197,206 @@ export function Navigationbar() {
           {/* Mobile menu button - only visible on mobile */}
           <button
             onClick={toggleMenu}
-            className="md:hidden p-2 rounded-md hover:bg-accent focus:outline-none focus:ring-2 focus:ring-accent"
+            className="md:hidden relative p-2 rounded-xl hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-200"
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           >
-            {isMenuOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
+            <div className="relative w-5 h-5">
+              <span className={`absolute inset-0 transition-all duration-300 ${isMenuOpen ? 'rotate-45 opacity-0' : 'rotate-0 opacity-100'}`}>
+                <Menu className="h-5 w-5" />
+              </span>
+              <span className={`absolute inset-0 transition-all duration-300 ${isMenuOpen ? 'rotate-0 opacity-100' : '-rotate-45 opacity-0'}`}>
+                <X className="h-5 w-5" />
+              </span>
+            </div>
           </button>
         </div>
       </div>
       
       {/* Mobile menu - Only show when menu is open */}
       <>
-        {/* Overlay background */}
+        {/* Overlay background with blur effect */}
         <div 
-          className={`fixed inset-0 bg-background/70 backdrop-blur-md z-50 md:hidden transition-all duration-300 ease-in-out ${isMenuOpen ? 'opacity-100 backdrop-blur-md' : 'opacity-0 pointer-events-none'}`}
+          className={`fixed inset-0 bg-black/20 backdrop-blur-lg z-50 md:hidden transition-all duration-300 ease-out ${
+            isMenuOpen ? 'opacity-100 backdrop-blur-sm' : 'opacity-0 pointer-events-none backdrop-blur-none'
+          }`}
           onClick={closeMenu}
           aria-hidden="true"
-        />        {/* Mobile menu sidebar */}
+        />
+
+        {/* Mobile menu sidebar */}
         <div 
           ref={sidebarRef}
-          className={`fixed inset-y-0 right-0 z-[60] w-64 bg-white dark:bg-zinc-900 text-gray-900 dark:text-white shadow-xl md:hidden h-screen flex flex-col overflow-x-hidden transition-transform duration-300 ease-in-out ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
-        >          {/* Menu header */}
-          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-zinc-800">            <Link href={ROUTES.PUBLIC.HOME} className="flex items-center space-x-2" onClick={closeMenu}>
-              <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">
+          className={`fixed inset-y-0 right-0 z-[60] w-80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-2xl md:hidden h-screen flex flex-col overflow-hidden transition-all duration-300 ease-out border-l border-border/20 ${
+            isMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          {/* Menu header with improved styling */}
+          <div className="flex items-center justify-between h-16 px-6 border-b border-border/20 bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:from-blue-950/30 dark:to-purple-950/30">
+            <Link href={ROUTES.PUBLIC.HOME} className="flex items-center space-x-3" onClick={closeMenu}>
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">{getAppName().charAt(0)}</span>
+              </div>
+              <h2 className="text-lg font-semibold tracking-tight">
                 {getAppName()}
               </h2>
             </Link>
             <button
               onClick={closeMenu}
-              className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-900 dark:text-white"
+              className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200"
               aria-label="Close menu"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
-            {/* Menu items with accordion dropdowns */}
-          <div className="py-4 flex-1 overflow-y-auto overflow-x-hidden">
-            <Accordion type="single" collapsible className="w-full">              {navigationItems.map((item, index) => 
-                hasHref(item) ? (
-                  <div key={index} className="mb-1 px-4">
-                    <Link 
-                      href={item.href}
-                      className="block py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md px-3"
-                      onClick={closeMenu}
-                    >
-                      {item.title}
-                    </Link>
+
+          {/* User profile section for authenticated users */}
+          {!loading && isAuthenticated && (
+            <div className="px-6 py-4 bg-gradient-to-r from-blue-50/30 to-purple-50/30 dark:from-blue-950/20 dark:to-purple-950/20 border-b border-border/20">
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-lg shadow-lg">
+                    {(user?.name || user?.email)?.charAt(0).toUpperCase()}
                   </div>
+                  {isEmailVerified && (
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                      <Shield className="w-2.5 h-2.5 text-white" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold truncate">
+                    {user?.name || user?.email?.split("@")[0] || "User"}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {user?.email}
+                  </div>
+                  <div className="mt-1">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      isEmailVerified 
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    }`}>
+                      {isEmailVerified ? 'Verified' : 'Pending'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Menu items with modern accordion styling */}
+          <div className="flex-1 overflow-y-auto py-2">
+            <div className="px-3 space-y-1">
+              {navigationItems.map((item, index) => 
+                hasHref(item) ? (
+                  <Link 
+                    key={index}
+                    href={item.href}
+                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
+                    onClick={closeMenu}
+                  >
+                    <span>{item.title}</span>
+                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                  </Link>
                 ) : (
-                  <AccordionItem key={index} value={`item-${index}`} className="border-none">
-                    <AccordionTrigger className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-all duration-300 ease-in-out">
-                      {item.title}
-                    </AccordionTrigger>
-                    <AccordionContent className="pt-1 pb-2">
-                      <div className="space-y-1">
-                        {hasItems(item) && item.items.map((subItem: NavigationSubItem, subIndex: number) => (
-                          <Link 
-                            key={`${index}-${subIndex}`}
-                            href={subItem.href} 
-                            className="flex items-center pl-8 pr-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md mx-4 transition-all duration-300 ease-in-out hover:translate-x-[5px]"
-                            onClick={closeMenu}
-                          >
-                            <span>{subItem.title}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
+                  <Accordion key={index} type="single" collapsible className="w-full">
+                    <AccordionItem value={`item-${index}`} className="border-none">
+                      <AccordionTrigger className="px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 hover:no-underline [&[data-state=open]>svg]:rotate-90">
+                        {item.title}
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-1 pb-2">
+                        <div className="space-y-1 ml-4">
+                          {hasItems(item) && item.items.map((subItem: NavigationSubItem, subIndex: number) => (
+                            <Link 
+                              key={`${index}-${subIndex}`}
+                              href={subItem.href} 
+                              className="flex items-center justify-between px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent/30 transition-all duration-200 group"
+                              onClick={closeMenu}
+                            >
+                              <span>{subItem.title}</span>
+                              <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                            </Link>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 )
               )}
-            </Accordion>            {/* Authentication Links */}
-            <div className="pt-4 mt-4 border-t border-gray-200 dark:border-zinc-800 px-4">
-              <div className="flex flex-col space-y-2">
-                {!loading && !isAuthenticated ? (
-                  <>
-                    <Link 
-                      href={ROUTES.AUTH.LOGIN} 
-                      onClick={closeMenu}
-                      className="block py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md px-3"
-                    >
-                      Login
-                    </Link>
-                    <Link 
-                      href={ROUTES.AUTH.SIGNUP} 
-                      onClick={closeMenu}
-                      className="block py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md px-3"
-                    >
-                      Sign Up
-                    </Link>
-                  </>                ) : !loading && isAuthenticated ? (
-                  <>
-                    {/* User profile section */}
-                    <div className="px-3 py-3 border border-gray-200 dark:border-zinc-700 rounded-md">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-medium">
-                            {(user?.name || user?.email)?.charAt(0).toUpperCase()}
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {user?.name || user?.email?.split("@")[0] || "User"}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {user?.email}
-                          </div>
-                          <div className="mt-1">
-                            {isEmailVerified ? (
-                              <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full">
-                                Verified
-                              </span>
-                            ) : (
-                              <span className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-2 py-1 rounded-full">
-                                Pending
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+            </div>
+
+            {/* Authentication and user actions */}
+            <div className="px-3 mt-6 pt-4 border-t border-border/20">
+              {!loading && !isAuthenticated ? (
+                <div className="space-y-2">
+                  <Link 
+                    href={ROUTES.AUTH.LOGIN} 
+                    onClick={closeMenu}
+                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
+                  >
+                    <span>Login</span>
+                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                  </Link>
+                  <Link 
+                    href={ROUTES.AUTH.SIGNUP} 
+                    onClick={closeMenu}
+                    className="flex items-center justify-center px-4 py-3 text-sm font-medium bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg"
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              ) : !loading && isAuthenticated ? (
+                <div className="space-y-2">
+                  <Link 
+                    href="/profile" 
+                    onClick={closeMenu}
+                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <User className="w-4 h-4" />
+                      <span>Profile</span>
                     </div>
-                    <Link 
-                      href="/profile" 
-                      onClick={closeMenu}
-                      className="block py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md px-3"
-                    >
-                      Profile
-                    </Link>
-                    <Link 
-                      href="/account" 
-                      onClick={closeMenu}
-                      className="block py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md px-3"
-                    >
-                      Account
-                    </Link>
-                    <Link 
-                      href="/settings" 
-                      onClick={closeMenu}
-                      className="block py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md px-3"
-                    >
-                      Settings
-                    </Link>
-                    <Link 
-                      href={ROUTES.PROTECTED.DASHBOARD} 
-                      onClick={closeMenu}
-                      className="block py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md px-3"
-                    >
-                      Dashboard
-                    </Link>
-                    <Button 
-                      variant="ghost" 
-                      className="justify-start w-full py-2 h-auto font-medium text-gray-900 dark:text-white text-left rounded-md hover:bg-gray-100 dark:hover:bg-zinc-800"
-                      onClick={handleLogout}
-                    >
-                      Logout
-                    </Button>
-                  </>
-                ) : null}
-              </div>
+                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                  </Link>
+                  
+                  <Link 
+                    href="/settings" 
+                    onClick={closeMenu}
+                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Settings className="w-4 h-4" />
+                      <span>Settings</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                  </Link>
+                  
+                  <Link 
+                    href={ROUTES.PROTECTED.DASHBOARD} 
+                    onClick={closeMenu}
+                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
+                  >
+                    <span>Dashboard</span>
+                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                  </Link>
+                  
+                  <button 
+                    className="flex items-center space-x-3 w-full px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Footer with theme toggle */}
+          <div className="px-6 py-4 border-t border-border/20 bg-gradient-to-r from-blue-50/30 to-purple-50/30 dark:from-blue-950/20 dark:to-purple-950/20">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Theme</span>
+              <ModeToggle />
             </div>
           </div>
         </div>
