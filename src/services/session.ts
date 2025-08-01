@@ -2,6 +2,8 @@ import { db } from '@/db';
 import { sessions, users } from '@/db/schema';
 import { eq, and, gte, lt } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { LocationService } from './location';
+import { emailService } from './email';
 
 interface CreateSessionOptions {
   userId: string;
@@ -74,10 +76,84 @@ export class SessionService {
         return newSession[0];
       });
 
+      // Send security alert email asynchronously (don't block session creation)
+      this.sendSecurityAlertEmail(userId, userAgent, ipAddress).catch(error => {
+        console.error('Failed to send security alert email:', error);
+        // Don't throw error - session creation should succeed even if email fails
+      });
+
       return result;
     } catch (error) {
       console.error('Error creating session:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Send security alert email if user has security alerts enabled
+   */
+  private static async sendSecurityAlertEmail(userId: string, userAgent?: string, ipAddress?: string) {
+    try {
+      // Get user data and preferences
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: {
+          id: true,
+          email: true,
+          name: true
+        },
+        with: {
+          userPreferences: {
+            columns: {
+              securityAlerts: true
+            }
+          }
+        }
+      });
+
+      if (!user) {
+        console.warn('User not found for security alert:', userId);
+        return;
+      }
+
+      // Check if user has security alerts enabled (defaults to true if no preferences set)
+      const securityAlertsEnabled = user.userPreferences?.securityAlerts !== false;
+      
+      if (!securityAlertsEnabled) {
+        console.log('Security alerts disabled for user:', user.email);
+        return;
+      }
+
+      // Get location and browser information
+      const locationData = ipAddress ? await LocationService.getLocationFromIP(ipAddress) : null;
+      const browserInfo = userAgent ? LocationService.parseBrowserInfo(userAgent) : {
+        browser: 'Unknown Browser',
+        os: 'Unknown OS',
+        device: 'Unknown Device'
+      };
+
+      // Format location for email
+      const location = locationData 
+        ? LocationService.formatLocationForEmail(locationData, browserInfo)
+        : `Unknown Location (${browserInfo.browser} on ${browserInfo.os})`;
+
+      // Format device info for email
+      const deviceInfo = `${browserInfo.browser} on ${browserInfo.os} (${browserInfo.device})`;
+
+      // Send the security alert email
+      await emailService.sendSecurityAlertEmail(
+        user.email,
+        user.name || '',
+        new Date(),
+        location,
+        ipAddress || 'Unknown IP',
+        deviceInfo
+      );
+
+      console.log('Security alert email sent to:', user.email);
+    } catch (error) {
+      console.error('Error sending security alert email:', error);
+      // Don't throw - this is a background operation
     }
   }
 
@@ -155,16 +231,49 @@ export class SessionService {
   static async cleanupExpiredSessions() {
     try {
       const now = new Date();
-      const result = await db
+      
+      // First count how many will be deleted
+      const expiredSessions = await db
+        .select()
+        .from(sessions)
+        .where(
+          lt(sessions.expiresAt, now)
+        );
+      
+      const deletedCount = expiredSessions.length;
+      
+      // Delete expired sessions
+      await db
         .delete(sessions)
         .where(
           lt(sessions.expiresAt, now)
         );
       
-      console.log(`Cleaned up expired sessions`);
-      return result;
+      console.log(`Cleaned up ${deletedCount} expired sessions`);
+      return deletedCount;
     } catch (error) {
       console.error('Error cleaning up expired sessions:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Count expired sessions for cleanup reporting
+   */
+  static async countExpiredSessions() {
+    try {
+      const now = new Date();
+      const result = await db
+        .select()
+        .from(sessions)
+        .where(
+          lt(sessions.expiresAt, now)
+        );
+      
+      return result.length;
+    } catch (error) {
+      console.error('Error counting expired sessions:', error);
+      return 0;
     }
   }
 }

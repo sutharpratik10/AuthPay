@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { SessionService } from '@/services/session';
+import { getClientInfo } from '@/lib/client-info';
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,24 +9,22 @@ export async function POST(request: NextRequest) {
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get request information
-    const userAgent = request.headers.get('user-agent') || undefined;
-    const forwardedFor = request.headers.get('x-forwarded-for');
-    const realIP = request.headers.get('x-real-ip');
+    }    // Get request information with improved IP detection
+    const clientInfo = getClientInfo(request);
     
-    // Extract IP address (prioritize x-real-ip, then first IP from x-forwarded-for)
-    let ipAddress: string | undefined;
-    if (realIP) {
-      ipAddress = realIP;
-    } else if (forwardedFor) {
-      ipAddress = forwardedFor.split(',')[0].trim();
-    }    // Create session record
+    console.log('Client info for session creation:', {
+      userId: session.user.id,
+      email: session.user.email,
+      ipAddress: clientInfo.ipAddress,
+      userAgent: clientInfo.userAgent,
+      debug: clientInfo.debugInfo
+    });
+
+    // Create session record
     const sessionRecord = await SessionService.createSession({
       userId: session.user.id,
-      userAgent,
-      ipAddress,
+      userAgent: clientInfo.userAgent,
+      ipAddress: clientInfo.ipAddress,
     });
 
     return NextResponse.json({

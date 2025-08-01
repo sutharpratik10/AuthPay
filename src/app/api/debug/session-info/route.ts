@@ -1,6 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { SessionService } from '@/services/session';
+import { LocationService } from '@/services/location';
+import { emailService } from '@/services/email';
+import { getClientInfo } from '@/lib/client-info';
 
 export async function GET() {
   try {
@@ -8,10 +11,8 @@ export async function GET() {
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get user sessions with 2FA verification status
-    const sessions = await SessionService.getUserSessionsWithVerification(session.user.id);
+    }    // Get user active sessions
+    const sessions = await SessionService.getUserActiveSessions(session.user.id);
 
     return NextResponse.json({
       success: true,
@@ -25,7 +26,6 @@ export async function GET() {
         browserName: s.browserName,
         ipAddress: s.ipAddress,
         lastActiveAt: s.lastActiveAt,
-        is2faVerified: s.is2faVerified,
         createdAt: s.createdAt,
         expiresAt: s.expiresAt,
       }))
