@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AuthService } from '@/services/auth';
 import { auth, signOut } from '@/auth';
 import { db } from "@/db";
-import { tenants, tenantSettings } from "@/db/schema/tenants";
+import { tenants, tenantSettings } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { BaseRouteHandler, IRouteHandler } from './BaseRouteHandler';
 import { TenantRouteHandler } from './TenantRouteHandler';
@@ -398,13 +398,12 @@ class GetTenantRouteHandler extends TenantRouteHandler {
       if (!authCheck.authorized) {
         return this.createErrorResponse(authCheck.error || 'Unauthorized', 403);
       }
-      
-      // Get tenant data
+        // Get tenant data
       const tenant = await db.query.tenants.findFirst({
         where: eq(tenants.slug, tenantSlug),
         with: {
           settings: true,
-          plan: true,
+          subscriptionPlan: true,
         }
       });
       
@@ -482,11 +481,9 @@ class UpdateTenantRouteHandler extends TenantRouteHandler {
       // Update the tenant
       const [updatedTenant] = await db.update(tenants)
         .set({
-          name: body.name || existingTenant.name,
-          slug: body.slug || existingTenant.slug,
+          name: body.name || existingTenant.name,          slug: body.slug || existingTenant.slug,
           logoUrl: body.logoUrl !== undefined ? body.logoUrl : existingTenant.logoUrl,
-          primaryColor: body.primaryColor !== undefined ? body.primaryColor : existingTenant.primaryColor,
-          planId: body.planId || existingTenant.planId,
+          primaryColor: body.primaryColor !== undefined ? body.primaryColor : existingTenant.primaryColor,          planId: body.planId || existingTenant.planId,
           updatedAt: new Date()
         })
         .where(eq(tenants.id, existingTenant.id))
@@ -598,8 +595,7 @@ class TenantSettingsRouteHandler extends TenantRouteHandler {
             // Upsert the setting using Drizzle's proper PostgreSQL syntax
           const [setting] = await db
             .insert(tenantSettings)
-            .values({
-              tenantId: existingTenant.id,
+            .values({            tenantId: existingTenant.id,
               key: body.key,
               value: body.value,
               updatedAt: new Date() 
@@ -698,7 +694,7 @@ class TenantUsersRouteHandler extends TenantRouteHandler {
           }
           
           // Import the necessary schema
-          const { users, tenantUsers } = await import('@/db/schema/users');
+          const { users, tenantUsers } = await import('@/db/schema');
           
           // Find the user using Drizzle's query builder
           const usersFound = await db
@@ -744,8 +740,7 @@ class TenantUsersRouteHandler extends TenantRouteHandler {
             .insert(tenantUsers)
             .values({
               tenantId: existingTenant.id,
-              userId: user.id,
-              status: body.role,
+              userId: user.id,              status: body.role,
               createdAt: new Date(),
               updatedAt: new Date()
             });
@@ -763,7 +758,7 @@ class TenantUsersRouteHandler extends TenantRouteHandler {
           }
           
           // Import the necessary schema
-          const { tenantUsers } = await import('@/db/schema/users');
+          const { tenantUsers } = await import('@/db/schema');
           
           // Check if trying to remove the last admin
           if (deleteData.role === 'admin') {

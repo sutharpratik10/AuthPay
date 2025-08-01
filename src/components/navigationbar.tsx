@@ -1,14 +1,15 @@
 "use client"
 import * as React from "react"
 import Link from "next/link"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/constants"
 import { getAppName } from "@/lib/config"
 import type { NavigationItem, NavigationSubItem } from "@/lib/constants" 
 import { Menu, X, ChevronRight, User, Settings, LogOut, Shield } from "lucide-react"
-import { useAuth } from "@/lib"
+import { useSession } from "next-auth/react"
+import { signOut } from "next-auth/react"
 import { ROUTES } from "@/routes/routeUtils"
 import {
   NavigationMenu,
@@ -29,10 +30,21 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { UserProfileDropdown } from "@/components/UserProfileDropdown"
 
 export function Navigationbar() {
-  const { isAuthenticated, isEmailVerified, user, logout, loading } = useAuth()
+  const { data: session, status } = useSession()
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = React.useState(false)
+  const [mounted, setMounted] = React.useState(false)
   const sidebarRef = React.useRef<HTMLDivElement>(null)
+  
+  // Check if user is authenticated and email is verified
+  const isAuthenticated = status === "authenticated" && !!session?.user
+  const isEmailVerified = session?.user?.isEmailVerified
+  const user = session?.user
+
+  // Ensure component is mounted on client side
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
@@ -42,8 +54,8 @@ export function Navigationbar() {
     setIsMenuOpen(false)
   }
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await signOut({ redirect: false })
     router.push(ROUTES.PUBLIC.HOME)
     closeMenu()
   }
@@ -95,17 +107,17 @@ export function Navigationbar() {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isMenuOpen]);
-
-  // Get navigation items from the new configuration
+  }, [isMenuOpen]);  // Get navigation items from the new configuration
   const navItems = APP_CONFIG.NAVIGATION.MAIN;
-  
-  // Add Dashboard link for authenticated users, but only once and not if already present in navItems
-  const dashboardLink = { title: "Dashboard", href: ROUTES.PROTECTED.DASHBOARD };
-  const navItemsHasDashboard = navItems.some(item => item.title === "Dashboard" && item.href === ROUTES.PROTECTED.DASHBOARD);
-  const navigationItems: readonly NavigationItem[] = isAuthenticated && !navItemsHasDashboard
-    ? [dashboardLink, ...navItems]
-    : navItems;
+    // Only add Dashboard link for authenticated users after component is mounted
+  const navigationItems: readonly NavigationItem[] = useMemo(() => {
+    if (!mounted || !isAuthenticated) {
+      return navItems;
+    }
+    
+    // Add Dashboard as the first item for authenticated users
+    return [{ title: "Dashboard", href: ROUTES.PROTECTED.DASHBOARD }, ...navItems];
+  }, [mounted, isAuthenticated, navItems]);
 
   // Type guard functions
   const hasHref = (item: NavigationItem): item is NavigationItem & { href: string } => {
@@ -165,13 +177,12 @@ export function Navigationbar() {
               )
             ))}
           </NavigationMenuList>
-        </NavigationMenu>
-        
-        {/* Right side with theme toggle and mobile menu button */}
-        <div className="flex items-center gap-2">
-          {/* Auth links on desktop */}
+        </NavigationMenu>        {/* Right side with theme toggle and mobile menu button */}
+        <div className="flex items-center gap-2">          {/* Auth links on desktop - always show buttons first to prevent layout shift */}
           <div className="hidden md:block">
-            {!loading && !isAuthenticated ? (
+            {mounted && isAuthenticated ? (
+              <UserProfileDropdown />
+            ) : (
               <div className="flex items-center space-x-4">
                 <Link
                   href={ROUTES.AUTH.LOGIN}
@@ -186,9 +197,7 @@ export function Navigationbar() {
                   Sign Up
                 </Link>
               </div>
-            ) : !loading && isAuthenticated ? (
-              <UserProfileDropdown />
-            ) : null}
+            )}
           </div>
 
           {/* Show theme toggle only for non-authenticated users */}
@@ -247,10 +256,8 @@ export function Navigationbar() {
             >
               <X className="h-5 w-5" />
             </button>
-          </div>
-
-          {/* User profile section for authenticated users */}
-          {!loading && isAuthenticated && (
+          </div>          {/* User profile section for authenticated users */}
+          {mounted && isAuthenticated && (
             <div className="px-6 py-4 bg-gradient-to-r from-blue-50/30 to-purple-50/30 dark:from-blue-950/20 dark:to-purple-950/20 border-b border-border/20">
               <div className="flex items-center space-x-3">
                 <div className="relative">
@@ -323,11 +330,42 @@ export function Navigationbar() {
                   </Accordion>
                 )
               )}
-            </div>
-
-            {/* Authentication and user actions */}
+            </div>            {/* Authentication and user actions - always show auth buttons first */}
             <div className="px-3 mt-6 pt-4 border-t border-border/20">
-              {!loading && !isAuthenticated ? (
+              {mounted && isAuthenticated ? (
+                <div className="space-y-2">
+                  <Link 
+                    href="/profile" 
+                    onClick={closeMenu}
+                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <User className="w-4 h-4" />
+                      <span>Profile</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                  </Link>
+                    <Link 
+                    href="/settings" 
+                    onClick={closeMenu}
+                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Settings className="w-4 h-4" />
+                      <span>Settings</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                  </Link>
+                  
+                  <button 
+                    className="flex items-center space-x-3 w-full px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              ) : (
                 <div className="space-y-2">
                   <Link 
                     href={ROUTES.AUTH.LOGIN} 
@@ -345,50 +383,7 @@ export function Navigationbar() {
                     Sign Up
                   </Link>
                 </div>
-              ) : !loading && isAuthenticated ? (
-                <div className="space-y-2">
-                  <Link 
-                    href="/profile" 
-                    onClick={closeMenu}
-                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <User className="w-4 h-4" />
-                      <span>Profile</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                  </Link>
-                  
-                  <Link 
-                    href="/settings" 
-                    onClick={closeMenu}
-                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <Settings className="w-4 h-4" />
-                      <span>Settings</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                  </Link>
-                  
-                  <Link 
-                    href={ROUTES.PROTECTED.DASHBOARD} 
-                    onClick={closeMenu}
-                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
-                  >
-                    <span>Dashboard</span>
-                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                  </Link>
-                  
-                  <button 
-                    className="flex items-center space-x-3 w-full px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Logout</span>
-                  </button>
-                </div>
-              ) : null}
+              )}
             </div>
           </div>
 

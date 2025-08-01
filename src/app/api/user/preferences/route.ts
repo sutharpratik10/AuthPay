@@ -46,34 +46,37 @@ export async function GET() {
       .leftJoin(timezones, eq(userPreferences.timezoneId, timezones.id))
       .where(eq(userPreferences.userId, session.user.id))
       .limit(1);    if (preferences.length === 0) {
-      // Get default English language and UTC timezone
-      const [defaultLanguage] = await db
-        .select()
-        .from(languages)
-        .where(eq(languages.code, 'en'))
-        .limit(1);
-
-      const [defaultTimezone] = await db
-        .select()
-        .from(timezones)
-        .where(eq(timezones.code, 'UTC'))
-        .limit(1);
+      // Cache default values to avoid repeated queries
+      const [defaultLanguage, defaultTimezone] = await Promise.all([
+        db.select().from(languages).where(eq(languages.code, 'en')).limit(1),
+        db.select().from(timezones).where(eq(timezones.code, 'UTC')).limit(1)
+      ]);
 
       // Return default preferences if none exist
-      return NextResponse.json({
+      const defaultPrefs = {
         emailNotifications: true,
         securityAlerts: true,
         productUpdates: false,
         profileVisibility: true,
-        languageId: defaultLanguage?.id || 1,
-        timezoneId: defaultTimezone?.id || 1,
+        languageId: defaultLanguage[0]?.id || null,
+        timezoneId: defaultTimezone[0]?.id || null,
         theme: 'system',
-        language: defaultLanguage || { id: 1, name: 'English', code: 'en', nativeName: 'English' },
-        timezone: defaultTimezone || { id: 1, name: 'UTC', code: 'UTC', utcOffset: '+00:00', description: 'Coordinated Universal Time' }
+        language: defaultLanguage[0] || { id: null, name: 'English', code: 'en', nativeName: 'English' },
+        timezone: defaultTimezone[0] || { id: null, name: 'UTC', code: 'UTC', utcOffset: '+00:00', description: 'Coordinated Universal Time' }
+      };
+
+      return NextResponse.json(defaultPrefs, {
+        headers: {
+          'Cache-Control': 'public, max-age=300, s-maxage=300', // 5 minutes cache
+        }
       });
     }
 
-    return NextResponse.json(preferences[0]);
+    return NextResponse.json(preferences[0], {
+      headers: {
+        'Cache-Control': 'public, max-age=300, s-maxage=300', // 5 minutes cache
+      }
+    });
   } catch (error) {
     console.error('Error fetching user preferences:', error);
     return NextResponse.json(

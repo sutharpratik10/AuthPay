@@ -1,4 +1,4 @@
-import { roles, permissions, rolePermissions, userRoles } from "@/db/schema/roles";
+import { roles, permissions, rolePermissions, userRoles } from "@/db/schema";
 import { db } from "@/db";
 import { and, eq, inArray } from "drizzle-orm";
 

@@ -15,8 +15,14 @@ export function AuthLinks() {
     router.push(ROUTES.PUBLIC.HOME)
   }
 
+  // Show skeleton/placeholder during loading to prevent layout shift
   if (loading) {
-    return null
+    return (
+      <div className="flex items-center space-x-4">
+        <div className="h-9 w-12 bg-muted animate-pulse rounded"></div>
+        <div className="h-9 w-16 bg-muted animate-pulse rounded"></div>
+      </div>
+    )
   }
 
   if (isAuthenticated) {
@@ -30,7 +36,9 @@ export function AuthLinks() {
         </Button>
       </div>
     )
-  }  return (
+  }
+
+  return (
     <div className="flex items-center space-x-4">
       <Link href={ROUTES.AUTH.LOGIN} className="text-sm font-medium hover:text-primary transition-colors">
         Login

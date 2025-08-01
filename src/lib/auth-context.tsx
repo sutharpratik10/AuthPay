@@ -50,30 +50,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const session = sessionData as ExtendedSession | null
   
   useEffect(() => {
-    // Update loading state based on session status
-    setLoading(status === "loading")
+    // Immediately set loading to false for faster initial render
+    // Only keep loading true if session is actually being fetched
+    if (status !== "loading") {
+      setLoading(false)
+    } else {
+      // Set a maximum loading timeout to prevent infinite loading
+      const timeout = setTimeout(() => {
+        setLoading(false)
+      }, 1000) // Maximum 1 second loading
+      
+      return () => clearTimeout(timeout)
+    }
   }, [status])
-
   // Load user preferences and apply theme when user is authenticated
   useEffect(() => {
     const loadUserTheme = async () => {
-      if (session?.user?.id && status === "authenticated") {
+      // Only load theme once per session, not on every auth check
+      if (session?.user?.id && status === "authenticated" && !loading) {
         try {
-          const response = await fetch('/api/user/preferences')
+          // Check if we already have the theme in session storage to avoid redundant API calls
+          const cachedTheme = sessionStorage.getItem(`theme_${session.user.id}`);
+          if (cachedTheme) {
+            setTheme(cachedTheme);
+            return;
+          }
+
+          const response = await fetch('/api/user/preferences', {
+            // Add cache headers to reduce redundant requests
+            headers: {
+              'Cache-Control': 'max-age=300' // 5 minutes cache
+            }
+          });
+          
           if (response.ok) {
-            const preferences = await response.json()
+            const preferences = await response.json();
             if (preferences.theme) {
-              setTheme(preferences.theme)
+              setTheme(preferences.theme);
+              // Cache the theme to avoid future API calls
+              sessionStorage.setItem(`theme_${session.user.id}`, preferences.theme);
             }
           }
         } catch (error) {
-          console.warn('Failed to load user theme preference:', error)
+          console.warn('Failed to load user theme preference:', error);
+          // Use system default on error
+          setTheme('system');
         }
       }
     }
 
-    loadUserTheme()
-  }, [session?.user?.id, status, setTheme])
+    // Debounce the theme loading to prevent multiple rapid calls
+    const timeoutId = setTimeout(loadUserTheme, 100);
+    return () => clearTimeout(timeoutId);
+  }, [session?.user?.id, status, setTheme, loading])
     const isAuthenticated = !!session
   const isEmailVerified = !!session?.user?.isEmailVerified
     const login = async (email: string, password: string) => {

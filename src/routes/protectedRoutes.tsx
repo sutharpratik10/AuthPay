@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactNode, useEffect } from "react"
+import { ReactNode, useEffect, useMemo } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 
@@ -20,47 +20,56 @@ export function ProtectedRoute({
   const router = useRouter()
   const pathname = usePathname()
   
+  // Memoize the auth state to prevent unnecessary re-renders
+  const authState = useMemo(() => ({
+    isAuthenticated,
+    isEmailVerified,
+    loading
+  }), [isAuthenticated, isEmailVerified, loading]);
+
   useEffect(() => {
-    if (!loading) {
-      if (!isAuthenticated) {
+    // Only process redirects when loading is complete
+    if (!authState.loading) {
+      if (!authState.isAuthenticated) {
         console.log('[PROTECTED_ROUTE] Redirecting unauthenticated user to login')
         router.replace('/auth/login')
         return
       }
-        // Prevent redirect loop: don't redirect to verify if already there
-      if (!isEmailVerified && pathname !== '/auth/verify') {
+
+      // Prevent redirect loop: don't redirect to verify if already there
+      if (!authState.isEmailVerified && pathname !== '/auth/verify') {
         console.log('[PROTECTED_ROUTE] Redirecting unverified user to verify')
         router.replace('/auth/verify')
         return
       }
     }
-  }, [isAuthenticated, isEmailVerified, loading, router, pathname])
-
+  }, [authState.isAuthenticated, authState.isEmailVerified, authState.loading, router, pathname])
   // Show loading state if still checking authentication
-  if (loading) {
+  if (authState.loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="h-10 w-10 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
-          <p>Loading...</p>
+          <div className="h-8 w-8 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     )
   }
-  
+
   // If not authenticated, show loading while redirect happens
-  if (!isAuthenticated) {
+  if (!authState.isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="h-10 w-10 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
-          <p>Redirecting to login...</p>
+          <div className="h-8 w-8 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">Redirecting to login...</p>
         </div>
       </div>
     )
   }
-    // If email not verified and NOT on verify page, show loading while redirect happens
-  if (!isEmailVerified && pathname !== '/auth/verify') {
+
+  // If email not verified and NOT on verify page, show loading while redirect happens
+  if (!authState.isEmailVerified && pathname !== '/auth/verify') {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">

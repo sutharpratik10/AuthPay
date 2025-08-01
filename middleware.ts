@@ -4,6 +4,15 @@ import { auth } from "@/auth";
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   
+  // Skip middleware for static assets and API routes (except auth)
+  if (
+    path.startsWith('/_next/') ||
+    path.startsWith('/api/') && !path.startsWith('/api/auth') ||
+    path.match(/\.(ico|png|jpg|jpeg|svg|css|js)$/)
+  ) {
+    return NextResponse.next();
+  }
+
   console.log(`[MIDDLEWARE] ⚡ RUNNING: ${request.method} ${path}`);
   
   // Define route categories
@@ -29,16 +38,16 @@ export async function middleware(request: NextRequest) {
   
   const verificationRoute = '/auth/verify';
   
-  // Get session
-  const session = await auth();
-  const isAuthenticated = !!session?.user;
-  const isEmailVerified = session?.user?.isEmailVerified === true;
-  
-  // Allow public routes for everyone
+  // Allow public routes for everyone without auth check
   if (publicRoutes.includes(path)) {
     console.log(`[MIDDLEWARE] ✅ Public route allowed: ${path}`);
     return NextResponse.next();
   }
+
+  // Get session only when needed (not for public routes)
+  const session = await auth();
+  const isAuthenticated = !!session?.user;
+  const isEmailVerified = session?.user?.isEmailVerified === true;
   
   // Handle verification page access
   if (path === verificationRoute) {

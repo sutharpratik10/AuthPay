@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/lib"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { User, Mail, Key, Trash2, Upload, Eye, EyeOff, Shield, CheckCircle, X } from "lucide-react"
+import { User, Mail, Key, Trash2, Upload, Eye, EyeOff, X, Shield, CheckCircle } from "lucide-react"
+
+type PasswordStep = 'form' | 'otp' | 'success'
 
 export default function AccountPage() {
   const { user, isEmailVerified } = useAuth()
@@ -14,7 +16,7 @@ export default function AccountPage() {
   
   // Password change states
   const [showChangePassword, setShowChangePassword] = useState(false)
-  const [passwordStep, setPasswordStep] = useState<'form' | 'otp' | 'success'>('form')
+  const [passwordStep, setPasswordStep] = useState<PasswordStep>('form')
   const [showPasswords, setShowPasswords] = useState({
     current: false,
     new: false,
@@ -25,65 +27,41 @@ export default function AccountPage() {
     newPassword: '',
     confirmPassword: ''
   })
+  
+  // OTP states
   const [otp, setOtp] = useState('')
   const [otpTimer, setOtpTimer] = useState(0)
+  const [tempPasswordData, setTempPasswordData] = useState<{
+    currentPassword: string;
+    newPassword: string;
+  } | null>(null)
+
+  // OTP Timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer(prev => prev - 1)
+      }, 1000)
+    }
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [otpTimer])
 
   const getInitials = (name?: string | null) => {
     if (!name) return "U"
     return name.charAt(0).toUpperCase()
   }
-  const sendOTP = async () => {
-    setIsLoading(true)
-    setMessage(null)
-    
-    try {
-      // Use the existing forgot-password API route to send OTP
-      const response = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: user?.email || ''
-        }),
-      })
-      
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to send OTP')
-      }
-      
-      // Move to OTP step
-      setPasswordStep('otp')
-      startOTPTimer()
-      setMessage({ type: 'success', text: 'OTP sent to your email address!' })
-    } catch (error) {
-      console.error('OTP send error:', error)
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to send OTP. Please try again.' })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const startOTPTimer = () => {
-    setOtpTimer(60) // Start 60 second timer
-    
-    // Start countdown
-    const timer = setInterval(() => {
-      setOtpTimer(prev => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-  }
   const handlePasswordChange = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     
     // Validation
+    if (!passwordForm.currentPassword) {
+      setMessage({ type: 'error', text: 'Current password is required!' })
+      return
+    }
+    
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setMessage({ type: 'error', text: 'New passwords do not match!' })
       return
@@ -94,27 +72,8 @@ export default function AccountPage() {
       return
     }
     
-    setIsLoading(true)
-    setMessage(null)
-    
-    try {
-      // For now, we'll skip current password validation and directly send OTP
-      // In a production app, you'd want to validate the current password first
-      await sendOTP()
-    } catch (error) {
-      console.error('Password change error:', error)
-      setMessage({ type: 'error', text: 'Failed to initiate password change!' })
-      setIsLoading(false)
-    }
-  }
-  const resendOTP = async () => {
-    await sendOTP()
-  }
-  const handleOtpVerification = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    
-    if (otp.length !== 6) {
-      setMessage({ type: 'error', text: 'Please enter a valid 6-digit OTP!' })
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      setMessage({ type: 'error', text: 'New password must be different from current password!' })
       return
     }
     
@@ -122,38 +81,151 @@ export default function AccountPage() {
     setMessage(null)
     
     try {
-      // Use the existing reset-password API route
-      const response = await fetch('/api/auth/reset-password', {
+      // First, verify current password and send OTP
+      const response = await fetch('/api/auth/verify-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          code: otp,
-          newPassword: passwordForm.newPassword
+          currentPassword: passwordForm.currentPassword
         }),
       })
-      
-      const result = await response.json()
+        const result = await response.json()
       
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to change password')
+        setMessage({ 
+          type: 'error', 
+          text: result.error || 'Current password verification failed. Please check your password and try again.' 
+        })
+        return
       }
       
+      // Store password data temporarily and move to OTP step
+      setTempPasswordData({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      })
+      setPasswordStep('otp')
+      setOtpTimer(60) // 60 seconds timer
+      setMessage({ type: 'success', text: 'OTP sent to your email address!' })
+      
+    } catch (error) {
+      console.error('Password verification error:', error)
+      setMessage({ 
+        type: 'error', 
+        text: error instanceof Error ? error.message : 'Failed to verify current password. Please try again.' 
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleOtpVerification = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    
+    if (!tempPasswordData) {
+      setMessage({ type: 'error', text: 'Password data not found. Please start over.' })
+      setPasswordStep('form')
+      return
+    }
+    
+    if (otp.length !== 6) {
+      setMessage({ type: 'error', text: 'Please enter a valid 6-digit OTP.' })
+      return
+    }
+    
+    setIsLoading(true)
+    setMessage(null)
+      try {
+      // Verify OTP and change password
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          newPassword: tempPasswordData.newPassword,
+          otp: otp
+        }),
+      })
+        const result = await response.json()
+      
+      if (!response.ok) {
+        setMessage({ 
+          type: 'error', 
+          text: result.error || 'Failed to change password. Please try again.' 
+        })
+        return
+      }
+      
+      // Success - move to success step
       setPasswordStep('success')
       setMessage({ type: 'success', text: 'Password changed successfully!' })
       
-      // Reset form after 3 seconds
+      // Reset form data
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      setOtp('')
+      setTempPasswordData(null)
+      
+      // Auto-close after 3 seconds
       setTimeout(() => {
         setShowChangePassword(false)
         setPasswordStep('form')
-        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
-        setOtp('')
         setMessage(null)
       }, 3000)
+      
     } catch (error) {
       console.error('OTP verification error:', error)
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Invalid OTP! Please try again.' })
+      setMessage({ 
+        type: 'error', 
+        text: error instanceof Error ? error.message : 'Invalid OTP or failed to change password. Please try again.' 
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const resendOTP = async () => {
+    if (!tempPasswordData) {
+      setMessage({ type: 'error', text: 'Password data not found. Please start over.' })
+      setPasswordStep('form')
+      return
+    }
+    
+    setIsLoading(true)
+    setMessage(null)
+    
+    try {
+      const response = await fetch('/api/auth/verify-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentPassword: tempPasswordData.currentPassword
+        }),
+      })
+        const result = await response.json()
+      
+      if (!response.ok) {
+        setMessage({ 
+          type: 'error', 
+          text: result.error || 'Failed to resend OTP. Please try again.' 
+        })
+        return
+      }
+      
+      setOtpTimer(60) // Reset timer
+      setOtp('') // Clear OTP input
+      setMessage({ type: 'success', text: 'New OTP sent to your email address!' })
+      
+    } catch (error) {
+      console.error('Resend OTP error:', error)
+      setMessage({ 
+        type: 'error', 
+        text: error instanceof Error ? error.message : 'Failed to resend OTP. Please try again.' 
+      })
     } finally {
       setIsLoading(false)
     }
@@ -161,15 +233,14 @@ export default function AccountPage() {
 
   const cancelPasswordChange = () => {
     setShowChangePassword(false)
-    setPasswordStep('form')
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
-    setOtp('')
     setMessage(null)
   }
 
   const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {
     setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }))
   }
+
   const handleProfileUpdate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setIsLoading(true)

@@ -223,9 +223,8 @@ export default function EmailVerificationForm({
               </span>
             </div>
           </div>
-          
-          <div className="space-y-3">
-            // ...existing code...
+            <div className="space-y-3">
+            {/* Additional help options can be added here */}
 
             <Button
               variant="outline"

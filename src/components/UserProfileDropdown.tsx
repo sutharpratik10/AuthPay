@@ -11,17 +11,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/lib"
+import { useSession, signOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import { ROUTES } from "@/routes/routeUtils"
 
 interface UserProfileDropdownProps {
   className?: string
 }
 
 export function UserProfileDropdown({ className }: UserProfileDropdownProps) {
-  const { user, logout, isEmailVerified } = useAuth()
+  const { data: session } = useSession()
+  const router = useRouter()
+    const user = session?.user
+  const isEmailVerified = session?.user?.isEmailVerified
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await signOut({ redirect: false })
+    router.push(ROUTES.PUBLIC.HOME)
   }
 
   const getInitials = (name?: string | null) => {

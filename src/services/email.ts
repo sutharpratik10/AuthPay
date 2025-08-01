@@ -156,11 +156,58 @@ class EmailService {
           </p>
         </div>
       </div>
+    `;    return this.sendEmail({
+      to: email,
+      subject: `Password Reset Code: ${otpCode}`,
+      html,
+    });
+  }
+
+  async sendPasswordChangeOTP(email: string, otpCode: string, name: string) {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #333333; font-size: 24px; margin-bottom: 10px;">Password Change Verification</h1>
+          <p style="color: #666666; font-size: 16px; margin: 0;">Hi ${name || 'there'}, we received a request to change your password.</p>
+        </div>
+        
+        <div style="background-color: #f8f9fa; border: 2px solid #e9ecef; border-radius: 8px; padding: 30px; text-align: center; margin: 30px 0;">
+          <p style="color: #333333; font-size: 16px; margin-bottom: 15px; font-weight: bold;">Your Password Change Verification Code:</p>
+          <div style="font-size: 32px; font-weight: bold; color: #4F46E5; font-family: 'Courier New', monospace; letter-spacing: 8px; margin: 10px 0;">
+            ${otpCode}
+          </div>
+          <p style="color: #666666; font-size: 14px; margin-top: 15px; margin-bottom: 0;">
+            <strong>This code expires in 10 minutes</strong>
+          </p>
+        </div>
+        
+        <div style="margin: 30px 0;">
+          <p style="color: #333333; font-size: 14px; margin-bottom: 10px;"><strong>Instructions:</strong></p>
+          <ol style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0; padding-left: 20px;">
+            <li>Return to your account settings page</li>
+            <li>Enter the 6-digit code above</li>
+            <li>Click "Verify & Change Password" to complete the process</li>
+          </ol>
+        </div>
+        
+        <div style="border-top: 1px solid #e9ecef; padding-top: 20px; margin-top: 30px;">
+          <p style="color: #666666; font-size: 12px; margin: 0;">
+            <strong>Security Note:</strong> If you didn't request a password change, please contact support immediately. 
+            For your security, never share this code with anyone.
+          </p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+          <p style="color: #999999; font-size: 12px; margin: 0;">
+            This is an automated message from ${getAppName()}. Please do not reply to this email.
+          </p>
+        </div>
+      </div>
     `;
 
     return this.sendEmail({
       to: email,
-      subject: `Password Reset Code: ${otpCode}`,
+      subject: `Password Change Verification Code: ${otpCode}`,
       html,
     });
   }

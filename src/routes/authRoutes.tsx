@@ -26,12 +26,12 @@ export function AuthRoute({
   const { isAuthenticated, isEmailVerified, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  
-  // Use useEffect to handle redirection instead of doing it during render
+    // Use useEffect to handle redirection instead of doing it during render
   useEffect(() => {
     // Only redirect if authentication state is confirmed (not loading)
     // and the user is authenticated and we want to redirect
-    if (!loading && isAuthenticated && redirectIfAuthenticated) {      // Special case: Allow authenticated but unverified users to stay on verify page
+    if (!loading && isAuthenticated && redirectIfAuthenticated) {
+      // Special case: Allow authenticated but unverified users to stay on verify page
       if (!isEmailVerified && pathname === '/auth/verify') {
         console.log('[AUTH_ROUTE] Allowing unverified user to stay on verify page')
         return
@@ -43,12 +43,7 @@ export function AuthRoute({
         router.push(redirectPath)
         return
       }
-      // // Prevent unauthenticated users from accessing /auth/verify
-      // if (!isAuthenticated && pathname === '/auth/verify') {
-      //   console.log('[AUTH_ROUTE] Redirecting unauthenticated user from verify page to login')
-      //   router.push('/auth/login')
-      //   return
-      // }
+      
       // For unverified users on other auth pages, redirect to verify
       if (isAuthenticated && !isEmailVerified) {
         console.log('[AUTH_ROUTE] Redirecting unverified user to verify')
@@ -63,8 +58,8 @@ export function AuthRoute({
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="h-10 w-10 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
-          <p>Loading...</p>
+          <div className="h-8 w-8 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     )
@@ -75,8 +70,8 @@ export function AuthRoute({
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="h-10 w-10 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
-          <p>Redirecting to dashboard...</p>
+          <div className="h-8 w-8 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">Redirecting to dashboard...</p>
         </div>
       </div>
     )

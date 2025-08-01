@@ -49,26 +49,32 @@ export class SessionService {
       expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
 
       // Parse browser name from user agent string
-      const browserName = userAgent ? parseBrowserName(userAgent) : null;      const newSession = await db.insert(sessions).values({
-        userId,
-        token: sessionToken,
-        expiresAt,
-        browserName: browserName,
-        ipAddress: ipAddress || null,
-        lastActiveAt: new Date(),
-        createdAt: new Date(),
-      }).returning();
+      const browserName = userAgent ? parseBrowserName(userAgent) : null;
 
-      // Update user's last login time
-      await db
-        .update(users)
-        .set({ 
-          lastLoginAt: new Date(),
-          updatedAt: new Date()
-        })
-        .where(eq(users.id, userId));
+      // Use a transaction to batch the operations
+      const result = await db.transaction(async (tx) => {
+        // Create the session record
+        const newSession = await tx.insert(sessions).values({
+          userId,
+          token: sessionToken,
+          expiresAt,
+          browserName: browserName,
+          ipAddress: ipAddress || null,
+          lastActiveAt: new Date(),
+          createdAt: new Date(),
+        }).returning();        // Update user's last login time in the same transaction
+        await tx
+          .update(users)
+          .set({ 
+            lastLoginAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          })
+          .where(eq(users.id, userId));
 
-      return newSession[0];
+        return newSession[0];
+      });
+
+      return result;
     } catch (error) {
       console.error('Error creating session:', error);
       throw error;

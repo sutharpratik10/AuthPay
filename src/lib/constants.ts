@@ -123,14 +123,9 @@ export const APP_CONFIG = {
       EMAIL_EXISTS: 'An account with this email already exists',
     },
   },
-  
-  // Navigation Items
+    // Navigation Items
   NAVIGATION: {
     MAIN: [
-      {
-        title: "Dashboard",
-        href: "/protected/dashboard"
-      },
       {
         title: "Features",
         items: [

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { auth } from '@/auth';
 import { db } from "@/db";
-import { tenants } from "@/db/schema/tenants";
+import { tenants } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { BaseRouteHandler } from './BaseRouteHandler';
 

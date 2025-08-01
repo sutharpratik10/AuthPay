@@ -27,11 +27,10 @@ export class AuthService {
       const [newUser] = await db.insert(users).values({
         id: uuidv4(),
         email: email.toLowerCase(),
-        password: hashedPassword,
-        name: name || null,
+        password: hashedPassword,        name: name || null,
         isEmailVerified: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }).returning();
 
       // Generate verification code
@@ -98,11 +97,10 @@ export class AuthService {
       }
 
       // Mark user as verified
-      await db
-        .update(users)
+      await db        .update(users)
         .set({ 
           isEmailVerified: true, 
-          updatedAt: new Date() 
+          updatedAt: new Date().toISOString() 
         })
         .where(eq(users.id, otpRecord.userId));
 
@@ -283,12 +281,33 @@ export class AuthService {
       };
     }
   }
-
   /**
    * Reset password with verified OTP
    */
   static async resetPassword(code: string, newPassword: string) {
     try {
+      // Validate inputs
+      if (!code || typeof code !== 'string') {
+        return { 
+          success: false, 
+          error: "Invalid verification code" 
+        };
+      }
+
+      if (!newPassword || typeof newPassword !== 'string') {
+        return { 
+          success: false, 
+          error: "Invalid new password" 
+        };
+      }
+
+      if (newPassword.length < 8) {
+        return { 
+          success: false, 
+          error: "Password must be at least 8 characters long" 
+        };
+      }
+
       // First verify the code is still valid
       const verificationResult = await this.verifyPasswordResetCode(code);
       
@@ -296,7 +315,12 @@ export class AuthService {
         return verificationResult;
       }
 
-      // Hash the new password
+      if (!verificationResult.userId) {
+        return { 
+          success: false, 
+          error: "Invalid user data from verification" 
+        };
+      }      // Hash the new password
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
       // Update user password
@@ -304,9 +328,9 @@ export class AuthService {
         .update(users)
         .set({ 
           password: hashedPassword,
-          updatedAt: new Date() 
+          updatedAt: new Date().toISOString() 
         })
-        .where(eq(users.id, verificationResult.userId!));
+        .where(eq(users.id, verificationResult.userId));
 
       // Delete the used password reset code
       await db.delete(otpCodes)
@@ -323,9 +347,26 @@ export class AuthService {
       };
     } catch (error) {
       console.error("Password reset error:", error);
+      
+      // Handle specific error types
+      if (error instanceof Error) {
+        if (error.message.includes('duplicate key') || error.message.includes('constraint')) {
+          return { 
+            success: false, 
+            error: "Database constraint error. Please try again." 
+          };
+        }
+        if (error.message.includes('connection')) {
+          return { 
+            success: false, 
+            error: "Database connection error. Please try again later." 
+          };
+        }
+      }
+      
       return { 
         success: false, 
-        error: "An error occurred while resetting password" 
+        error: "An error occurred while resetting password. Please try again." 
       };
     }
   }
