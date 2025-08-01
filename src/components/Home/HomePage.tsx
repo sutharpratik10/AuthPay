@@ -1,229 +1,403 @@
-import { Button } from "../ui/button";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "../ui/card";
-import { Badge } from "../ui/badge";
-import { Avatar } from "../ui/avatar";
-import Image from "next/image";
+"use client"
+
+import React, { useState } from 'react';
 
 export default function HomePage() {
+  const [faqOpen, setFaqOpen] = useState<number | null>(null);
+
+  const faqs = [
+    {
+      question: "How secure is the OTP system?",
+      answer: "Our OTP system uses industry-standard algorithms with time-based expiry, rate limiting, and anti-replay protection. All OTPs are cryptographically secure and transmitted over encrypted channels."
+    },
+    {
+      question: "Can I customize the authentication flow?",
+      answer: "Yes, the system is highly customizable. You can modify email templates, adjust OTP expiry times, configure 2FA requirements, and integrate with your existing user interface."
+    },
+    {
+      question: "What compliance standards does it meet?",
+      answer: "The system is designed to meet GDPR, SOC 2, ISO 27001, and HIPAA compliance requirements. We provide audit logs, data encryption, and privacy controls out of the box."
+    },
+    {
+      question: "Is there ongoing support included?",
+      answer: "Yes, both licenses include 12 months of support covering bug fixes, security updates, and technical assistance. Extended support plans are available for purchase."
+    },
+    {
+      question: "Can I white-label the solution?",
+      answer: "The Extended License includes white-labeling rights, allowing you to rebrand the solution and integrate it seamlessly with your products or services."
+    }
+  ];
+
   return (
-    <main className="min-h-screen w-full bg-gradient-to-br from-blue-50 via-gray-100 to-neutral-100 dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-950 font-sans text-gray-900 dark:text-gray-100 flex flex-col items-center">
+    <main className="min-h-screen w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 font-sans">
       {/* Hero Section */}
-      <section className="relative w-full flex flex-col items-center justify-center py-20 px-4 text-center">
-        <div className="absolute inset-0 pointer-events-none z-0">
-          <Image src="/globe.svg" alt="Secure background" fill className="object-cover opacity-10" />
-        </div>
-        <div className="container relative z-10 flex flex-col items-center">
-          <Badge className="mb-4 px-4 py-2 text-base bg-blue-100 text-blue-700 dark:bg-neutral-900 dark:text-neutral-300 rounded-full">
-            #1 Choice for Secure Authentication
-          </Badge>
-          <h1 className="text-5xl sm:text-6xl font-extrabold mb-6 text-blue-700 dark:text-neutral-300 drop-shadow-xl leading-tight">
-            Simplify Secure Access —
-            <br className="sm:hidden" /> Enterprise‑Grade Authentication,
-            <br className="sm:hidden" /> Email‑Based OTP
-          </h1>
-          <p className="text-xl sm:text-2xl mb-8 max-w-3xl mx-auto text-gray-700 dark:text-gray-200 font-medium">
-          <span className="font-semibold text-blue-700 dark:text-blue-300">The fastest, most reliable</span> way to secure your business and delight your users.{" "}
-          </p>
-          <Button size="lg" className="px-10 py-5 text-xl font-bold rounded-full bg-gradient-to-r from-blue-700 to-purple-900 hover:from-blue-800 hover:to-blue-600 text-white shadow-2xl focus:outline-none focus:ring-4 focus:ring-blue-400">
-            Get Started — Try Free
-          </Button>
-          <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">No credit card required. Instant setup.</div>
+      <section className="relative overflow-hidden">
+        <div className="relative z-10 container mx-auto px-4 py-20 lg:py-32">
+          <div className="text-center max-w-5xl mx-auto">
+            {/* Badge */}
+            <div className="mb-6 px-6 py-2 text-sm font-semibold bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 shadow-lg rounded-full inline-block">
+              🚀 Production-Ready Authentication System
+            </div>            {/* Main Headline */}
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-8 text-slate-900 dark:text-white leading-tight">
+              <span className="bg-gradient-to-r from-slate-900 via-blue-800 to-indigo-900 dark:from-white dark:via-blue-200 dark:to-indigo-200 bg-clip-text text-transparent">
+                Enterprise-Grade
+              </span>
+              <br />
+              <span className="relative bg-gradient-to-r from-slate-900 via-blue-800 to-indigo-900 dark:from-white dark:via-blue-200 dark:to-indigo-200 bg-clip-text text-transparent">
+                Authentication System
+                <div className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full" />
+              </span>
+            </h1>
+
+            {/* Subtitle */}
+            <p className="text-xl md:text-2xl mb-12 text-slate-600 dark:text-slate-300 max-w-4xl mx-auto leading-relaxed">
+              Complete, secure, and scalable authentication solution with{" "}
+              <span className="font-semibold text-blue-600 dark:text-blue-400">email-based OTP</span>,{" "}
+              <span className="font-semibold text-purple-600 dark:text-purple-400">2FA</span>, and{" "}
+              <span className="font-semibold text-indigo-600 dark:text-indigo-400">enterprise security</span> features.
+              Ready to deploy and customize for your business.
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+              <button className="px-8 py-4 text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-xl rounded-xl transition-all duration-300 hover:scale-105">
+                Purchase & Download
+              </button>
+              <button className="px-8 py-4 text-lg font-semibold border-2 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-300">
+                Live Demo
+              </button>
+            </div>
+
+            {/* Key Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-3xl mx-auto">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">99.9%</div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">Uptime SLA</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">10M+</div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">Auth Requests/Day</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">SOC 2</div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">Compliant</div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <div className="container">
-          {/* Features Section */}
-        <section className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 py-16 px-4">
-          <Card className="flex flex-col items-center p-8 bg-white dark:bg-neutral-900 shadow-lg rounded-2xl border border-gray-200 dark:border-neutral-800 hover:scale-[1.03] transition-transform">
-            <CardHeader>
-              <Image src="/file.svg" alt="OTP Login" width={48} height={48} />
-              <CardTitle className="mt-4 text-xl font-bold">OTP‑Verified Login</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-base text-gray-600 dark:text-neutral-400 text-center">
-                Secure, passwordless access via email-based OTP. No more forgotten passwords.
-              </CardDescription>
-            </CardContent>
-          </Card>
-          <Card className="flex flex-col items-center p-8 bg-white dark:bg-neutral-900 shadow-lg rounded-2xl border border-gray-200 dark:border-neutral-800 hover:scale-[1.03] transition-transform">
-            <CardHeader>
-              <Image src="/window.svg" alt="Unlimited Email" width={48} height={48} />
-              <CardTitle className="mt-4 text-xl font-bold">Unlimited Free Email</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-base text-gray-600 dark:text-neutral-400 text-center">
-                No limits on email-based authentication for your users. Scale as you grow.
-              </CardDescription>
-            </CardContent>
-          </Card>
-          <Card className="flex flex-col items-center p-8 bg-white dark:bg-neutral-900 shadow-lg rounded-2xl border border-gray-200 dark:border-neutral-800 hover:scale-[1.03] transition-transform">
-            <CardHeader>
-              <Image src="/vercel.svg" alt="Security" width={48} height={48} />
-              <CardTitle className="mt-4 text-xl font-bold">Enterprise‑Grade Security</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-base text-gray-600 dark:text-neutral-400 text-center">
-                End-to-end encryption, audit logs, and compliance. Peace of mind for you and your customers.
-              </CardDescription>
-            </CardContent>
-          </Card>
-          <Card className="flex flex-col items-center p-8 bg-white dark:bg-neutral-900 shadow-lg rounded-2xl border border-gray-200 dark:border-neutral-800 hover:scale-[1.03] transition-transform">
-            <CardHeader>
-              <Image src="/next.svg" alt="Cloud Scalability" width={48} height={48} />
-              <CardTitle className="mt-4 text-xl font-bold">Cloud Scalability</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-base text-gray-600 dark:text-neutral-400 text-center">
-                Effortlessly scale to millions of users worldwide. Built for growth.
-              </CardDescription>
-            </CardContent>
-          </Card>
-          <Card className="flex flex-col items-center p-8 bg-white dark:bg-neutral-900 shadow-lg rounded-2xl border border-gray-200 dark:border-neutral-800 hover:scale-[1.03] transition-transform">
-            <CardHeader>
-              <Image src="/globe.svg" alt="Dashboard" width={48} height={48} />
-              <CardTitle className="mt-4 text-xl font-bold">Dashboard</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-base text-gray-600 dark:text-neutral-400 text-center">
-                Intuitive admin dashboard for user and security management. Control at your fingertips.
-              </CardDescription>
-            </CardContent>
-          </Card>
-          <Card className="flex flex-col items-center p-8 bg-white dark:bg-neutral-900 shadow-lg rounded-2xl border border-gray-200 dark:border-neutral-800 hover:scale-[1.03] transition-transform">
-            <CardHeader>
-              <Image src="/file.svg" alt="Integrations" width={48} height={48} />
-              <CardTitle className="mt-4 text-xl font-bold">Integrations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-base text-gray-600 dark:text-neutral-400 text-center">
-                Connect with popular platforms and developer tools. Fast, flexible, future-proof.
-              </CardDescription>
-            </CardContent>
-          </Card>
-        </section>
-
-        {/* Compliance Badges */}
-        <section className="w-full flex flex-wrap justify-center gap-4 py-6 px-4">
-          <Badge className="bg-blue-100 text-blue-700 dark:bg-neutral-900 dark:text-neutral-300 px-4 py-2 text-base font-semibold">
-            GDPR
-          </Badge>
-          <Badge className="bg-blue-100 text-blue-700 dark:bg-neutral-900 dark:text-neutral-300 px-4 py-2 text-base font-semibold">
-            SOC 2
-          </Badge>
-          <Badge className="bg-blue-100 text-blue-700 dark:bg-neutral-900 dark:text-neutral-300 px-4 py-2 text-base font-semibold">
-            ISO 27001
-          </Badge>
-          <Badge className="bg-blue-100 text-blue-700 dark:bg-neutral-900 dark:text-neutral-300 px-4 py-2 text-base font-semibold">
-            HIPAA
-          </Badge>
-        </section>
-
-        {/* How It Works Flow */}
-        <section className="w-full py-16 px-4 flex flex-col items-center">
-          <h2 className="text-3xl font-bold mb-8 text-blue-700 dark:text-blue-300">How It Works</h2>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-12">
-            <Card className="flex flex-col items-center p-6 shadow-md">
-              <Avatar className="bg-gradient-to-br from-blue-400 to-blue-700 text-white text-xl font-bold">1</Avatar>
-              <p className="mt-4 text-base font-semibold">User enters email</p>
-            </Card>
-            <span className="text-3xl text-blue-400">→</span>
-            <Card className="flex flex-col items-center p-6 shadow-md">
-              <Avatar className="bg-gradient-to-br from-blue-400 to-blue-700 text-white text-xl font-bold">2</Avatar>
-              <p className="mt-4 text-base font-semibold">Receives OTP</p>
-            </Card>
-            <span className="text-3xl text-blue-400">→</span>
-            <Card className="flex flex-col items-center p-6 shadow-md">
-              <Avatar className="bg-gradient-to-br from-blue-400 to-blue-700 text-white text-xl font-bold">3</Avatar>
-              <p className="mt-4 text-base font-semibold">Access granted</p>
-            </Card>
-          </div>
-        </section>
-
-        {/* Client Logos / Testimonials */}
-        <section className="w-full py-12 px-4 flex flex-col items-center">
-          <h2 className="text-2xl font-bold mb-6 text-blue-700 dark:text-blue-300">Trusted by Leading Enterprises</h2>
-          <div className="flex flex-wrap gap-8 justify-center items-center mb-6">
-            <Image src="/vercel.svg" alt="Vercel" width={64} height={64} />
-            <Image src="/next.svg" alt="Next.js" width={64} height={64} />
-            <Image src="/globe.svg" alt="Global" width={64} height={64} />
-          </div>
-          <Card className="max-w-xl p-6 bg-white dark:bg-gray-900 shadow-lg border border-gray-200 dark:border-gray-800">
-            <p className="text-lg text-gray-700 dark:text-gray-300 font-medium italic">
-              “TrueAuth has transformed our onboarding experience. Secure, simple, and scalable.”
+      {/* Core Features Showcase */}
+      <section className="py-20 bg-white/50 dark:bg-slate-800/50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white">
+              Comprehensive Authentication Features
+            </h2>
+            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
+              Everything you need for secure, scalable authentication in one complete solution
             </p>
-            <div className="mt-4 flex items-center gap-2 justify-center">
-              <Avatar className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">T</Avatar>
-              <span className="font-semibold text-gray-800 dark:text-gray-100">TechLead, Fortune 500</span>
-            </div>
-          </Card>
-        </section>
-
-        {/* Integration Icons */}
-        <section className="w-full py-12 px-4 flex flex-col items-center">
-          <h2 className="text-2xl font-bold mb-6 text-blue-700 dark:text-blue-300">Integrates With</h2>
-          <div className="flex flex-wrap gap-8 justify-center items-center">
-            <Image src="/file.svg" alt="API" width={48} height={48} />
-            <Image src="/window.svg" alt="Webhooks" width={48} height={48} />
-            <Image src="/vercel.svg" alt="Vercel" width={48} height={48} />
-            <Image src="/next.svg" alt="Next.js" width={48} height={48} />
           </div>
-        </section>
 
-        {/* Pricing Section */}
-        <section className="w-full py-16 px-4 grid grid-cols-1 md:grid-cols-2 gap-12">
-          <Card className="flex flex-col gap-6 p-10 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 shadow-xl rounded-2xl">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold mb-2 text-gray-800 dark:text-neutral-100">Basic Licence</CardTitle>
-              <CardDescription className="text-4xl font-extrabold text-blue-700 dark:text-neutral-300 mb-2">
-                $499{" "}
-                <span className="text-base font-normal">perpetual (one‑time)</span>
-              </CardDescription>
-              <CardContent className="text-base text-gray-700 dark:text-neutral-300 mb-2">
-                For internal business use, startups, and SMBs.
-              </CardContent>
-            </CardHeader>
-            <ul className="list-disc list-inside text-base text-gray-700 dark:text-neutral-300 mb-2">
-              <li>OTP login, unlimited email</li>
-              <li>Admin dashboard</li>
-              <li>Compliance badges</li>
-              <li>Cloud scalability</li>
-            </ul>
-            <div className="text-xs text-gray-600 dark:text-gray-400">
-              Perpetual licence for internal use only. No resale or bundling permitted.
-            </div>
-            <Button size="lg" className="mt-4 px-8 py-3 text-lg font-bold rounded-full bg-blue-700 hover:bg-blue-800 text-white shadow-lg">
-              Buy Basic
-            </Button>
-          </Card>
-          <Card className="flex flex-col gap-6 p-10 bg-blue-50 dark:bg-neutral-900 border-2 border-blue-700 dark:border-neutral-300 shadow-2xl rounded-2xl">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold mb-2 text-blue-700 dark:text-neutral-300">Extended Licence</CardTitle>
-              <CardDescription className="text-4xl font-extrabold text-blue-700 dark:text-neutral-300 mb-2">
-                $1499{" "}
-                <span className="text-base font-normal">perpetual (one‑time)</span>
-              </CardDescription>
-              <CardContent className="text-base text-blue-700 dark:text-neutral-300 mb-2">
-                For agencies, resellers, SaaS platforms.
-              </CardContent>
-            </CardHeader>
-            <ul className="list-disc list-inside text-base text-blue-700 dark:text-neutral-300 mb-2">
-              <li>All Basic features</li>
-              <li>Resale and bundling rights</li>
-              <li>Priority support</li>
-              <li>White-label option</li>
-            </ul>
-            <div className="text-xs text-blue-700 dark:text-neutral-300">
-              Perpetual licence for resale/bundling. See terms for details.
-            </div>
-            <Button size="lg" className="mt-4 px-8 py-3 text-lg font-bold rounded-full bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-800 hover:to-blue-600 text-white shadow-lg">
-              Buy Extended
-            </Button>
-          </Card>
-        </section>
-        <div className="w-full px-4 pb-8 text-xs text-gray-600 dark:text-gray-400 text-center">
-          No recurring fees. Support included for 1 year from purchase. See licence terms for details.
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[
+              {
+                title: "Email OTP Authentication",
+                description: "Secure, passwordless login with email-based one-time passwords. No more forgotten passwords or credential theft.",
+                details: ["Time-based OTP tokens", "Customizable expiry", "Rate limiting protection", "Anti-spam measures"]
+              },
+              {
+                title: "Two-Factor Authentication",
+                description: "Enhanced security with TOTP-based 2FA using popular authenticator apps like Google Authenticator.",
+                details: ["TOTP support", "Backup codes", "Recovery options", "App-based generation"]
+              },
+              {
+                title: "Session Management",
+                description: "Advanced session handling with secure tokens, automatic expiry, and device tracking.",
+                details: ["JWT tokens", "Refresh tokens", "Device fingerprinting", "Concurrent session limits"]
+              },
+              {
+                title: "User Management",
+                description: "Complete user lifecycle management with roles, permissions, and profile customization.",
+                details: ["Role-based access", "Custom fields", "User import/export", "Profile management"]
+              },
+              {
+                title: "Admin Dashboard",
+                description: "Comprehensive admin interface for monitoring, managing users, and configuring security settings.",
+                details: ["Real-time analytics", "User activity logs", "Security monitoring", "Configuration management"]
+              },
+              {
+                title: "API-First Architecture",
+                description: "RESTful APIs with comprehensive documentation for seamless integration with any application.",
+                details: ["REST APIs", "Webhook support", "SDK libraries", "OpenAPI documentation"]
+              }
+            ].map((feature, index) => (
+              <div key={index} className="group hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white dark:bg-slate-900 border-0 shadow-lg rounded-lg p-6">
+                <div className="mb-4">
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+                    {feature.title}
+                  </h3>
+                  <p className="text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
+                    {feature.description}
+                  </p>
+                </div>
+                <ul className="space-y-2">
+                  {feature.details.map((detail, idx) => (
+                    <li key={idx} className="flex items-center text-sm text-slate-600 dark:text-slate-400">
+                      <span className="w-4 h-4 text-green-500 mr-2 flex-shrink-0">✓</span>
+                      {detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* Security & Compliance Section */}
+      <section className="py-20 bg-gradient-to-r from-slate-900 to-blue-900 text-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              Enterprise-Grade Security
+            </h2>
+            <p className="text-xl text-blue-100 max-w-3xl mx-auto">
+              Built with security-first principles and compliance requirements in mind
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+            {[
+              {
+                title: "End-to-End Encryption",
+                description: "AES-256 encryption for data at rest and TLS 1.3 for data in transit"
+              },
+              {
+                title: "Threat Detection",
+                description: "Real-time monitoring for suspicious activities and automated threat response"
+              },
+              {
+                title: "Device Fingerprinting",
+                description: "Advanced device identification and tracking for enhanced security"
+              },
+              {
+                title: "Audit Logging",
+                description: "Comprehensive audit trails for compliance and security investigations"
+              }
+            ].map((feature, index) => (
+              <div key={index} className="bg-white/10 border border-white/20 backdrop-blur-sm text-white rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-white mb-3">
+                  {feature.title}
+                </h3>
+                <p className="text-blue-100">
+                  {feature.description}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Compliance Badges */}
+          <div className="text-center">
+            <h3 className="text-2xl font-bold mb-8">Compliance & Standards</h3>
+            <div className="flex flex-wrap justify-center gap-6">
+              {['GDPR', 'SOC 2', 'ISO 27001', 'HIPAA', 'PCI DSS'].map((standard) => (
+                <span key={standard} className="bg-white/20 text-white border border-white/30 px-6 py-3 text-lg font-semibold rounded-full">
+                  {standard}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section className="py-20 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-800 dark:to-slate-900">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white">
+              Choose Your License
+            </h2>
+            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
+              One-time purchase, perpetual license. No recurring fees or hidden costs.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            {/* Developer License */}
+            <div className="relative p-8 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 shadow-xl rounded-2xl">
+              <div className="w-fit mb-4 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-3 py-1 rounded-full text-sm font-semibold">
+                Most Popular
+              </div>
+              <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                Developer License
+              </h3>
+              <div className="flex items-baseline mb-4">
+                <span className="text-5xl font-bold text-blue-600">$499</span>
+                <span className="text-slate-600 dark:text-slate-400 ml-2">one-time</span>
+              </div>
+              <p className="text-lg text-slate-600 dark:text-slate-300 mb-6">
+                Perfect for individual developers, startups, and internal business use
+              </p>
+              <ul className="space-y-4 mb-8">
+                {[
+                  'Complete authentication system',
+                  'Email OTP & 2FA support',
+                  'Admin dashboard included',
+                  'PostgreSQL & Redis setup',
+                  'Docker containerization',
+                  'API documentation',
+                  '12 months support',
+                  'Free updates for 1 year'
+                ].map((feature, idx) => (
+                  <li key={idx} className="flex items-center">
+                    <span className="w-5 h-5 text-green-500 mr-3 flex-shrink-0">✓</span>
+                    <span className="text-slate-700 dark:text-slate-300">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-700 mb-6">
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  For internal use only. No resale or redistribution rights.
+                </p>
+              </div>
+              <button className="w-full py-4 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors">
+                Purchase Developer License
+              </button>
+            </div>
+
+            {/* Commercial License */}
+            <div className="relative p-8 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border-2 border-purple-300 dark:border-purple-600 shadow-2xl rounded-2xl">
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2 text-sm font-bold rounded-full">
+                  ⭐ COMMERCIAL
+                </span>
+              </div>
+              <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4 mt-4">
+                Commercial License
+              </h3>
+              <div className="flex items-baseline mb-4">
+                <span className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">$1,499</span>
+                <span className="text-slate-600 dark:text-slate-400 ml-2">one-time</span>
+              </div>
+              <p className="text-lg text-slate-600 dark:text-slate-300 mb-6">
+                For agencies, SaaS platforms, and commercial products
+              </p>
+              <ul className="space-y-4 mb-8">
+                {[
+                  'Everything in Developer License',
+                  'Commercial redistribution rights',
+                  'White-label customization',
+                  'Priority support & consultation',
+                  'Custom branding options',
+                  'Extended documentation',
+                  'Resale & bundling permitted',
+                  'Lifetime updates included'
+                ].map((feature, idx) => (
+                  <li key={idx} className="flex items-center">
+                    <span className="w-5 h-5 text-green-500 mr-3 flex-shrink-0">✓</span>
+                    <span className="text-slate-700 dark:text-slate-300">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="pt-4 border-t border-purple-200 dark:border-purple-700 mb-6">
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Full commercial rights including resale and redistribution.
+                </p>
+              </div>
+              <button className="w-full py-4 text-lg font-bold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-xl transition-colors">
+                Purchase Commercial License
+              </button>
+            </div>
+          </div>
+
+          {/* Money Back Guarantee */}
+          <div className="text-center mt-12">
+            <div className="inline-flex items-center bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400 px-6 py-3 rounded-full">
+              <span className="mr-2">🛡️</span>
+              30-day money-back guarantee
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-20 bg-slate-50 dark:bg-slate-800">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white">
+              Frequently Asked Questions
+            </h2>
+            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
+              Everything you need to know about our authentication system
+            </p>
+          </div>
+
+          <div className="max-w-3xl mx-auto space-y-4">
+            {faqs.map((faq, index) => (
+              <div key={index} className="bg-white dark:bg-slate-900 rounded-lg shadow-lg">
+                <div 
+                  className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors p-6"
+                  onClick={() => setFaqOpen(faqOpen === index ? null : index)}
+                >
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                      {faq.question}
+                    </h3>
+                    <span className="text-slate-600 dark:text-slate-400 text-xl">
+                      {faqOpen === index ? "−" : "+"}
+                    </span>
+                  </div>
+                </div>
+                {faqOpen === index && (
+                  <div className="px-6 pb-6">
+                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {faq.answer}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA Section */}
+      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-4xl md:text-5xl font-bold mb-6">
+            Ready to Secure Your Application?
+          </h2>
+          <p className="text-xl mb-8 max-w-3xl mx-auto text-blue-100">
+            Join thousands of developers who trust our authentication system for their mission-critical applications.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
+            <button className="px-8 py-4 text-lg font-bold bg-white text-blue-600 hover:bg-blue-50 shadow-xl rounded-xl transition-all duration-300 hover:scale-105">
+              Get Started Today
+            </button>
+            <button className="px-8 py-4 text-lg font-semibold border-2 border-white text-white hover:bg-white/10 rounded-xl transition-all duration-300">
+              Talk to Sales
+            </button>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-8 text-sm text-blue-100">
+            <div className="flex items-center">
+              <span className="mr-2">✓</span>
+              30-day money-back guarantee
+            </div>
+            <div className="flex items-center">
+              <span className="mr-2">✓</span>
+              No recurring fees
+            </div>
+            <div className="flex items-center">
+              <span className="mr-2">✓</span>
+              Instant download
+            </div>
+          </div>
+        </div>
+      </section>
+
     </main>
   );
 }
