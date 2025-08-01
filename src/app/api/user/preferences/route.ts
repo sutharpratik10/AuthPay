@@ -112,9 +112,7 @@ export async function POST(request: NextRequest) {
       .select()
       .from(userPreferences)
       .where(eq(userPreferences.userId, session.user.id))
-      .limit(1);
-
-    if (existingPreferences.length === 0) {
+      .limit(1);    if (existingPreferences.length === 0) {
       // Create new preferences
       const newPreferences = await db
         .insert(userPreferences)
@@ -128,7 +126,7 @@ export async function POST(request: NextRequest) {
           timezoneId: validTimezoneId,
           theme,
           additionalSettings,
-          updatedAt: new Date()
+          updatedAt: new Date().toISOString()
         })
         .returning();
 
@@ -136,8 +134,7 @@ export async function POST(request: NextRequest) {
         success: true,
         message: 'Preferences created successfully',
         preferences: newPreferences[0]
-      });
-    } else {
+      });    } else {
       // Update existing preferences
       const updatedPreferences = await db
         .update(userPreferences)
@@ -150,7 +147,7 @@ export async function POST(request: NextRequest) {
           timezoneId: validTimezoneId,
           theme,
           additionalSettings,
-          updatedAt: new Date()
+          updatedAt: new Date().toISOString()
         })
         .where(eq(userPreferences.userId, session.user.id))
         .returning();

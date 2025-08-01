@@ -5,11 +5,11 @@
 
 export const APP_CONFIG = {
   // Application Information
-  APP_NAME: process.env.NEXT_PUBLIC_APP_NAME || 'RoleKit',
-  APP_DESCRIPTION: 'Modern Role-Based Access Control System',
+  APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
+  APP_DESCRIPTION: 'Modern Access Control System',
   APP_VERSION: '1.0.0',
-  APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  
+  APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  APP_LOGO: '/logo.svg',
   // Company Information
   COMPANY_NAME: 'ByteLoom',
   COMPANY_URL: 'https://byteloom.com.au',

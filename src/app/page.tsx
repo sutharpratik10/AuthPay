@@ -3,7 +3,7 @@ import HomePage from "@/components/Home/HomePage";
 
 export default function Home() {
   return (
-    <div className="max-w-screen-xl mx-auto p-8 sm:p-20 font-[family-name:var(--font-geist-sans)]">
+    <div className="">
       <HomePage />
     </div>
   );

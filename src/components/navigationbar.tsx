@@ -124,7 +124,7 @@ export function Navigationbar() {
           <Link href={ROUTES.PUBLIC.HOME}>
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">{getAppName().charAt(0)}</span>
+                <span className="text-white font-bold text-sm">{(getAppName() ?? "").charAt(0)}</span>
               </div>
               <span className="font-semibold text-lg">{getAppName()}</span>
             </div>
@@ -234,7 +234,7 @@ export function Navigationbar() {
           <div className="flex items-center justify-between h-16 px-6 border-b border-border/20 bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:from-blue-950/30 dark:to-purple-950/30">
             <Link href={ROUTES.PUBLIC.HOME} className="flex items-center space-x-3" onClick={closeMenu}>
               <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">{getAppName().charAt(0)}</span>
+                <span className="text-white font-bold text-sm">{(getAppName() ?? "").charAt(0)}</span>
               </div>
               <h2 className="text-lg font-semibold tracking-tight">
                 {getAppName()}

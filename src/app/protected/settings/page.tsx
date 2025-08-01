@@ -294,9 +294,23 @@ export default function SettingsPage() {
                 <label className="text-sm font-medium">Two-Factor Authentication</label>
                 <p className="text-xs text-muted-foreground">Add an extra layer of security</p>
               </div>
-              <Button variant="outline" size="sm">
-                Setup
-              </Button>
+              <Switch
+                id="profile-visibility"
+                checked={preferences.profileVisibility}
+                onCheckedChange={(checked) => updatePreference('profileVisibility', checked)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium">Multi-Factor Authentication</label>
+                <p className="text-xs text-muted-foreground">Add an extra layer of security</p>
+              </div>
+              <Switch
+                id="profile-visibility"
+                checked={preferences.profileVisibility}
+                onCheckedChange={(checked) => updatePreference('profileVisibility', checked)}
+              />
             </div>
             
             <div className="flex items-center justify-between">
