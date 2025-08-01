@@ -171,6 +171,19 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Animation delay utilities for 404 page */
+  .animation-delay-1000 {
+    animation-delay: 1s;
+  }
+  
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+  
+  .animation-delay-3000 {
+    animation-delay: 3s;
+  }
 }
 
 
