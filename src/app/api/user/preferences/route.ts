@@ -10,9 +10,7 @@ export async function GET() {
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get user preferences with related language and timezone data
+    }    // Get user preferences with related language and timezone data
     const preferences = await db
       .select({
         id: userPreferences.id,
@@ -25,6 +23,7 @@ export async function GET() {
         timezoneId: userPreferences.timezoneId,
         theme: userPreferences.theme,
         additionalSettings: userPreferences.additionalSettings,
+        twoFactorAuth: userPreferences.twoFactorAuth,
         createdAt: userPreferences.createdAt,
         updatedAt: userPreferences.updatedAt,
         language: {
@@ -50,9 +49,7 @@ export async function GET() {
       const [defaultLanguage, defaultTimezone] = await Promise.all([
         db.select().from(languages).where(eq(languages.code, 'en')).limit(1),
         db.select().from(timezones).where(eq(timezones.code, 'UTC')).limit(1)
-      ]);
-
-      // Return default preferences if none exist
+      ]);      // Return default preferences if none exist
       const defaultPrefs = {
         emailNotifications: true,
         securityAlerts: true,
@@ -61,6 +58,7 @@ export async function GET() {
         languageId: defaultLanguage[0]?.id || null,
         timezoneId: defaultTimezone[0]?.id || null,
         theme: 'system',
+        twoFactorAuth: false,
         language: defaultLanguage[0] || { id: null, name: 'English', code: 'en', nativeName: 'English' },
         timezone: defaultTimezone[0] || { id: null, name: 'UTC', code: 'UTC', utcOffset: '+00:00', description: 'Coordinated Universal Time' }
       };
@@ -92,9 +90,7 @@ export async function POST(request: NextRequest) {
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const body = await request.json();
+    }    const body = await request.json();
     const {
       emailNotifications,
       securityAlerts,
@@ -103,7 +99,8 @@ export async function POST(request: NextRequest) {
       languageId,
       timezoneId,
       theme,
-      additionalSettings
+      additionalSettings,
+      twoFactorAuth
     } = body;
 
     // Ensure languageId and timezoneId are valid UUIDs or null
@@ -115,8 +112,7 @@ export async function POST(request: NextRequest) {
       .select()
       .from(userPreferences)
       .where(eq(userPreferences.userId, session.user.id))
-      .limit(1);    if (existingPreferences.length === 0) {
-      // Create new preferences
+      .limit(1);    if (existingPreferences.length === 0) {      // Create new preferences
       const newPreferences = await db
         .insert(userPreferences)
         .values({
@@ -129,6 +125,7 @@ export async function POST(request: NextRequest) {
           timezoneId: validTimezoneId,
           theme,
           additionalSettings,
+          twoFactorAuth,
           updatedAt: new Date().toISOString()
         })
         .returning();
@@ -137,8 +134,7 @@ export async function POST(request: NextRequest) {
         success: true,
         message: 'Preferences created successfully',
         preferences: newPreferences[0]
-      });    } else {
-      // Update existing preferences
+      });    } else {      // Update existing preferences
       const updatedPreferences = await db
         .update(userPreferences)
         .set({
@@ -150,6 +146,7 @@ export async function POST(request: NextRequest) {
           timezoneId: validTimezoneId,
           theme,
           additionalSettings,
+          twoFactorAuth,
           updatedAt: new Date().toISOString()
         })
         .where(eq(userPreferences.userId, session.user.id))

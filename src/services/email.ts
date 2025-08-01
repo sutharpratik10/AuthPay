@@ -45,7 +45,7 @@ class EmailService {
         
         <div style="background-color: #f8f9fa; border: 2px dashed #e9ecef; border-radius: 8px; padding: 30px; text-align: center; margin: 30px 0;">
           <p style="color: #333333; font-size: 14px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Your Verification Code</p>
-          <div style="font-size: 32px; font-weight: bold; color: #4F46E5; letter-spacing: 4px; font-family: 'Courier New', monospace;">
+          <div style="font-size: 32px; font-weight: bold, color: #4F46E5; letter-spacing: 4px; font-family: 'Courier New', monospace;">
             ${otpCode}
           </div>
           <p style="color: #666666; font-size: 12px; margin-top: 10px;">This code will expire in 15 minutes</p>
@@ -260,6 +260,55 @@ class EmailService {
     return this.sendEmail({
       to: email,
       subject: `Account Deleted - ${getAppName()}`,
+      html,
+    });
+  }
+
+  async send2FACode(email: string, otpCode: string, name: string) {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #333333; font-size: 24px; margin-bottom: 10px;">Two-Factor Authentication</h1>
+          <p style="color: #666666; font-size: 16px; margin: 0;">Hi ${name || 'there'}, someone is trying to sign in to your account.</p>
+        </div>
+        
+        <div style="background-color: #f8f9fa; border: 2px solid #e9ecef; border-radius: 8px; padding: 30px; text-align: center; margin: 30px 0;">
+          <p style="color: #333333; font-size: 16px; margin-bottom: 15px; font-weight: 600;">Your 2FA Verification Code:</p>
+          <div style="font-size: 32px; font-weight: bold; color: #4F46E5; font-family: 'Courier New', monospace; letter-spacing: 8px; margin: 10px 0;">
+            ${otpCode}
+          </div>
+          <p style="color: #666666; font-size: 14px; margin-top: 15px; margin-bottom: 0;">
+            <strong>This code expires in 10 minutes</strong>
+          </p>
+        </div>
+        
+        <div style="margin: 30px 0;">
+          <p style="color: #333333; font-size: 14px; margin-bottom: 10px;"><strong>Instructions:</strong></p>
+          <ol style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0; padding-left: 20px;">
+            <li>Return to the login page where you were prompted for 2FA</li>
+            <li>Enter the 6-digit code above</li>
+            <li>Click "Verify & Continue" to complete your login</li>
+          </ol>
+        </div>
+        
+        <div style="border-top: 1px solid #e9ecef; padding-top: 20px; margin-top: 30px;">
+          <p style="color: #666666; font-size: 12px; margin: 0;">
+            <strong>Security Note:</strong> If you didn't try to sign in, please contact support immediately and consider changing your password. 
+            For your security, never share this code with anyone.
+          </p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+          <p style="color: #999999; font-size: 12px; margin: 0;">
+            This is an automated message from ${getAppName()}. Please do not reply to this email.
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: `Two-Factor Authentication Code: ${otpCode}`,
       html,
     });
   }

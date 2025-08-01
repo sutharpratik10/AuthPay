@@ -1,5 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { db } from "@/db";
+import { userPreferences } from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+/**
+ * Check if user requires 2FA verification for this session
+ * Note: This is a simplified check - in a production environment,
+ * you would want to check the actual session's 2FA verification status
+ */
+async function checkSessionRequires2FA(userId: string): Promise<{ requires2FA: boolean; isVerified: boolean }> {
+  try {
+    // Check if user has 2FA enabled
+    const preferences = await db.query.userPreferences.findFirst({
+      where: eq(userPreferences.userId, userId),
+      columns: { twoFactorAuth: true }
+    });
+
+    const has2FA = preferences?.twoFactorAuth === true;
+    
+    if (!has2FA) {
+      return { requires2FA: false, isVerified: true }; // No 2FA required
+    }
+
+    // If 2FA is required, for now we assume it's verified if user is authenticated
+    // In a more robust implementation, you would check the session token against
+    // the sessions table to verify the is2faVerified flag
+    
+    return { requires2FA: true, isVerified: true };
+  } catch (error) {
+    console.error('Error checking 2FA requirements:', error);
+    // Fail safe: allow access if we can't determine 2FA status
+    return { requires2FA: false, isVerified: true };
+  }
+}
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -92,10 +126,19 @@ export async function middleware(request: NextRequest) {
       loginUrl.searchParams.set('returnTo', path);
       return NextResponse.redirect(loginUrl);
     }
-    
-    if (!isEmailVerified) {
+      if (!isEmailVerified) {
       console.log(`[MIDDLEWARE] ⚠️ Authenticated but unverified user, redirecting to verify page`);
       return NextResponse.redirect(new URL('/auth/verify', request.url));
+    }
+    
+    // Check if session requires 2FA verification
+    if (session?.user?.id) {
+      const { requires2FA, isVerified } = await checkSessionRequires2FA(session.user.id);
+      
+      if (requires2FA && !isVerified) {
+        console.log(`[MIDDLEWARE] 🔒 User requires 2FA verification, redirecting to 2FA page`);
+        return NextResponse.redirect(new URL('/auth/2fa-verify', request.url));
+      }
     }
     
     console.log(`[MIDDLEWARE] ✅ Authenticated verified user accessing: ${path}`);

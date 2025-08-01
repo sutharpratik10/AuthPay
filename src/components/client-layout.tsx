@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Navigationbar } from "@/components/navigationbar";
 import { AuthProvider } from "@/lib/auth-context";
@@ -18,6 +19,28 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
 function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
+
+  // Global error handler for unhandled promise rejections
+  useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error('Unhandled promise rejection:', event.reason);
+      // Prevent the default behavior (which would log to console)
+      event.preventDefault();
+    };
+
+    const handleError = (event: ErrorEvent) => {
+      console.error('Global error:', event.error);
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    window.addEventListener('error', handleError);
+
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      window.removeEventListener('error', handleError);
+    };
+  }, []);
+
   return (
     <ThemeProvider
       attribute="class"

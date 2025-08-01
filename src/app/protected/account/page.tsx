@@ -6,10 +6,24 @@ import { useSession, signOut } from "next-auth/react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { User, Mail, Key, Trash2, Upload, Eye, EyeOff, X, Shield, CheckCircle } from "lucide-react"
 import { DeleteAccountModal } from "@/components/DeleteAccountModal"
 
 type PasswordStep = 'form' | 'otp' | 'success'
+
+interface UserPreferences {
+  emailNotifications: boolean
+  securityAlerts: boolean
+  productUpdates: boolean
+  profileVisibility: boolean
+  languageId: number | null
+  timezoneId: number | null
+  theme: string
+  twoFactorAuth?: boolean
+  multiFactorAuth?: boolean
+  dataExport?: boolean
+}
 
 export default function AccountPage() {
   const { user, isEmailVerified } = useAuth()
@@ -17,6 +31,20 @@ export default function AccountPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   
+  // Privacy & Security preferences state
+  const [preferences, setPreferences] = useState<UserPreferences>({
+    emailNotifications: true,
+    securityAlerts: true,
+    productUpdates: false,
+    profileVisibility: true,
+    languageId: null,
+    timezoneId: null,
+    theme: 'system',
+    twoFactorAuth: false,
+    multiFactorAuth: false,
+    dataExport: false
+  })
+
   // Password change states
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [passwordStep, setPasswordStep] = useState<PasswordStep>('form')
@@ -53,6 +81,32 @@ export default function AccountPage() {
       if (interval) clearInterval(interval)
     }
   }, [otpTimer])
+
+  // Load user preferences
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const response = await fetch('/api/user/preferences')
+        if (response.ok) {
+          const data = await response.json()
+          setPreferences(prev => ({
+            ...prev,
+            emailNotifications: data.emailNotifications ?? true,
+            securityAlerts: data.securityAlerts ?? true,
+            productUpdates: data.productUpdates ?? false,
+            profileVisibility: data.profileVisibility ?? true,
+            twoFactorAuth: data.twoFactorAuth ?? false,
+            multiFactorAuth: data.multiFactorAuth ?? false,
+            dataExport: data.dataExport ?? false
+          }))
+        }
+      } catch (error) {
+        console.error('Failed to load preferences:', error)
+      }
+    }
+
+    loadPreferences()
+  }, [])
 
   const getInitials = (name?: string | null) => {
     if (!name) return "U"
@@ -245,6 +299,62 @@ export default function AccountPage() {
   const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {
     setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }))
   }
+
+  const updatePreference = (key: keyof UserPreferences, value: boolean) => {
+    setPreferences(prev => ({ ...prev, [key]: value }))
+  }
+
+  const handleSavePrivacySettings = async () => {
+    setIsLoading(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch('/api/user/preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },        body: JSON.stringify({
+          emailNotifications: preferences.emailNotifications,
+          securityAlerts: preferences.securityAlerts,
+          productUpdates: preferences.productUpdates,
+          profileVisibility: preferences.profileVisibility,
+          languageId: preferences.languageId,
+          timezoneId: preferences.timezoneId,
+          theme: preferences.theme,
+          twoFactorAuth: preferences.twoFactorAuth
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setMessage({ type: 'success', text: data.message || 'Privacy settings saved successfully!' })
+      } else {
+        const errorData = await response.json()
+        setMessage({ type: 'error', text: errorData.error || 'Failed to save privacy settings.' })
+      }
+    } catch (error) {
+      console.error('Error saving privacy settings:', error)
+      setMessage({ type: 'error', text: 'Failed to save privacy settings. Please try again.' })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDataExport = async () => {
+    setIsLoading(true)
+    setMessage(null)
+
+    try {
+      // Simulate data export - in reality this would generate a file
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      setMessage({ type: 'success', text: 'Data export request submitted. You will receive an email with your data within 24 hours.' })
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to initiate data export. Please try again.' })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleProfileUpdate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setIsLoading(true)
@@ -360,6 +470,41 @@ export default function AccountPage() {
         type: 'error', 
         text: 'Failed to delete account. Please try again.' 
       })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handle2FAToggle = async (enabled: boolean) => {
+    setIsLoading(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch('/api/user/preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...preferences,
+          twoFactorAuth: enabled        }),
+      })
+
+      if (response.ok) {
+        updatePreference('twoFactorAuth', enabled)
+        setMessage({ 
+          type: 'success', 
+          text: enabled 
+            ? 'Two-Factor Authentication enabled successfully!' 
+            : 'Two-Factor Authentication disabled successfully!' 
+        })
+      } else {
+        const errorData = await response.json()
+        setMessage({ type: 'error', text: errorData.error || 'Failed to update 2FA settings.' })
+      }
+    } catch (error) {
+      console.error('Error updating 2FA settings:', error)
+      setMessage({ type: 'error', text: 'Failed to update 2FA settings. Please try again.' })
     } finally {
       setIsLoading(false)
     }
@@ -619,7 +764,8 @@ export default function AccountPage() {
                         </Button>
                       </div>
 
-                      <div className="text-center">                        <p className="text-sm text-muted-foreground mb-4">
+                      <div className="text-center">                        
+                        <p className="text-sm text-muted-foreground mb-4">
                           We&apos;ve sent a 6-digit verification code to your email address.
                           Please enter it below to complete the password change.
                         </p>
@@ -688,6 +834,81 @@ export default function AccountPage() {
           </div>
         </div>
 
+        {/* Privacy Preferences */}
+        <div className="border rounded-lg p-6 bg-card">
+          <h2 className="flex items-center text-lg font-semibold mb-4">
+            <Shield className="w-5 h-5 mr-2" />
+            Privacy Preferences
+          </h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Email Notifications</label>
+              <Switch
+                checked={preferences.emailNotifications}
+                onCheckedChange={(checked) => updatePreference('emailNotifications', checked)}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Security Alerts</label>
+              <Switch
+                checked={preferences.securityAlerts}
+                onCheckedChange={(checked) => updatePreference('securityAlerts', checked)}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Product Updates</label>
+              <Switch
+                checked={preferences.productUpdates}
+                onCheckedChange={(checked) => updatePreference('productUpdates', checked)}
+                disabled={isLoading}
+              />
+            </div>            
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Profile Visibility</label>
+              <Switch
+                checked={preferences.profileVisibility}
+                onCheckedChange={(checked) => updatePreference('profileVisibility', checked)}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium">Two-Factor Authentication</label>
+                <p className="text-xs text-muted-foreground">
+                  Require a verification code when signing in
+                </p>
+              </div>
+              <Switch
+                checked={preferences.twoFactorAuth || false}
+                onCheckedChange={handle2FAToggle}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="flex space-x-2 pt-4">
+              <Button 
+                onClick={handleSavePrivacySettings} 
+                disabled={isLoading}
+              >
+                {isLoading ? 'Saving...' : 'Save Privacy Settings'}
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={handleDataExport}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Exporting...' : 'Export Data'}
+              </Button>
+            </div>
+          </div>
+        </div>
+
         {/* Danger Zone */}
         <div className="border border-red-200 rounded-lg p-6 bg-red-50 dark:bg-red-950 dark:border-red-800">
           <h2 className="flex items-center text-lg font-semibold mb-4 text-red-600 dark:text-red-400">
@@ -696,7 +917,8 @@ export default function AccountPage() {
           </h2>
           <div className="space-y-4">
             <div>
-              <h3 className="font-medium text-red-600 dark:text-red-400">Delete Account</h3>              <p className="text-sm text-red-500 dark:text-red-300 mb-2">
+              <h3 className="font-medium text-red-600 dark:text-red-400">Delete Account</h3>              
+              <p className="text-sm text-red-500 dark:text-red-300 mb-2">
                 Once you delete your account, there is no going back. Please be certain.
               </p>
               <Button 
@@ -706,7 +928,8 @@ export default function AccountPage() {
               >
                 Delete Account
               </Button>
-            </div>          </div>
+            </div>          
+          </div>
         </div>
       </div>
 

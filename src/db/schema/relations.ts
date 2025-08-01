@@ -54,7 +54,7 @@ export const userUsageMetricsRelations = relations(userUsageMetrics, ({one}) => 
 	}),
 }));
 
-export const usersRelations = relations(users, ({many}) => ({
+export const usersRelations = relations(users, ({one, many}) => ({
 	userUsageMetrics: many(userUsageMetrics),
 	auditLogs: many(auditLogs),
 	errorLogs: many(errorLogs),
@@ -78,7 +78,10 @@ export const usersRelations = relations(users, ({many}) => ({
 	sessions: many(sessions),
 	userAvatars: many(userAvatars),
 	passwordResetTokens: many(passwordResetTokens),
-	userPreferences: many(userPreferences),
+	userPreferences: one(userPreferences, {
+		fields: [users.id],
+		references: [userPreferences.userId]
+	}),
 	accounts: many(accounts),
 }));
 

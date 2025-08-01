@@ -31,12 +31,12 @@ const authConfig: NextAuthConfig = {
     AzureAD({
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-    }),
-    Credentials({
+    }),    Credentials({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
+        skipPasswordCheck: { label: "Skip Password Check", type: "text" }, // For 2FA completion
       },
       async authorize(credentials) {
         try {
@@ -46,29 +46,41 @@ const authConfig: NextAuthConfig = {
 
           const email = credentials.email as string;
           const password = credentials.password as string;
+          const skipPasswordCheck = credentials.skipPasswordCheck === 'true';
 
           const user = await db.query.users.findFirst({
-            where: (usersTable) => eq(usersTable.email, email)
+            where: (usersTable) => eq(usersTable.email, email),
+            with: {
+              userPreferences: true
+            }
           });
 
           if (!user || !user.password) {
             return null;
+          }          // Skip password check if this is a 2FA completion (already verified)
+          if (!skipPasswordCheck) {
+            const isPasswordValid = await bcrypt.compare(
+              password,
+              user.password
+            );
+
+            if (!isPasswordValid) {
+              return null;
+            }            // Check if user has 2FA enabled
+            const has2FA = user.userPreferences?.twoFactorAuth === true;
+            if (has2FA) {
+              // Return null to indicate failed authentication (2FA required)
+              // The frontend will handle checking 2FA status and redirecting
+              return null;
+            }
           }
 
-          const isPasswordValid = await bcrypt.compare(
-            password,
-            user.password
-          );
-
-          if (!isPasswordValid) {
-            return null;
-          }          return {
+          return {
             id: user.id,
             email: user.email,
             name: user.name,
             isEmailVerified: user.isEmailVerified ?? false
-          };
-        } catch (error) {
+          };        } catch (error) {
           console.error("Authentication error:", error);
           return null;
         }

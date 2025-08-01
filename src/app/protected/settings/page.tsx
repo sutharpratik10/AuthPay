@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Select } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Bell, Shield, Palette, Globe, Check } from "lucide-react"
+import { Bell, Palette, Globe, Check } from "lucide-react"
 import { useTheme } from "next-themes"
 
 interface Language {
@@ -266,63 +266,7 @@ export default function SettingsPage() {
                 checked={preferences.productUpdates}
                 onCheckedChange={(checked) => updatePreference('productUpdates', checked)}
               />
-            </div>
-          </div>
-        </div>
-
-        {/* Privacy Settings */}
-        <div className="border rounded-lg p-6 bg-card">
-          <h2 className="flex items-center text-lg font-semibold mb-4">
-            <Shield className="w-5 h-5 mr-2" />
-            Privacy & Security
-          </h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <label htmlFor="profile-visibility" className="text-sm font-medium">Profile Visibility</label>
-                <p className="text-xs text-muted-foreground">Make your profile visible to others</p>
-              </div>
-              <Switch
-                id="profile-visibility"
-                checked={preferences.profileVisibility}
-                onCheckedChange={(checked) => updatePreference('profileVisibility', checked)}
-              />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium">Two-Factor Authentication</label>
-                <p className="text-xs text-muted-foreground">Add an extra layer of security</p>
-              </div>
-              <Switch
-                id="profile-visibility"
-                checked={preferences.profileVisibility}
-                onCheckedChange={(checked) => updatePreference('profileVisibility', checked)}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium">Multi-Factor Authentication</label>
-                <p className="text-xs text-muted-foreground">Add an extra layer of security</p>
-              </div>
-              <Switch
-                id="profile-visibility"
-                checked={preferences.profileVisibility}
-                onCheckedChange={(checked) => updatePreference('profileVisibility', checked)}
-              />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium">Data Export</label>
-                <p className="text-xs text-muted-foreground">Download a copy of your data</p>
-              </div>
-              <Button variant="outline" size="sm">
-                Export
-              </Button>
-            </div>
-          </div>
+            </div>          </div>
         </div>        {/* Language & Region */}
         <div className="border rounded-lg p-6 bg-card">
           <h2 className="flex items-center text-lg font-semibold mb-4">

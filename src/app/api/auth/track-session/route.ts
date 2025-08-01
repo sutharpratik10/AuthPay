@@ -21,9 +21,7 @@ export async function POST(request: NextRequest) {
       ipAddress = realIP;
     } else if (forwardedFor) {
       ipAddress = forwardedFor.split(',')[0].trim();
-    }
-
-    // Create session record
+    }    // Create session record
     const sessionRecord = await SessionService.createSession({
       userId: session.user.id,
       userAgent,

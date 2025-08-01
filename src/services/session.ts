@@ -49,9 +49,7 @@ export class SessionService {
       expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
 
       // Parse browser name from user agent string
-      const browserName = userAgent ? parseBrowserName(userAgent) : null;
-
-      // Use a transaction to batch the operations
+      const browserName = userAgent ? parseBrowserName(userAgent) : null;      // Use a transaction to batch the operations
       const result = await db.transaction(async (tx) => {
         // Create the session record
         const newSession = await tx.insert(sessions).values({
@@ -62,7 +60,9 @@ export class SessionService {
           ipAddress: ipAddress || null,
           lastActiveAt: new Date(),
           createdAt: new Date(),
-        }).returning();        // Update user's last login time in the same transaction
+        }).returning();
+
+        // Update user's last login time in the same transaction
         await tx
           .update(users)
           .set({ 
