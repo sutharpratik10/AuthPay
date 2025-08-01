@@ -151,10 +151,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: "An unexpected error occurred" }
     }
   }
-
   const socialLogin = async (provider: string) => {
     await signIn(provider, { callbackUrl: "/protected/dashboard" })
   }
+
   const register = async (email: string, password: string, name?: string) => {
     try {
       const res = await fetch("/api/auth/register", {
@@ -169,8 +169,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: data.error }
       }
 
-      // After successful registration, redirect to verification page
-      router.push("/auth/verify?email=" + encodeURIComponent(email))
+      // After successful registration, automatically sign in the user
+      const loginResult = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      })
+
+      if (loginResult?.error) {
+        // If auto-login fails, still redirect to verify page but user won't be logged in
+        console.warn("Auto-login after registration failed:", loginResult.error)
+        router.push("/auth/verify?email=" + encodeURIComponent(email))
+        return { error: "Registration successful but auto-login failed. Please sign in manually." }
+      }
+
+      // Create session record after successful auto-login
+      try {
+        await fetch('/api/auth/track-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (sessionError) {
+        console.warn('Failed to create session record:', sessionError);
+        // Don't fail the registration process if session recording fails
+      }
+
+      // User is now authenticated but email not verified - redirect to verify page
+      router.push("/auth/verify")
       return {}
     } catch (error) {
       console.error("Registration error:", error)

@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { AlertCircle, Mail, Github, Facebook, CreditCard } from "lucide-react"
+import { AlertCircle, Mail, Github, Facebook, CreditCard, Eye, EyeOff, Check, X, Loader2 } from "lucide-react"
+import { calculatePasswordStrength, getPasswordStrengthWidth, type PasswordStrength } from "@/lib/password-strength"
 
 export default function SignupForm() {
   const { register, socialLogin, loading } = useAuth()
@@ -19,19 +20,101 @@ export default function SignupForm() {
   
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  
+  // Email validation states
+  const [emailStatus, setEmailStatus] = useState<{
+    checking: boolean
+    available: boolean | null
+    message: string
+  }>({
+    checking: false,
+    available: null,
+    message: ""
+  })
+  
+  // Password strength state
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>({
+    score: 0,
+    label: 'Very Weak',
+    color: 'bg-red-500',
+    suggestions: []
+  })
+
+  // Debounced email check
+  const checkEmailAvailability = useCallback(async (email: string) => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailStatus({ checking: false, available: null, message: "" })
+      return
+    }
+
+    setEmailStatus(prev => ({ ...prev, checking: true }))
+    
+    try {
+      const response = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+      
+      const result = await response.json()
+      
+      if (response.ok) {
+        setEmailStatus({
+          checking: false,
+          available: !result.emailExists,
+          message: result.message
+        })
+      } else {
+        setEmailStatus({
+          checking: false,
+          available: null,
+          message: result.error || "Error checking email"
+        })
+      }    } catch (error) {
+      setEmailStatus({
+        checking: false,
+        available: null,
+        message: "Error checking email availability"
+      })
+      console.error("Email check error:", error)
+    }
+  }, [])
+
+  // Effect for email validation with debounce
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (formData.email) {
+        checkEmailAvailability(formData.email)
+      }
+    }, 500) // 500ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [formData.email, checkEmailAvailability])
+
+  // Effect for password strength calculation
+  useEffect(() => {
+    const strength = calculatePasswordStrength(formData.password)
+    setPasswordStrength(strength)
+  }, [formData.password])
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
-  
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
     
     // Basic validation
     if (!formData.email || !formData.password) {
       return setError("Email and password are required")
+    }
+    
+    // Email availability check
+    if (emailStatus.available === false) {
+      return setError("Email is already registered. Please use a different email or try logging in.")
     }
     
     if (formData.password !== formData.confirmPassword) {
@@ -42,27 +125,30 @@ export default function SignupForm() {
       return setError("Password must be at least 8 characters")
     }
     
+    // Password strength validation
+    if (passwordStrength.score < 2) {
+      return setError("Password is too weak. Please create a stronger password.")
+    }
+    
     try {
       setIsSubmitting(true)
       const result = await register(formData.email, formData.password, formData.name)
         if (result.error) {
         setError(result.error)
       }
-      // Auth context will handle redirection after successful registration
-    } catch (err) {
+      // Auth context will handle redirection after successful registration    } catch (error) {
       setError("An error occurred during registration")
-      console.error(err)
+      console.error("Registration error:", error)
     } finally {
       setIsSubmitting(false)
     }
   }
-  
-  const handleSocialLogin = async (provider: string) => {
+    const handleSocialLogin = async (provider: string) => {
     try {
       await socialLogin(provider)
-    } catch (err) {
+    } catch (error) {
       setError("Failed to login with social provider")
-      console.error(err)
+      console.error("Social login error:", error)
     }
   }
 
@@ -103,61 +189,180 @@ export default function SignupForm() {
             className="w-full"
           />
         </div>
-        
-        <div className="space-y-2">
+          <div className="space-y-2">
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Email
           </label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="your@email.com"
-            className="w-full"
-            required
-          />
+          <div className="relative">
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="your@email.com"
+              className={`w-full pr-10 ${
+                emailStatus.available === false 
+                  ? 'border-red-500 focus:border-red-500' 
+                  : emailStatus.available === true 
+                  ? 'border-green-500 focus:border-green-500' 
+                  : ''
+              }`}
+              required
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+              {emailStatus.checking ? (
+                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+              ) : emailStatus.available === true ? (
+                <Check className="h-4 w-4 text-green-500" />
+              ) : emailStatus.available === false ? (
+                <X className="h-4 w-4 text-red-500" />
+              ) : null}
+            </div>
+          </div>
+          {emailStatus.message && (
+            <p className={`text-xs ${
+              emailStatus.available === true 
+                ? 'text-green-600' 
+                : emailStatus.available === false 
+                ? 'text-red-600' 
+                : 'text-gray-600'
+            }`}>
+              {emailStatus.message}
+            </p>
+          )}
         </div>
-        
-        <div className="space-y-2">
+          <div className="space-y-2">
           <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Password
           </label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            value={formData.password}
-            onChange={handleChange}
-            placeholder="********"
-            className="w-full"
-            required
-          />
+          <div className="relative">
+            <Input
+              id="password"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="********"
+              className="w-full pr-10"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+          
+          {/* Password Strength Indicator */}
+          {formData.password && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600 dark:text-gray-400">
+                  Password strength:
+                </span>
+                <span className={`text-xs font-medium ${
+                  passwordStrength.score <= 1 ? 'text-red-600' :
+                  passwordStrength.score <= 2 ? 'text-orange-600' :
+                  passwordStrength.score <= 3 ? 'text-yellow-600' :
+                  'text-green-600'
+                }`}>
+                  {passwordStrength.label}
+                </span>
+              </div>
+              
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full transition-all duration-300 ${passwordStrength.color} ${getPasswordStrengthWidth(passwordStrength.score)}`}
+                />
+              </div>
+              
+              {passwordStrength.suggestions.length > 0 && (
+                <div className="text-xs text-gray-600 dark:text-gray-400">
+                  <p className="font-medium mb-1">To improve your password:</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {passwordStrength.suggestions.slice(0, 3).map((suggestion, index) => (
+                      <li key={index}>{suggestion}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        
-        <div className="space-y-2">
+          <div className="space-y-2">
           <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Confirm Password
           </label>
-          <Input
-            id="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            placeholder="********"
-            className="w-full"
-            required
-          />
-        </div>
-        
-        <Button
+          <div className="relative">
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type={showConfirmPassword ? "text" : "password"}
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              placeholder="********"
+              className={`w-full pr-10 ${
+                formData.confirmPassword && formData.password !== formData.confirmPassword
+                  ? 'border-red-500 focus:border-red-500'
+                  : formData.confirmPassword && formData.password === formData.confirmPassword
+                  ? 'border-green-500 focus:border-green-500'
+                  : ''
+              }`}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+            >
+              {showConfirmPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+          
+          {/* Password Match Indicator */}
+          {formData.confirmPassword && (
+            <p className={`text-xs ${
+              formData.password === formData.confirmPassword
+                ? 'text-green-600'
+                : 'text-red-600'
+            }`}>
+              {formData.password === formData.confirmPassword
+                ? '✓ Passwords match'
+                : '✗ Passwords do not match'
+              }
+            </p>
+          )}
+        </div>        <Button
           type="submit"
-          className="w-full bg-white text-black border-1 border-black hover:bg-gray-100 dark:bg-neutral-800 dark:text-white dark:border-white dark:hover:bg-neutral-700 transition-colors"
-          disabled={isSubmitting || loading}
+          className="w-full bg-white text-black border-1 border-black hover:bg-gray-100 dark:bg-neutral-800 dark:text-white dark:border-white dark:hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={
+            isSubmitting || 
+            loading || 
+            emailStatus.checking || 
+            emailStatus.available === false ||
+            (!!formData.password && passwordStrength.score < 2) ||
+            (!!formData.confirmPassword && formData.password !== formData.confirmPassword)
+          }
         >
-          {isSubmitting ? "Creating account..." : "Sign Up"}
+          {isSubmitting ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Creating account...
+            </span>
+          ) : (
+            "Sign Up"
+          )}
         </Button>
       </form>
       

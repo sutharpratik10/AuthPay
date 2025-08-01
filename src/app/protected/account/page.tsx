@@ -2,15 +2,18 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/lib"
+import { useSession, signOut } from "next-auth/react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { User, Mail, Key, Trash2, Upload, Eye, EyeOff, X, Shield, CheckCircle } from "lucide-react"
+import { DeleteAccountModal } from "@/components/DeleteAccountModal"
 
 type PasswordStep = 'form' | 'otp' | 'success'
 
 export default function AccountPage() {
   const { user, isEmailVerified } = useAuth()
+  const { update } = useSession()
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   
@@ -27,14 +30,16 @@ export default function AccountPage() {
     newPassword: '',
     confirmPassword: ''
   })
-  
-  // OTP states
+    // OTP states
   const [otp, setOtp] = useState('')
   const [otpTimer, setOtpTimer] = useState(0)
   const [tempPasswordData, setTempPasswordData] = useState<{
     currentPassword: string;
     newPassword: string;
   } | null>(null)
+
+  // Delete account states
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   // OTP Timer effect
   useEffect(() => {
@@ -240,7 +245,6 @@ export default function AccountPage() {
   const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {
     setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }))
   }
-
   const handleProfileUpdate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setIsLoading(true)
@@ -249,19 +253,60 @@ export default function AccountPage() {
     const formData = new FormData(event.currentTarget)
     const name = formData.get('name') as string
 
-    // Simulate API call
+    // Validate name
+    if (!name || name.trim().length < 1) {
+      setMessage({ type: 'error', text: 'Name is required' })
+      setIsLoading(false)
+      return
+    }
+
+    if (name.trim().length > 100) {
+      setMessage({ type: 'error', text: 'Name cannot be longer than 100 characters' })
+      setIsLoading(false)
+      return
+    }
+
     try {
-      // TODO: Implement actual profile update API call with name
-      console.log('Updating profile with name:', name)
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setMessage({ type: 'success', text: 'Profile updated successfully!' })
-    } catch {
-      setMessage({ type: 'error', text: 'Failed to update profile. Please try again.' })
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: name.trim()
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        setMessage({ 
+          type: 'error', 
+          text: result.error || 'Failed to update profile. Please try again.' 
+        })
+        return
+      }      setMessage({ type: 'success', text: 'Profile updated successfully!' })
+      
+      // Trigger session refresh to update user data in the UI
+      try {
+        await update({
+          name: result.user?.name
+        })
+      } catch (updateError) {
+        console.warn('Failed to update session:', updateError)
+        // Still show success since the database was updated
+      }
+      
+    } catch (error) {
+      console.error('Profile update error:', error)
+      setMessage({ 
+        type: 'error', 
+        text: 'Failed to update profile. Please try again.' 
+      })
     } finally {
       setIsLoading(false)
     }
   }
-
   const handleResendVerification = async () => {
     setIsLoading(true)
     setMessage(null)
@@ -271,6 +316,50 @@ export default function AccountPage() {
       setMessage({ type: 'success', text: 'Verification email sent successfully!' })
     } catch {
       setMessage({ type: 'error', text: 'Failed to send verification email.' })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDeleteAccount = async (confirmationText: string) => {
+    setIsLoading(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch('/api/user/delete-account', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          confirmationText
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        setMessage({ 
+          type: 'error', 
+          text: result.error || 'Failed to delete account. Please try again.' 
+        })
+        return
+      }
+
+      // Show success message briefly before logout
+      setMessage({ type: 'success', text: 'Account deleted successfully. Logging out...' })
+      
+      // Wait a moment to show the message, then sign out
+      setTimeout(async () => {
+        await signOut({ callbackUrl: '/' })
+      }, 2000)
+      
+    } catch (error) {
+      console.error('Account deletion error:', error)
+      setMessage({ 
+        type: 'error', 
+        text: 'Failed to delete account. Please try again.' 
+      })
     } finally {
       setIsLoading(false)
     }
@@ -332,7 +421,8 @@ export default function AccountPage() {
                   className="mt-1"
                   required
                 />
-              </div>              <div>
+              </div>              
+              <div>
                 <div className="flex items-center justify-between mb-1">
                   <label htmlFor="email" className="text-sm font-medium">Email Address</label>
                   <div className="flex items-center space-x-2">
@@ -606,17 +696,28 @@ export default function AccountPage() {
           </h2>
           <div className="space-y-4">
             <div>
-              <h3 className="font-medium text-red-600 dark:text-red-400">Delete Account</h3>
-              <p className="text-sm text-red-500 dark:text-red-300 mb-2">
+              <h3 className="font-medium text-red-600 dark:text-red-400">Delete Account</h3>              <p className="text-sm text-red-500 dark:text-red-300 mb-2">
                 Once you delete your account, there is no going back. Please be certain.
               </p>
-              <Button variant="destructive">
+              <Button 
+                variant="destructive"
+                onClick={() => setShowDeleteModal(true)}
+                disabled={isLoading}
+              >
                 Delete Account
               </Button>
-            </div>
-          </div>
+            </div>          </div>
         </div>
       </div>
+
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteAccount}
+        isLoading={isLoading}
+        userName={user?.name}
+      />
     </div>
   )
 }
