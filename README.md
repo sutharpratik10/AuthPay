@@ -1,134 +1,149 @@
-# Authentication System with OAuth Support
+# AccessLayer – Next.js Authentication & Multi‑Tenant API Layer
 
-This is a [Next.js](https://nextjs.org) authentication system with support for email/password login and OAuth providers (Google, GitHub, Facebook, Microsoft Azure AD, and Apple).
+AccessLayer is a modular authentication and API layer built on **Next.js** and **NextAuth.js**.  
+It supports email/password authentication, multiple OAuth providers (Google, GitHub, Facebook, Microsoft Azure AD, Apple), and robust features like 2FA, email verification, password reset, and flexible session management.
 
-## Features
+Built with a scalable **multi-tenant architecture**, this solution is ideal for SaaS applications needing isolated tenant data and granular access control.
 
-- **Email/Password Authentication**: Traditional signup and login with email verification
-- **OAuth Authentication**: Third-party login with Google, GitHub, Facebook, Microsoft, and Apple
-- **Two-Factor Authentication (2FA)**: Optional TOTP-based 2FA
-- **Email Verification**: Required for email/password accounts (automatically verified for OAuth)
-- **Password Reset**: Secure password reset flow with OTP codes
-- **Session Management**: Secure session handling with NextAuth.js
-- **User Preferences**: Theme, notifications, and other user settings
+---
 
-## OAuth Setup
+## 🔑 Features
 
-### Environment Variables
+- ✅ **Email/Password Login**
+- 🔐 **Two-Factor Authentication (2FA)** using TOTP
+- 💌 **Email Verification** & **Password Reset**
+- 🌐 **OAuth Support**:
+  - Google
+  - GitHub
+  - Facebook
+  - Azure AD
+- 👥 **Multi-Tenant Architecture** with route-level tenant resolution
+- 🏷️ **Role-Based Access Control** (RBAC)
+- 🌙 **User Preferences** like theme & session info
+- 🔁 **Session Management** using JWT with expiration & refresh support
+- 🔧 Modular route management defined in `ROUTES-ARCHITECTURE.md`
 
-Copy `env.example` to `.env.local` and configure your OAuth providers:
+---
 
-```bash
-# NextAuth.js settings
-NEXTAUTH_SECRET="your-secret-key-here"
-NEXTAUTH_URL="http://localhost:3000"
-
-# GitHub OAuth
-GITHUB_CLIENT_ID="your-github-client-id"
-GITHUB_CLIENT_SECRET="your-github-client-secret"
-
-# Google OAuth
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
-
-# Facebook OAuth
-FACEBOOK_CLIENT_ID="your-facebook-app-id"
-FACEBOOK_CLIENT_SECRET="your-facebook-app-secret"
-
-# Microsoft Azure AD OAuth
-AZURE_AD_CLIENT_ID="your-azure-ad-client-id"
-AZURE_AD_CLIENT_SECRET="your-azure-ad-client-secret"
-
-# Apple OAuth
-APPLE_CLIENT_ID="your-apple-service-id"
-APPLE_CLIENT_SECRET="your-apple-private-key"
-```
-
-### OAuth Provider Setup
-
-#### Google OAuth
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Enable the Google+ API
-4. Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client IDs"
-5. Set authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
-
-#### GitHub OAuth
-1. Go to GitHub Settings → Developer settings → OAuth Apps
-2. Click "New OAuth App"
-3. Set Authorization callback URL: `http://localhost:3000/api/auth/callback/github`
-
-#### Facebook OAuth
-1. Go to [Facebook Developers](https://developers.facebook.com/)
-2. Create a new app
-3. Add Facebook Login product
-4. Set Valid OAuth Redirect URIs: `http://localhost:3000/api/auth/callback/facebook`
-
-#### Microsoft Azure AD OAuth
-1. Go to [Azure Portal](https://portal.azure.com/)
-2. Navigate to Azure Active Directory → App registrations
-3. Create new registration
-4. Set Redirect URI: `http://localhost:3000/api/auth/callback/azure-ad`
-
-#### Apple OAuth
-1. Go to [Apple Developer Portal](https://developer.apple.com/)
-2. Create a Services ID
-3. Configure Sign in with Apple
-4. Set Return URLs: `http://localhost:3000/api/auth/callback/apple`
-
-## Getting Started
-
-First, set up your environment variables and run the development server:
+## 🏗️ Project Structure
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+/src
+  ├── auth.config.ts         # Auth providers, session strategy, callbacks
+  ├── lib/auth-context.tsx   # User session context & preferences
+  ├── routes/ROUTES-ARCHITECTURE.md  # Logical routing architecture
+  ├── app/                   # Next.js App Directory
+  ├── components/            # UI components (e.g., OTPInput)
+  └── utils/                 # Helper functions
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+⚙️ Installation Guide
 
-## Authentication Flow
+    1. Clone the Repository
+        git clone https://github.com/sutharpratik10/AccessLayer.git
+        cd AccessLayer
 
-### OAuth Authentication
-- Users can sign up/login with any configured OAuth provider
-- OAuth users automatically have verified emails (`isEmailVerified: true`)
-- No email verification required for OAuth users
-- Redirects to dashboard after successful authentication
+    2. Install Dependencies
+        npm install
+        # or
+        yarn install
 
-### Email/Password Authentication
-- Traditional signup requires email verification
-- Users receive OTP codes for verification
-- 2FA can be enabled optionally
-- Password reset available via OTP codes
+    3. Set Up Environment Variables
+        Create a .env.local file based on the provided .env.example.
+        cp .env.example .env.local
 
-## API Routes
+        Edit the file to include your credentials:
+        DATABASE_URL=postgresql://user:pass@localhost:5432/db
+        NEXTAUTH_SECRET=your_random_secret
+        NEXTAUTH_URL=http://localhost:3000
 
-- `/api/auth/*` - NextAuth.js authentication endpoints
-- `/api/auth/register` - Email/password registration
-- `/api/auth/verify` - Email verification
-- `/api/auth/forgot-password` - Password reset initiation
-- `/api/auth/reset-password` - Password reset completion
+        # OAuth Provider credentials
+        GITHUB_ID=...
+        GITHUB_SECRET=...
+        GOOGLE_ID=...
+        GOOGLE_SECRET=...
+        FACEBOOK_ID=...
+        FACEBOOK_SECRET=...
+        AZURE_AD_CLIENT_ID=...
+        AZURE_AD_CLIENT_SECRET=...
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+    4. Run the Application Locally
+        npm run dev
+        Visit: http://localhost:3000
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Learn More
+🚀 Deployment Guide (Production)
 
-To learn more about Next.js, take a look at the following resources:
+    1. Set Up a Production Server
+        Use a VPS or cloud VM (e.g., AWS EC2, DigitalOcean Droplet).
+        Ensure Node.js (v18+), npm/yarn, and PostgreSQL are installed.
+        Secure the server with a firewall and SSH keys.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+    2. Clone and Build the Project
+        git clone https://github.com/sutharpratik10/AccessLayer.git
+        cd AccessLayer
+        npm install
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+    3. Configure Production Environment
+        cp .env.example .env.production
 
-## Deploy on Vercel
+        Edit .env.production:
+            NODE_ENV=production
+            DATABASE_URL=postgresql://user:pass@your-prod-host/db
+            NEXTAUTH_URL=https://yourdomain.com
+            NEXTAUTH_SECRET=your_strong_secret_key
+    
+    4. Build and Start
+        npm run build
+        npm start
+        #Tip: Use a process manager like PM2 to keep the app running:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+        npm install -g pm2
+        pm2 start npm --name accesslayer -- start
+        pm2 save
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+    5. Reverse Proxy with Nginx (optional but recommended)
+        Sample Nginx config:
+          <pre> ```  server {
+                listen 80;
+                server_name yourdomain.com;
+
+                location / {
+                    proxy_pass http://localhost:3000;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade $http_upgrade;
+                    proxy_set_header Connection 'upgrade';
+                    proxy_set_header Host $host;
+                    proxy_cache_bypass $http_upgrade;
+                }
+            }``` </pre>
+
+        Enable SSL using Let's Encrypt with Certbot.
+
+📁 OAuth Provider Setup
+    Register and configure the app with:
+        GitHub Developer
+        Google Cloud Console
+        Facebook Developers
+        Microsoft Azure
+
+
+🔐 Optional: Enable 2FA
+    To enable Two-Factor Authentication:
+        Navigate to the Profile or Security settings page.
+        Enter the 6-digit OTP to verify and enable 2FA.
+
+📁 OAuth Provider Setup
+    You'll need to register your app with the following providers:
+        GitHub: Developer Settings
+        Google: Google Cloud Console
+        Facebook: Facebook Developers
+        Apple: Apple Developer
+        Azure AD: Microsoft Azure Portal
+
+
+👤 Author
+    Developed by Pratik Suthar
+
+
+
+
