@@ -29,7 +29,6 @@ Built with a scalable **multi-tenant architecture**, this solution is ideal for 
 - [📚 Database Schema](#database-schema)
 - [📜 API Routes](#-api-routes)
 - [🤝 Contribution Guidelines](#-contribution-guidelines)
-- [📄 License](#-license)
 - [❓ FAQ](#-faq)
 - [👤 Author](#-author)
 
@@ -365,12 +364,6 @@ erDiagram
 > **Pull Requests**:
 >
 > Submit a pull request with a clear description of your changes.  Reference any related issues.
-
----
-
-## 📄 License
-
-> This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
