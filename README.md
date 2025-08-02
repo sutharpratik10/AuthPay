@@ -26,8 +26,7 @@ Built with a scalable **multi-tenant architecture**, this solution is ideal for 
 ---
 
 ## 🏗️ Project Structure
-
-```bash
+```
 /src
   ├── auth.config.ts         # Auth providers, session strategy, callbacks
   ├── lib/auth-context.tsx   # User session context & preferences
@@ -103,7 +102,7 @@ Built with a scalable **multi-tenant architecture**, this solution is ideal for 
 
     5. Reverse Proxy with Nginx (optional but recommended)
         Sample Nginx config:
-          <pre> ```  server {
+        ```  server {
                 listen 80;
                 server_name yourdomain.com;
 
@@ -115,7 +114,7 @@ Built with a scalable **multi-tenant architecture**, this solution is ideal for 
                     proxy_set_header Host $host;
                     proxy_cache_bypass $http_upgrade;
                 }
-            }``` </pre>
+            }```
 
         Enable SSL using Let's Encrypt with Certbot.
 
