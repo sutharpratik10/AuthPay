@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { User, Mail, Key, Trash2, Upload, Eye, EyeOff, X, Shield, CheckCircle } from "lucide-react"
 import { DeleteAccountModal } from "@/components/DeleteAccountModal"
+import { calculatePasswordStrength, getPasswordStrengthWidth, type PasswordStrength } from "@/lib/password-strength"
 
 type PasswordStep = 'form' | 'otp' | 'success'
 
@@ -65,9 +66,18 @@ export default function AccountPage() {
     currentPassword: string;
     newPassword: string;
   } | null>(null)
-
   // Delete account states
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+    // Track if user has password (for OAuth users)
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null)
+
+  // Password strength state
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>({
+    score: 0,
+    label: 'Very Weak',
+    color: 'bg-red-500',
+    suggestions: []
+  })
 
   // OTP Timer effect
   useEffect(() => {
@@ -100,22 +110,109 @@ export default function AccountPage() {
             dataExport: data.dataExport ?? false
           }))
         }
-      } catch (error) {
-        console.error('Failed to load preferences:', error)
+      } catch (error) {        console.error('Failed to load preferences:', error)
       }
     }
 
     loadPreferences()
   }, [])
+  // Check if user has password set
+  useEffect(() => {
+    const checkPasswordStatus = async () => {
+      try {
+        const response = await fetch('/api/user/password-status')
+        if (response.ok) {
+          const data = await response.json()
+          setHasPassword(data.hasPassword)
+        }
+      } catch (error) {
+        console.error('Failed to check password status:', error)
+        // Default to true if we can't determine
+        setHasPassword(true)
+      }
+    }
+
+    checkPasswordStatus()
+  }, [])
+
+  // Calculate password strength when password changes
+  useEffect(() => {
+    const strength = calculatePasswordStrength(passwordForm.newPassword)
+    setPasswordStrength(strength)
+  }, [passwordForm.newPassword])
 
   const getInitials = (name?: string | null) => {
     if (!name) return "U"
     return name.charAt(0).toUpperCase()
   }
+  // Handle setting password for OAuth users who don't have a password
+  const handleSetPassword = async () => {
+    // Validation
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setMessage({ type: 'error', text: 'Passwords do not match!' })
+      return
+    }
+    
+    if (passwordForm.newPassword.length < 8) {
+      setMessage({ type: 'error', text: 'Password must be at least 8 characters long!' })
+      return
+    }
+
+    // Password strength validation
+    if (passwordStrength.score < 2) {
+      setMessage({ type: 'error', text: 'Password is too weak. Please create a stronger password.' })
+      return
+    }
+    
+    setIsLoading(true)
+    setMessage(null)
+    
+    try {
+      const response = await fetch('/api/user/set-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          password: passwordForm.newPassword
+        }),
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        setMessage({ 
+          type: 'error', 
+          text: result.error || 'Failed to set password. Please try again.' 
+        })
+        return
+      }
+      
+      // Success - update hasPassword state and show success message
+      setHasPassword(true)
+      setMessage({ type: 'success', text: 'Password set successfully!' })
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      setShowChangePassword(false)
+      
+    } catch (error) {
+      console.error('Set password error:', error)
+      setMessage({ 
+        type: 'error', 
+        text: error instanceof Error ? error.message : 'Failed to set password. Please try again.' 
+      })    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handlePasswordChange = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     
-    // Validation
+    // For OAuth users without password, handle setting password
+    if (hasPassword === false) {
+      return handleSetPassword()
+    }
+    
+    // Validation for users with existing password
     if (!passwordForm.currentPassword) {
       setMessage({ type: 'error', text: 'Current password is required!' })
       return
@@ -125,9 +222,14 @@ export default function AccountPage() {
       setMessage({ type: 'error', text: 'New passwords do not match!' })
       return
     }
-    
-    if (passwordForm.newPassword.length < 8) {
+      if (passwordForm.newPassword.length < 8) {
       setMessage({ type: 'error', text: 'Password must be at least 8 characters long!' })
+      return
+    }
+
+    // Password strength validation
+    if (passwordStrength.score < 2) {
+      setMessage({ type: 'error', text: 'Password is too weak. Please create a stronger password.' })
       return
     }
     
@@ -617,13 +719,15 @@ export default function AccountPage() {
             <Key className="w-5 h-5 mr-2" />
             Security Settings
           </h2>
-          <div className="space-y-4">
-            <div>
+          <div className="space-y-4">            <div>
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <h3 className="font-medium">Password</h3>
                   <p className="text-sm text-muted-foreground">
-                    Last changed: Not available
+                    {hasPassword === false 
+                      ? "No password set (OAuth login)" 
+                      : "Last changed: Not available"
+                    }
                   </p>
                 </div>
                 {!showChangePassword && (
@@ -631,7 +735,7 @@ export default function AccountPage() {
                     variant="outline" 
                     onClick={() => setShowChangePassword(true)}
                   >
-                    Change Password
+                    {hasPassword === false ? "Set Password" : "Change Password"}
                   </Button>
                 )}
               </div>
@@ -640,9 +744,10 @@ export default function AccountPage() {
               {showChangePassword && (
                 <div className="mt-4 p-4 border rounded-lg bg-muted/50">
                   {passwordStep === 'form' && (
-                    <form onSubmit={handlePasswordChange} className="space-y-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-medium">Change Password</h4>
+                    <form onSubmit={handlePasswordChange} className="space-y-4">                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-medium">
+                          {hasPassword === false ? "Set Password" : "Change Password"}
+                        </h4>
                         <Button
                           type="button"
                           variant="ghost"
@@ -653,34 +758,37 @@ export default function AccountPage() {
                         </Button>
                       </div>
                       
-                      <div>
-                        <label htmlFor="current-password" className="text-sm font-medium">
-                          Current Password
-                        </label>
-                        <div className="relative mt-1">
-                          <Input
-                            id="current-password"
-                            type={showPasswords.current ? "text" : "password"}
-                            value={passwordForm.currentPassword}
-                            onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                            placeholder="Enter your current password"
-                            required
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-2 top-1/2 -translate-y-1/2 h-auto p-1"
-                            onClick={() => togglePasswordVisibility('current')}
-                          >
-                            {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </Button>
+                      {/* Current Password field - only show for users who have a password */}
+                      {hasPassword !== false && (
+                        <div>
+                          <label htmlFor="current-password" className="text-sm font-medium">
+                            Current Password
+                          </label>
+                          <div className="relative mt-1">
+                            <Input
+                              id="current-password"
+                              type={showPasswords.current ? "text" : "password"}
+                              value={passwordForm.currentPassword}
+                              onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                              placeholder="Enter your current password"
+                              required
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 h-auto p-1"
+                              onClick={() => togglePasswordVisibility('current')}
+                            >
+                              {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </Button>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       <div>
                         <label htmlFor="new-password" className="text-sm font-medium">
-                          New Password
+                          {hasPassword === false ? "Password" : "New Password"}
                         </label>
                         <div className="relative mt-1">
                           <Input
@@ -700,24 +808,63 @@ export default function AccountPage() {
                             onClick={() => togglePasswordVisibility('new')}
                           >
                             {showPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </Button>
-                        </div>
+                          </Button>                        </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           Password must be at least 8 characters long
                         </p>
-                      </div>
 
-                      <div>
+                        {/* Password Strength Indicator */}
+                        {passwordForm.newPassword && (
+                          <div className="space-y-2 mt-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-600 dark:text-gray-400">
+                                Password strength:
+                              </span>
+                              <span className={`text-xs font-medium ${
+                                passwordStrength.score <= 1 ? 'text-red-600' :
+                                passwordStrength.score <= 2 ? 'text-orange-600' :
+                                passwordStrength.score <= 3 ? 'text-yellow-600' :
+                                'text-green-600'
+                              }`}>
+                                {passwordStrength.label}
+                              </span>
+                            </div>
+                            
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className={`h-2 rounded-full transition-all duration-300 ${passwordStrength.color} ${getPasswordStrengthWidth(passwordStrength.score)}`}
+                              />
+                            </div>
+                            
+                            {passwordStrength.suggestions.length > 0 && (
+                              <div className="text-xs text-gray-600 dark:text-gray-400">
+                                <p className="font-medium mb-1">To improve your password:</p>
+                                <ul className="list-disc list-inside space-y-0.5">
+                                  {passwordStrength.suggestions.slice(0, 3).map((suggestion, index) => (
+                                    <li key={index}>{suggestion}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div><div>
                         <label htmlFor="confirm-password" className="text-sm font-medium">
-                          Confirm New Password
-                        </label>
-                        <div className="relative mt-1">
+                          {hasPassword === false ? "Confirm Password" : "Confirm New Password"}
+                        </label>                        <div className="relative mt-1">
                           <Input
                             id="confirm-password"
                             type={showPasswords.confirm ? "text" : "password"}
                             value={passwordForm.confirmPassword}
                             onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
                             placeholder="Confirm your new password"
+                            className={`${
+                              passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword
+                                ? 'border-red-500 focus:border-red-500'
+                                : passwordForm.confirmPassword && passwordForm.newPassword === passwordForm.confirmPassword
+                                ? 'border-green-500 focus:border-green-500'
+                                : ''
+                            }`}
                             required
                           />
                           <Button
@@ -728,13 +875,35 @@ export default function AccountPage() {
                             onClick={() => togglePasswordVisibility('confirm')}
                           >
                             {showPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="flex space-x-2 pt-2">
-                        <Button type="submit" disabled={isLoading}>
-                          {isLoading ? 'Processing...' : 'Send OTP'}
+                          </Button>                        </div>
+                        
+                        {/* Password Match Indicator */}
+                        {passwordForm.confirmPassword && (
+                          <p className={`text-xs mt-1 ${
+                            passwordForm.newPassword === passwordForm.confirmPassword
+                              ? 'text-green-600'
+                              : 'text-red-600'
+                          }`}>
+                            {passwordForm.newPassword === passwordForm.confirmPassword
+                              ? '✓ Passwords match'
+                              : '✗ Passwords do not match'
+                            }
+                          </p>
+                        )}
+                      </div>                      <div className="flex space-x-2 pt-2">
+                        <Button 
+                          type="submit" 
+                          disabled={
+                            isLoading || 
+                            !passwordForm.newPassword || 
+                            !passwordForm.confirmPassword ||
+                            passwordForm.newPassword !== passwordForm.confirmPassword ||
+                            passwordForm.newPassword.length < 8 ||
+                            passwordStrength.score < 2 ||
+                            (hasPassword !== false && !passwordForm.currentPassword)
+                          }
+                        >
+                          {isLoading ? 'Processing...' : (hasPassword === false ? 'Set Password' : 'Send OTP')}
                         </Button>
                         <Button 
                           type="button" 
