@@ -31,7 +31,8 @@ const authConfig: NextAuthConfig = {
     AzureAD({
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-    }),    Credentials({
+    }),
+    Credentials({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },

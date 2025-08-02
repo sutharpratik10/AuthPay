@@ -195,8 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (themeError) {
-        console.warn('Failed to load user theme preference:', themeError)
-      }
+        console.warn('Failed to load user theme preference:', themeError)      }
       
       // Don't redirect here - let middleware handle the redirect based on email verification status
       return {}
@@ -205,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: "An unexpected error occurred" }
     }
   }
+  
   const socialLogin = async (provider: string) => {
     await signIn(provider, { callbackUrl: "/protected/dashboard" })
   }
