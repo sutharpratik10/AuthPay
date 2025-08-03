@@ -182,7 +182,8 @@ function AppSidebar() {
       <SidebarContent className={cn(
         "px-3 py-4",
         "group-data-[collapsible=icon]:px-2" // Reduce padding in collapsed state for better centering
-      )}>        <SidebarMenu className="space-y-1">
+      )}>        
+      <SidebarMenu className="space-y-1">
           {finalNavigation.map((item) => {
             const isActive = pathname === item.href;
             return (

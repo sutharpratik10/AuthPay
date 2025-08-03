@@ -206,7 +206,7 @@ export function Navigationbar() {
           {/* Mobile menu button - only visible on mobile */}
           <button
             onClick={toggleMenu}
-            className="md:hidden relative p-2 rounded-xl hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-200"
+            className="md:hidden relative p-2 rounded-xl hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-200 cursor-pointer"
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           >
             <div className="relative w-5 h-5">
@@ -256,7 +256,8 @@ export function Navigationbar() {
             >
               <X className="h-5 w-5" />
             </button>
-          </div>          {/* User profile section for authenticated users */}
+          </div>          
+          {/* User profile section for authenticated users */}
           {mounted && isAuthenticated && (
             <div className="px-6 py-4 bg-gradient-to-r from-blue-50/30 to-purple-50/30 dark:from-blue-950/20 dark:to-purple-950/20 border-b border-border/20">
               <div className="flex items-center space-x-3">
@@ -330,7 +331,8 @@ export function Navigationbar() {
                   </Accordion>
                 )
               )}
-            </div>            {/* Authentication and user actions - always show auth buttons first */}
+            </div>            
+            {/* Authentication and user actions - always show auth buttons first */}
             <div className="px-3 mt-6 pt-4 border-t border-border/20">
               {mounted && isAuthenticated ? (
                 <div className="space-y-2">
@@ -358,7 +360,7 @@ export function Navigationbar() {
                   </Link>
                   
                   <button 
-                    className="flex items-center space-x-3 w-full px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200"
+                    className="flex items-center space-x-3 w-full px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200 cursor-pointer"
                     onClick={handleLogout}
                   >
                     <LogOut className="w-4 h-4" />

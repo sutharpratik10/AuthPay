@@ -315,7 +315,8 @@ export default function AdminSubscriptionPlansPage() {
               <Plus className="h-4 w-4 mr-2" />
               Create Plan
             </Button>
-          </DialogTrigger>          <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
+          </DialogTrigger>          
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col bg-accent text-primary">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>Create New Subscription Plan</DialogTitle>
             </DialogHeader>
@@ -601,9 +602,10 @@ export default function AdminSubscriptionPlansPage() {
             </Table>
           </div>
         </CardContent>
-      </Card>      {/* Edit Dialog */}
+      </Card>      
+      {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col bg-accent text-primary">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>Edit Subscription Plan</DialogTitle>
           </DialogHeader>
