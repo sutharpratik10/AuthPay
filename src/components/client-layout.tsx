@@ -6,6 +6,7 @@ import { Navigationbar } from "@/components/navigationbar";
 import { AuthProvider } from "@/lib/auth-context";
 import { SessionProvider, useSession } from "next-auth/react";
 import { Footer } from "@/components/footer"; // Import the Footer component
+import { Toaster } from "@/components/ui/toaster";
 
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -41,8 +42,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  return (
-    <ThemeProvider
+  return (    <ThemeProvider
       attribute="class"
       defaultTheme="system"
       enableSystem
@@ -55,6 +55,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
           {children}
         </main>
         {!isAuthenticated && <Footer />}
+        <Toaster />
       </AuthProvider>
     </ThemeProvider>
   );

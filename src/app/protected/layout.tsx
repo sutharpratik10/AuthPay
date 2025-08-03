@@ -17,9 +17,40 @@ import {
 } from "@/components/ui/sidebar";
 import { getAppName } from "@/lib/config"
 import { cn } from "@/lib/utils";
+import { Toaster } from "@/components/ui/toaster";
+import { useSession } from "next-auth/react";
+import { useState, useEffect } from "react";
 
 function AppSidebar() {
-  const pathname = usePathname();    const navigation = [
+  const pathname = usePathname();
+  const { data: session } = useSession();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user has admin role
+  useEffect(() => {    const checkAdminRole = async () => {
+      if (session?.user?.id) {
+        try {
+          const response = await fetch('/api/user/admin-status');
+          const data = await response.json();
+          
+          if (data.success) {
+            setIsAdmin(data.data.isAdmin);
+          } else {
+            setIsAdmin(false);
+          }
+        } catch (error) {
+          console.error('Error checking admin role:', error);
+          setIsAdmin(false);
+        }
+      } else {
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdminRole();
+  }, [session?.user?.id]);
+
+  const navigation = [
     {
       name: 'Dashboard',
       href: '/protected/dashboard',
@@ -53,6 +84,37 @@ function AppSidebar() {
       ),
     },
   ];
+  // Add admin navigation items if user is admin
+  const adminNavigation = [
+    {
+      name: 'Manage Users',
+      href: '/protected/admin/users',
+      icon: (
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="m22 2-5 5"/>
+          <path d="m16 7 5-5"/>
+          <circle cx="18" cy="8" r="3"/>
+        </svg>
+      ),
+    },
+    {
+      name: 'Subscription Plans',
+      href: '/protected/admin/subscription-plans',
+      icon: (
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <path d="M9 9h6v6H9z"/>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <path d="M21 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v4"/>
+        </svg>
+      ),
+    },
+  ];
+
+  // Combine regular navigation with admin navigation if user is admin
+  const finalNavigation = isAdmin ? [...navigation, ...adminNavigation] : navigation;
   
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -71,9 +133,8 @@ function AppSidebar() {
       <SidebarContent className={cn(
         "px-3 py-4",
         "group-data-[collapsible=icon]:px-2" // Reduce padding in collapsed state for better centering
-      )}>
-        <SidebarMenu className="space-y-1">
-          {navigation.map((item) => {
+      )}>        <SidebarMenu className="space-y-1">
+          {finalNavigation.map((item) => {
             const isActive = pathname === item.href;
             return (
               <SidebarMenuItem key={item.name}>
@@ -176,11 +237,11 @@ export default function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
-}) {
-  return (
+}) {  return (
     <ProtectedRoute>
       <SidebarProvider>
         <SidebarLayout>{children}</SidebarLayout>
+        <Toaster />
       </SidebarProvider>
     </ProtectedRoute>
   );

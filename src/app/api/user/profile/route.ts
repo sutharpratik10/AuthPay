@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
-export async function PUT(req: NextRequest) {
+async function updateProfile(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
+    const userId = session?.user?.id;
+
+    // Validate session and user ID
+    if (!userId) {
       return NextResponse.json(
-        { error: 'Unauthorized - Please login again' }, 
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
     const body = await req.json();
     const { name } = body;
 
@@ -74,3 +77,6 @@ export async function PUT(req: NextRequest) {
     );
   }
 }
+
+// Export the route handler wrapped with permission checking
+export const PUT = withPermission(updateProfile, API_PERMISSIONS.PROFILE_EDIT);

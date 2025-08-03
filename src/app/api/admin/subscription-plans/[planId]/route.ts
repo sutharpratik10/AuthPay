@@ -1,0 +1,167 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
+import { db } from '@/db';
+import { subscriptionPlans } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+
+async function updateSubscriptionPlan(req: NextRequest, context?: unknown) {
+  try {
+    const { params: paramsPromise } = context as { params: Promise<{ planId: string }> };
+    const params = await paramsPromise;
+    const { planId } = params;
+    const body = await req.json();
+    const {
+      name,
+      description,
+      price,
+      billingCycle,
+      features,
+      isActive
+    } = body;
+
+    // Validate required fields
+    if (!name || !price || !billingCycle) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Name, price, and billing cycle are required' 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate billing cycle
+    const validBillingCycles = ['monthly', 'yearly', 'quarterly', 'one-time'];
+    if (!validBillingCycles.includes(billingCycle)) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Invalid billing cycle. Must be one of: ' + validBillingCycles.join(', ')
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check if plan exists
+    const existingPlan = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.id, planId))
+      .limit(1);
+
+    if (existingPlan.length === 0) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Subscription plan not found' 
+        },
+        { status: 404 }
+      );
+    }
+
+    // Prepare features JSON
+    const featuresJson = Array.isArray(features) && features.length > 0 
+      ? JSON.stringify(features) 
+      : null;
+
+    // Update the subscription plan
+    const [updatedPlan] = await db
+      .update(subscriptionPlans)
+      .set({
+        name: name.trim(),
+        description: description?.trim() || null,
+        price: price.toString(),
+        billingCycle,
+        features: featuresJson,
+        isActive: Boolean(isActive),
+        updatedAt: new Date()
+      })
+      .where(eq(subscriptionPlans.id, planId))
+      .returning();
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        plan: updatedPlan,
+        message: 'Subscription plan updated successfully'
+      }
+    });
+  } catch (error) {
+    console.error('Error updating subscription plan:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: 'Failed to update subscription plan' 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+async function deleteSubscriptionPlan(req: NextRequest, context?: unknown) {
+  try {
+    const { params: paramsPromise } = context as { params: Promise<{ planId: string }> };
+    const params = await paramsPromise;
+    const { planId } = params;
+
+    // Check if plan exists
+    const existingPlan = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.id, planId))
+      .limit(1);
+
+    if (existingPlan.length === 0) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Subscription plan not found' 
+        },
+        { status: 404 }
+      );
+    }
+
+    // Check if plan is associated with any tenants
+    const { tenants } = await import('@/db/schema');
+    const associatedTenants = await db
+      .select()
+      .from(tenants)
+      .where(eq(tenants.planId, planId))
+      .limit(1);
+
+    if (associatedTenants.length > 0) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Cannot delete plan that is currently assigned to tenants. Please reassign tenants to a different plan first.' 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Delete the subscription plan
+    await db
+      .delete(subscriptionPlans)
+      .where(eq(subscriptionPlans.id, planId));
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        message: 'Subscription plan deleted successfully'
+      }
+    });
+  } catch (error) {
+    console.error('Error deleting subscription plan:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: 'Failed to delete subscription plan' 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// Export the route handlers wrapped with admin permission checking
+export const PUT = withPermission(updateSubscriptionPlan, API_PERMISSIONS.SUBSCRIPTION_MANAGE);
+export const DELETE = withPermission(deleteSubscriptionPlan, API_PERMISSIONS.SUBSCRIPTION_MANAGE);

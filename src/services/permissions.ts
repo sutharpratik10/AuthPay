@@ -1,64 +1,47 @@
-import { roles, permissions, rolePermissions, userRoles } from "@/db/schema";
+import { users } from "@/db/schema";
 import { db } from "@/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 /**
- * Permission checking service for tenant-specific operations
+ * Simplified permission service for user role-based access control
+ * Since tenants are individual users, we only need Admin and User roles
  */
 export class PermissionService {
   /**
-   * Check if a user has a specific permission in a tenant
+   * Check if a user has a specific permission based on their role
    */
-  static async hasPermission(userId: string, tenantId: string, permissionName: string): Promise<boolean> {
+  static async hasPermission(userId: string, permission: string): Promise<boolean> {
     try {
-      // Get the tenant-user relationship
-      const tenantUser = await db.query.tenantUsers.findFirst({
-        where: (tu) => and(
-          eq(tu.tenantId, tenantId),
-          eq(tu.userId, userId)
-        ),
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { role: true }
       });
       
-      if (!tenantUser) {
+      if (!user) {
         return false;
       }
       
-      // Special case: tenant owner has all permissions
-      if (tenantUser.isOwner) {
+      // Admin has all permissions
+      if (user.role === 'admin') {
         return true;
       }
       
-      // Get user roles for this tenant-user
-      const userRoleList = await db.query.userRoles.findMany({
-        where: eq(userRoles.tenantUserId, tenantUser.id),
-        with: {
-          role: true
-        }
-      });
+      // Define user permissions
+      const userPermissions = [
+        'subscription.view',
+        'subscription.purchase',
+        'subscription.cancel',
+        'profile.view',
+        'profile.edit',
+        'tenant.view',
+        'tenant.edit', // Users can edit their own tenant
+        'content.view',
+        'content.create',
+        'content.edit',
+        'content.delete',
+      ];
       
-      if (!userRoleList || userRoleList.length === 0) {
-        return false;
-      }
-      
-      // Get the permission ID for the permission name
-      const permission = await db.query.permissions.findFirst({
-        where: eq(permissions.name, permissionName)
-      });
-      
-      if (!permission) {
-        return false;
-      }
-        // Check if any of the user's roles has this permission
-      const roleIds = userRoleList.map(ur => ur.role.id);
-      
-      const rolePermission = await db.query.rolePermissions.findFirst({
-        where: (rp) => and(
-          inArray(rp.roleId, roleIds),
-          eq(rp.permissionId, permission.id)
-        )
-      });
-      
-      return !!rolePermission;
+      return userPermissions.includes(permission);
     } catch (error) {
       console.error('Error checking permission:', error);
       return false;
@@ -66,56 +49,99 @@ export class PermissionService {
   }
   
   /**
-   * Get all permissions for a user in a tenant
-   */
-  static async getUserPermissions(userId: string, tenantId: string): Promise<string[]> {
+   * Get user role
+   */  static async getUserRole(userId: string): Promise<'admin' | 'user' | null> {
     try {
-      // Get the tenant-user relationship
-      const tenantUser = await db.query.tenantUsers.findFirst({
-        where: (tu) => and(
-          eq(tu.tenantId, tenantId),
-          eq(tu.userId, userId)
-        ),
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { role: true }
       });
       
-      if (!tenantUser) {
+      return user ? (user.role as 'admin' | 'user') : null;
+    } catch (error) {
+      console.error('Error getting user role:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Check if user is admin
+   */
+  static async isAdmin(userId: string): Promise<boolean> {
+    const role = await this.getUserRole(userId);
+    return role === 'admin';
+  }
+  
+  /**
+   * Get all permissions for a user based on their role
+   */
+  static async getUserPermissions(userId: string): Promise<string[]> {
+    try {
+      const role = await this.getUserRole(userId);
+      
+      if (!role) {
         return [];
       }
       
-      // Special case: tenant owner has all permissions
-      if (tenantUser.isOwner) {
-        const allPermissions = await db.query.permissions.findMany();
-        return allPermissions.map(p => p.name);
+      if (role === 'admin') {
+        // Admin gets all permissions
+        return [
+          // User management
+          'user.view',
+          'user.create',
+          'user.edit',
+          'user.delete',
+          'user.manage',
+          
+          // Tenant management
+          'tenant.view',
+          'tenant.create',
+          'tenant.edit',
+          'tenant.delete',
+          'tenant.manage',
+          
+          // Subscription management
+          'subscription.view',
+          'subscription.create',
+          'subscription.edit',
+          'subscription.delete',
+          'subscription.manage',
+          'subscription.purchase',
+          'subscription.cancel',
+          
+          // Content management
+          'content.view',
+          'content.create',
+          'content.edit',
+          'content.delete',
+          'content.manage',
+          
+          // System management
+          'system.manage',
+          'analytics.view',
+          'logs.view',
+          'settings.manage',
+          
+          // Profile management
+          'profile.view',
+          'profile.edit',
+        ];
       }
       
-      // Get user roles for this tenant-user
-      const userRoleList = await db.query.userRoles.findMany({
-        where: eq(userRoles.tenantUserId, tenantUser.id),
-        with: {
-          role: true
-        }
-      });
-      
-      if (!userRoleList || userRoleList.length === 0) {
-        return [];
-      }
-        // Get all permissions for these roles
-      const roleIds = userRoleList.map(ur => ur.role.id);
-      
-      const rolePerms = await db.query.rolePermissions.findMany({
-        where: (rp) => inArray(rp.roleId, roleIds),
-        with: {
-          permission: true
-        }
-      });
-      
-      // Extract unique permission names
-      const permissionSet = new Set<string>();
-      rolePerms.forEach(rp => {
-        permissionSet.add(rp.permission.name);
-      });
-      
-      return Array.from(permissionSet);
+      // Regular user permissions
+      return [
+        'subscription.view',
+        'subscription.purchase',
+        'subscription.cancel',
+        'profile.view',
+        'profile.edit',
+        'tenant.view',
+        'tenant.edit',
+        'content.view',
+        'content.create',
+        'content.edit',
+        'content.delete',
+      ];
     } catch (error) {
       console.error('Error getting user permissions:', error);
       return [];
@@ -123,116 +149,24 @@ export class PermissionService {
   }
   
   /**
-   * Create default roles for a new tenant
+   * Set user role (admin only operation)
    */
-  static async createDefaultRoles(tenantId: string): Promise<void> {
+  static async setUserRole(adminUserId: string, targetUserId: string, role: 'admin' | 'user'): Promise<boolean> {
     try {
-      // Create admin role
-      const [adminRole] = await db.insert(roles).values({
-        tenantId: tenantId,
-        name: 'Admin',
-        description: 'Full administrative access',
-        isDefault: true,
-        isSystemManaged: true,
-      }).returning();
-      
-      // Create member role
-      const [memberRole] = await db.insert(roles).values({
-        tenantId: tenantId,
-        name: 'Member',
-        description: 'Standard user access',
-        isDefault: true,
-        isSystemManaged: true,
-      }).returning();
-      
-      // Create guest role
-      const [guestRole] = await db.insert(roles).values({
-        tenantId: tenantId,
-        name: 'Guest',
-        description: 'Limited read-only access',
-        isDefault: true,
-        isSystemManaged: true,
-      }).returning();
-      
-      // Get all available permissions
-      const allPermissions = await db.query.permissions.findMany();
-      
-      // Admin gets all permissions
-      const adminPermissions = allPermissions.map(permission => ({
-        roleId: adminRole.id,
-        permissionId: permission.id
-      }));
-      
-      // Member gets a subset of permissions (example)
-      const memberPermissionNames = [
-        'tenant.view', 'user.view', 'user.invite',
-        'content.create', 'content.edit', 'content.view', 'content.delete',
-        'settings.view'
-      ];
-      
-      const memberPermissions = allPermissions
-        .filter(p => memberPermissionNames.includes(p.name))
-        .map(permission => ({
-          roleId: memberRole.id,
-          permissionId: permission.id
-        }));
-      
-      // Guest gets minimal permissions
-      const guestPermissionNames = ['tenant.view', 'content.view'];
-      const guestPermissions = allPermissions
-        .filter(p => guestPermissionNames.includes(p.name))
-        .map(permission => ({
-          roleId: guestRole.id,
-          permissionId: permission.id
-        }));
-      
-      // Insert role permissions
-      if (adminPermissions.length > 0) {
-        await db.insert(rolePermissions).values(adminPermissions);
+      // Check if requesting user is admin
+      const isAdminUser = await this.isAdmin(adminUserId);
+      if (!isAdminUser) {
+        return false;
       }
       
-      if (memberPermissions.length > 0) {
-        await db.insert(rolePermissions).values(memberPermissions);
-      }
+      await db.update(users)
+        .set({ role, updatedAt: new Date().toISOString() })
+        .where(eq(users.id, targetUserId));
       
-      if (guestPermissions.length > 0) {
-        await db.insert(rolePermissions).values(guestPermissions);
-      }
+      return true;
     } catch (error) {
-      console.error('Error creating default roles:', error);
-      throw error;
+      console.error('Error setting user role:', error);
+      return false;
     }
-  }  /**
-   * Get all available permissions 
-   */
-  static async getAllPermissions() {
-    // Using more explicit typing to avoid TypeScript errors
-    interface PermissionWithGroups {
-      id: string;
-      name: string;
-      description: string | null;
-      category: string | null;
-      displayName: string | null;
-      isSystemManaged: boolean;
-      createdAt: Date;
-      updatedAt: Date;
-      groupItems: {
-        group: {
-          id: string;
-          name: string;
-          description: string | null;
-        }
-      }[];
-    }
-    
-    return db.query.permissions.findMany({
-      with: {
-        groupItems: {
-          with: {
-            group: true
-          }
-        }
-      }
-    }) as Promise<PermissionWithGroups[]>;
   }
 }

@@ -695,6 +695,7 @@ export const users = pgTable("users", {
 	isEmailVerified: boolean("is_email_verified").default(false),
 	lastLoginAt: timestamp("last_login_at", { mode: 'string' }),
 	isActive: boolean("is_active").default(true),
+	role: varchar("role", { length: 20 }).default('user').notNull(), // 'admin' or 'user'
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 	emailVerified: timestamp({ mode: 'string' }),
