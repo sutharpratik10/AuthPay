@@ -35,7 +35,7 @@ interface UserPreferences {
 }
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
@@ -50,7 +50,7 @@ export default function SettingsPage() {
     languageId: null,
     timezoneId: null,
     theme: 'system'
-  })  // Load data - languages, timezones, and user preferences
+  })  // Load data - languages, timezones, and user preferences (one time only)
   useEffect(() => {
     let isMounted = true;
     
@@ -75,11 +75,14 @@ export default function SettingsPage() {
           if (timezonesResponse.ok) {
             const timezonesData = await timezonesResponse.json()
             setTimezones(timezonesData)
-          }          // Load user preferences
+          }
+
+          // Load user preferences
           if (preferencesResponse.ok) {
             const preferencesData = await preferencesResponse.json()
             setPreferences(preferencesData)
-            // Only set theme from loaded preferences if it's different from current theme
+            
+            // Set theme from preferences on initial load only
             if (preferencesData.theme && preferencesData.theme !== theme) {
               setTheme(preferencesData.theme)
             }
@@ -90,34 +93,29 @@ export default function SettingsPage() {
         if (isMounted) {
           setMessage({ type: 'error', text: 'Failed to load settings data' })
         }
-      } finally {        if (isMounted) {
+      } finally {
+        if (isMounted) {
           setIsLoadingData(false)
+          setMounted(true)
         }
       }
     }
 
-    setMounted(true)
     loadData()
 
     return () => {
       isMounted = false;
     }
-  }, [setTheme, theme])
+  }, []) // Only run once on mount
   const handleSaveSettings = async () => {
-    setIsLoading(true)
-    setMessage(null)
+    setIsLoading(true);
+    setMessage(null);
 
     try {
-      // Prepare data with languageId and timezoneId
       const dataToSave = {
-        emailNotifications: preferences.emailNotifications,
-        securityAlerts: preferences.securityAlerts,
-        productUpdates: preferences.productUpdates,
-        profileVisibility: preferences.profileVisibility,
-        languageId: preferences.languageId,
-        timezoneId: preferences.timezoneId,
-        theme: preferences.theme
-      }
+        ...preferences,
+        theme: preferences.theme,
+      };
 
       const response = await fetch('/api/user/preferences', {
         method: 'POST',
@@ -125,32 +123,39 @@ export default function SettingsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(dataToSave),
-      })
+      });
 
       if (response.ok) {
-        const data = await response.json()
-        
-        // Apply theme change after successful save
-        if (preferences.theme !== theme) {
-          setTheme(preferences.theme)
-        }
-        
-        setMessage({ type: 'success', text: data.message || 'Settings saved successfully!' })
+        const data = await response.json();
+        setMessage({ type: 'success', text: data.message || 'Settings saved successfully!' });
+
+        // Apply the theme immediately after saving
+        setTheme(preferences.theme);
       } else {
-        const errorData = await response.json()
-        setMessage({ type: 'error', text: errorData.error || 'Failed to save settings.' })
-      }    } catch (error) {
-      console.error('Error saving preferences:', error)
-      setMessage({ type: 'error', text: 'Failed to save settings. Please try again.' })
+        const errorData = await response.json();
+        setMessage({ type: 'error', text: errorData.error || 'Failed to save settings.' });
+      }
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      setMessage({ type: 'error', text: 'Failed to save settings. Please try again.' });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
-
   const updatePreference = (key: keyof UserPreferences, value: boolean | string | number | null) => {
-    // Update local state only - don't change theme immediately
-    setPreferences(prev => ({ ...prev, [key]: value }))
-  }
+    // Prevent unnecessary updates
+    if (preferences[key] === value) {
+      return;
+    }
+
+    // Update local state
+    setPreferences(prev => ({ ...prev, [key]: value }));
+
+    // For theme changes, apply immediately for preview
+    if (key === 'theme' && typeof value === 'string') {
+      setTheme(value);
+    }
+  };
 
   if (!mounted || isLoadingData) {
     return (
@@ -199,27 +204,35 @@ export default function SettingsPage() {
                 <Button 
                   variant={preferences.theme === "light" ? "default" : "outline"} 
                   size="sm"
-                  onClick={() => updatePreference('theme', 'light')}
+                  onClick={() => {
+                    console.log('Light theme clicked')
+                    updatePreference('theme', 'light')
+                  }}
                 >
                   Light
                 </Button>
                 <Button 
                   variant={preferences.theme === "dark" ? "default" : "outline"} 
                   size="sm"
-                  onClick={() => updatePreference('theme', 'dark')}
+                  onClick={() => {
+                    console.log('Dark theme clicked')
+                    updatePreference('theme', 'dark')
+                  }}
                 >
                   Dark
                 </Button>
                 <Button 
                   variant={preferences.theme === "system" ? "default" : "outline"} 
                   size="sm"
-                  onClick={() => updatePreference('theme', 'system')}
+                  onClick={() => {
+                    console.log('System theme clicked')
+                    updatePreference('theme', 'system')
+                  }}
                 >
                   System
                 </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Active theme: {theme} | Saved preference: {preferences.theme}
+              </div><p className="text-xs text-muted-foreground mt-2">
+                Current theme: {theme} | Resolved: {resolvedTheme} | Preference: {preferences.theme}
               </p>
             </div>
           </div>

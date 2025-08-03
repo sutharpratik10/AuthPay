@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
+import SubscriptionDashboard from "@/components/SubscriptionDashboard"
+import { useSession } from "next-auth/react"
 
 interface Event {
   id: string
@@ -9,6 +11,12 @@ interface Event {
   date: string
   attendees: number
   status: "upcoming" | "active" | "past"
+}
+
+interface UserSubscriptionStatus {
+  hasSubscription: boolean;
+  planName?: string;
+  role?: string;
 }
 
 const mockEvents: Event[] = [
@@ -43,31 +51,79 @@ const mockEvents: Event[] = [
 ]
 
 export default function DashboardPage() {
+  const { data: session } = useSession()
   const [events, setEvents] = useState<Event[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [userName, setUserName] = useState("User")
-  
+  const [subscriptionStatus, setSubscriptionStatus] = useState<UserSubscriptionStatus | null>(null)
+
+    // Determine if user should see subscription dashboard
+  const userRole = session?.user?.role || 'user'
+  const shouldShowSubscriptionDashboard = userRole === 'user' && !subscriptionStatus?.hasSubscription
+
   // Simulate fetching data
   useEffect(() => {
     const fetchData = async () => {
       await new Promise(resolve => setTimeout(resolve, 1000))
       setEvents(mockEvents)
-      // Parse the name of the logged in user from localStorage or fallback
-      const storedName = localStorage.getItem("userName")
-      // Simulate fetching user name from database
-      const fetchUserNameFromDB = async () => {
-        // Replace this with actual API/database call
-        await new Promise(resolve => setTimeout(resolve, 500))
-        return "Pratik" // Example fetched name
+      
+      // Get user name from session or simulate fetching from DB
+      const nameFromSession = session?.user?.name
+      setUserName(nameFromSession || "User")
+      
+      // For users with 'user' role, fetch subscription status
+      if (shouldShowSubscriptionDashboard) {
+        try {
+          const response = await fetch('/api/user/subscription-status')
+          const data = await response.json()
+          
+          if (data.success) {
+            setSubscriptionStatus(data.data)
+          } else {
+            // Default to no subscription if API fails
+            setSubscriptionStatus({ hasSubscription: false, role: userRole })
+          }
+        } catch (error) {
+          console.error('Error fetching subscription status:', error)
+          // Default to no subscription if API fails
+          setSubscriptionStatus({ hasSubscription: false, role: userRole })
+        }
       }
-      const nameFromDB = await fetchUserNameFromDB()
-      setUserName(nameFromDB || (storedName ? storedName : "User"))
+      
       setIsLoading(false)
     }
     
     fetchData()
-  }, [])
+  }, [session, userRole, subscriptionStatus, shouldShowSubscriptionDashboard])
+    // Show subscription dashboard for users
+  if (shouldShowSubscriptionDashboard) {
+    return (
+      <div className="w-full max-w-full px-2 sm:px-4 py-6 mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground text-sm sm:text-base">
+              Welcome back, {userName}! {subscriptionStatus?.hasSubscription 
+                ? `You have an active ${subscriptionStatus.planName} subscription.`
+                : 'Manage your subscription and explore our features.'
+              }
+            </p>
+          </div>
+          {subscriptionStatus?.hasSubscription && (
+            <div className="flex items-center space-x-2">
+              <span className="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                Active Subscription
+              </span>
+            </div>
+          )}
+        </div>
+        
+        <SubscriptionDashboard />
+      </div>
+    )
+  }
   
+  // Regular dashboard for admins and other roles
   return (
 
     <div className="w-full max-w-full px-2 sm:px-4 py-6 mx-auto">

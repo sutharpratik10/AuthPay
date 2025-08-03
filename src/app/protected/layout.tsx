@@ -21,10 +21,20 @@ import { Toaster } from "@/components/ui/toaster";
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 
+interface SubscriptionStatus {
+  hasSubscription: boolean;
+  planName?: string;
+  status?: string;
+  price?: string;
+  billingCycle?: string;
+  expiryDate?: string;
+}
+
 function AppSidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
 
   // Check if user has admin role
   useEffect(() => {    const checkAdminRole = async () => {
@@ -48,6 +58,31 @@ function AppSidebar() {
     };
 
     checkAdminRole();
+  }, [session?.user?.id]);
+
+  // Check user subscription status
+  useEffect(() => {
+    const fetchSubscriptionStatus = async () => {
+      if (session?.user?.id) {
+        try {
+          const response = await fetch('/api/user/subscription-status');
+          const data = await response.json();
+          
+          if (data.success) {
+            setSubscriptionStatus(data.data);
+          } else {
+            setSubscriptionStatus(null);
+          }
+        } catch (error) {
+          console.error('Error fetching subscription status:', error);
+          setSubscriptionStatus(null);
+        }
+      } else {
+        setSubscriptionStatus(null);
+      }
+    };
+
+    fetchSubscriptionStatus();
   }, [session?.user?.id]);
 
   const navigation = [
@@ -112,6 +147,20 @@ function AppSidebar() {
       ),
     },
   ];
+
+  // Add 'Manage Subscription' item if user has an active subscription plan
+  if (subscriptionStatus?.hasSubscription) {
+    navigation.push({
+      name: 'Manage Subscription',
+      href: '/protected/manage-subscription',
+      icon: (
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <path d="M3 3h18v18H3z" />
+          <path d="M9 9h6v6H9z" />
+        </svg>
+      ),
+    });
+  }
 
   // Combine regular navigation with admin navigation if user is admin
   const finalNavigation = isAdmin ? [...navigation, ...adminNavigation] : navigation;

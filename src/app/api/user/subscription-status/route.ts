@@ -57,26 +57,22 @@ export async function GET() {
     }
 
     // Get expiry status
-    const expiryStatus = getExpiryStatus(tenant.planExpiryDate);
-
-    return NextResponse.json({
+    const expiryStatus = getExpiryStatus(tenant.planExpiryDate);    return NextResponse.json({
       success: true,
       data: {
         hasSubscription: true,
-        subscription: {
-          planId: plan.id,
-          planName: plan.name,
-          planDescription: plan.description,
-          price: plan.price,
-          billingCycle: plan.billingCycle,
-          features: plan.features ? JSON.parse(plan.features) : [],
-          startDate: tenant.planEffectiveDate,
-          expiryDate: tenant.planExpiryDate,
-          isActive: tenant.isActive,
-          status: expiryStatus.status,
-          statusMessage: expiryStatus.message,
-          daysRemaining: expiryStatus.daysRemaining
-        }
+        planId: plan.id,
+        planName: plan.name,
+        planDescription: plan.description,
+        price: `$${plan.price}`,
+        billingCycle: plan.billingCycle,
+        features: plan.features ? JSON.parse(plan.features) : [],
+        startDate: tenant.planEffectiveDate,
+        expiryDate: tenant.planExpiryDate,
+        isActive: tenant.isActive,
+        status: expiryStatus.status,
+        message: expiryStatus.message,
+        daysRemaining: expiryStatus.daysRemaining
       }
     });
 

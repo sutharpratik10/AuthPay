@@ -126,9 +126,7 @@ export const {
       }
 
       return true;
-    },
-
-    async session({ session, token }: { session: Session; token: JWT }) {
+    },    async session({ session, token }: { session: Session; token: JWT }) {
       if (token.sub && session.user) {
         session.user.id = token.sub;
       }
@@ -137,12 +135,16 @@ export const {
         session.user.isEmailVerified = token.isEmailVerified;
       }
 
+      if (token.role && session.user) {
+        session.user.role = token.role;
+      }
+
       if (token.name && session.user) {
         session.user.name = token.name;
       }
 
       return session;
-    },    async jwt({ token, user, trigger, session }: { token: JWT; user?: { isEmailVerified?: boolean }; trigger?: string; session?: { name?: string } }) {
+    },    async jwt({ token, user, trigger, session }: { token: JWT; user?: { isEmailVerified?: boolean; role?: string }; trigger?: string; session?: { name?: string } }) {
       if (!token.sub) return token;
 
       // Handle session update trigger (when update() is called)
@@ -156,9 +158,11 @@ export const {
       // Get user from database to check if email is verified and other data
       if (user) {
         token.isEmailVerified = user.isEmailVerified;
+        token.role = user.role;
       } else {
         // Only query database if we don't have the verification status or it's been a while
         const shouldRefresh = !token.isEmailVerified || 
+          !token.role ||
           !token.lastVerifiedCheck || 
           (Date.now() - (token.lastVerifiedCheck as number)) > 5 * 60 * 1000; // 5 minutes
 
@@ -166,12 +170,13 @@ export const {
           try {
             const dbUser = await db.query.users.findFirst({
               where: (users, { eq }) => eq(users.id, token.sub as string),
-              columns: { isEmailVerified: true, name: true } // Include name for updates
+              columns: { isEmailVerified: true, name: true, role: true } // Include role
             });
 
             if (dbUser) {
               token.isEmailVerified = dbUser.isEmailVerified ?? false;
               token.name = dbUser.name;
+              token.role = dbUser.role || 'user'; // Default to 'user' if no role set
               token.lastVerifiedCheck = Date.now();
             }
           } catch (error) {

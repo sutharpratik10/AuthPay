@@ -4,7 +4,6 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useRouter } from "next/navigation"
 import { signIn, signOut, useSession } from "next-auth/react"
 import { Session } from "next-auth"
-import { useTheme } from "next-themes"
 
 // Extended user interface with our custom properties
 interface ExtendedUser {
@@ -45,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: sessionData, status } = useSession()
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const { setTheme } = useTheme()
+  
   // Cast the session to our extended type
   const session = sessionData as ExtendedSession | null
   
@@ -59,47 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const timeout = setTimeout(() => {
         setLoading(false)
       }, 1000) // Maximum 1 second loading
-      
-      return () => clearTimeout(timeout)
+          return () => clearTimeout(timeout)
     }
   }, [status])
-  // Load user preferences and apply theme when user is authenticated
-  useEffect(() => {
-    const loadUserTheme = async () => {
-      // Only load theme once per session, not on every auth check
-      if (session?.user?.id && status === "authenticated" && !loading) {
-        try {
-          // Check if we already have the theme in session storage to avoid redundant API calls
-          const cachedTheme = sessionStorage.getItem(`theme_${session.user.id}`);
-          if (cachedTheme) {
-            setTheme(cachedTheme);
-            return;
-          }
-
-          const response = await fetch('/api/user/preferences', {
-            // Add cache headers to reduce redundant requests
-            headers: {
-              'Cache-Control': 'max-age=300' // 5 minutes cache
-            }
-          });
-          
-          if (response.ok) {
-            const preferences = await response.json();
-            if (preferences.theme) {
-              setTheme(preferences.theme);
-              // Cache the theme to avoid future API calls
-              sessionStorage.setItem(`theme_${session.user.id}`, preferences.theme);
-            }
-          }
-        } catch (error) {
-          console.warn('Failed to load user theme preference:', error);
-          // Use system default on error
-          setTheme('system');
-        }
-      }
-    }    // Debounce the theme loading to prevent multiple rapid calls
-    const timeoutId = setTimeout(loadUserTheme, 100);
-    return () => clearTimeout(timeoutId);  }, [session?.user?.id, status, setTheme, loading])
 
   const isAuthenticated = !!session;
   const isEmailVerified = !!session?.user?.isEmailVerified;
@@ -181,21 +142,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         });
       } catch (sessionError) {
-        console.warn('Failed to create session record:', sessionError);
-        // Don't fail the login process if session recording fails
+        console.warn('Failed to create session record:', sessionError);        // Don't fail the login process if session recording fails
       }
-
-      // Load and apply user theme preference immediately after login
-      try {
-        const preferencesResponse = await fetch('/api/user/preferences')
-        if (preferencesResponse.ok) {
-          const preferences = await preferencesResponse.json()
-          if (preferences.theme) {
-            setTheme(preferences.theme)
-          }
-        }
-      } catch (themeError) {
-        console.warn('Failed to load user theme preference:', themeError)      }
       
       // Don't redirect here - let middleware handle the redirect based on email verification status
       return {}
