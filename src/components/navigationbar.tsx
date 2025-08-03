@@ -201,7 +201,7 @@ export function Navigationbar() {
           </div>
 
           {/* Show theme toggle only for non-authenticated users */}
-          {!isAuthenticated && <ModeToggle />}
+          <ModeToggle />
           
           {/* Mobile menu button - only visible on mobile */}
           <button
@@ -288,6 +288,7 @@ export function Navigationbar() {
                     </span>
                   </div>
                 </div>
+                
               </div>
             </div>
           )}

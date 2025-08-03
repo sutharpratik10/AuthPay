@@ -2,111 +2,46 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Select } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Bell, Palette, Globe, Check } from "lucide-react"
-import { useTheme } from "next-themes"
-
-interface Language {
-  id: number
-  name: string
-  code: string
-  nativeName: string
-}
-
-interface Timezone {
-  id: number
-  name: string
-  code: string
-  utcOffset: string
-  description: string
-}
+import { Bell, Check } from "lucide-react"
 
 interface UserPreferences {
   emailNotifications: boolean
   securityAlerts: boolean
   productUpdates: boolean
   profileVisibility: boolean
-  languageId: number | null
-  timezoneId: number | null
-  theme: string
-  language?: Language | null
-  timezone?: Timezone | null
 }
 
 export default function SettingsPage() {
-  const { theme, setTheme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
-  const [languages, setLanguages] = useState<Language[]>([])
-  const [timezones, setTimezones] = useState<Timezone[]>([])
   const [preferences, setPreferences] = useState<UserPreferences>({
     emailNotifications: true,
     securityAlerts: true,
     productUpdates: false,
     profileVisibility: true,
-    languageId: null,
-    timezoneId: null,
-    theme: 'system'
   })  // Load data - languages, timezones, and user preferences (one time only)
   useEffect(() => {
-    let isMounted = true;
-    
     const loadData = async () => {
-      setIsLoadingData(true)
-      try {
-        // Load languages and timezones in parallel
-        const [languagesResponse, timezonesResponse, preferencesResponse] = await Promise.all([
-          fetch('/api/languages'),
-          fetch('/api/timezones'),
-          fetch('/api/user/preferences')
-        ])
+      setIsLoadingData(true);      try {
+        const preferencesResponse = await fetch('/api/user/preferences');
 
-        if (isMounted) {
-          // Load languages
-          if (languagesResponse.ok) {
-            const languagesData = await languagesResponse.json()
-            setLanguages(languagesData)
-          }
-
-          // Load timezones
-          if (timezonesResponse.ok) {
-            const timezonesData = await timezonesResponse.json()
-            setTimezones(timezonesData)
-          }
-
-          // Load user preferences
-          if (preferencesResponse.ok) {
-            const preferencesData = await preferencesResponse.json()
-            setPreferences(preferencesData)
-            
-            // Set theme from preferences on initial load only
-            if (preferencesData.theme && preferencesData.theme !== theme) {
-              setTheme(preferencesData.theme)
-            }
-          }
+        if (preferencesResponse.ok) {
+          const preferencesData = await preferencesResponse.json();
+          setPreferences(preferencesData);
+        } else {
+          setMessage({ type: 'error', text: 'Failed to load settings data' });
         }
-      } catch (error) {
-        console.error('Failed to load data:', error)
-        if (isMounted) {
-          setMessage({ type: 'error', text: 'Failed to load settings data' })
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoadingData(false)
-          setMounted(true)
-        }
+      } catch {
+        setMessage({ type: 'error', text: 'Failed to load settings data' });
+      }finally {
+        setIsLoadingData(false);
+        setMounted(true);
       }
-    }
-
-    loadData()
-
-    return () => {
-      isMounted = false;
-    }
-  }, []) // Only run once on mount
+    };    loadData();
+  }, []); // Empty dependency array to run only once on mount
   const handleSaveSettings = async () => {
     setIsLoading(true);
     setMessage(null);
@@ -114,7 +49,6 @@ export default function SettingsPage() {
     try {
       const dataToSave = {
         ...preferences,
-        theme: preferences.theme,
       };
 
       const response = await fetch('/api/user/preferences', {
@@ -129,8 +63,6 @@ export default function SettingsPage() {
         const data = await response.json();
         setMessage({ type: 'success', text: data.message || 'Settings saved successfully!' });
 
-        // Apply the theme immediately after saving
-        setTheme(preferences.theme);
       } else {
         const errorData = await response.json();
         setMessage({ type: 'error', text: errorData.error || 'Failed to save settings.' });
@@ -151,10 +83,6 @@ export default function SettingsPage() {
     // Update local state
     setPreferences(prev => ({ ...prev, [key]: value }));
 
-    // For theme changes, apply immediately for preview
-    if (key === 'theme' && typeof value === 'string') {
-      setTheme(value);
-    }
   };
 
   if (!mounted || isLoadingData) {
@@ -192,52 +120,6 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
-
-        {/* Appearance Settings */}
-        <div className="border rounded-lg p-6 bg-card">
-          <h2 className="flex items-center text-lg font-semibold mb-4">
-            <Palette className="w-5 h-5 mr-2" />
-            Appearance
-          </h2>
-          <div className="space-y-4">            <div>
-              <label className="text-sm font-medium">Theme</label>              <div className="flex space-x-2 mt-2">
-                <Button 
-                  variant={preferences.theme === "light" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => {
-                    console.log('Light theme clicked')
-                    updatePreference('theme', 'light')
-                  }}
-                >
-                  Light
-                </Button>
-                <Button 
-                  variant={preferences.theme === "dark" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => {
-                    console.log('Dark theme clicked')
-                    updatePreference('theme', 'dark')
-                  }}
-                >
-                  Dark
-                </Button>
-                <Button 
-                  variant={preferences.theme === "system" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => {
-                    console.log('System theme clicked')
-                    updatePreference('theme', 'system')
-                  }}
-                >
-                  System
-                </Button>
-              </div><p className="text-xs text-muted-foreground mt-2">
-                Current theme: {theme} | Resolved: {resolvedTheme} | Preference: {preferences.theme}
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Notification Settings */}
         <div className="border rounded-lg p-6 bg-card">
           <h2 className="flex items-center text-lg font-semibold mb-4">
@@ -280,50 +162,6 @@ export default function SettingsPage() {
                 onCheckedChange={(checked) => updatePreference('productUpdates', checked)}
               />
             </div>          </div>
-        </div>        {/* Language & Region */}
-        <div className="border rounded-lg p-6 bg-card">
-          <h2 className="flex items-center text-lg font-semibold mb-4">
-            <Globe className="w-5 h-5 mr-2" />
-            Language & Region
-          </h2>
-          <div className="space-y-4">            <div>
-              <label htmlFor="language-select" className="text-sm font-medium">Language</label>              <div className="mt-1">
-                {languages.length > 0 ? (
-                  <Select
-                    value={preferences.languageId?.toString() || ''}
-                    onValueChange={(value) => updatePreference('languageId', value || null)}
-                    placeholder="Select Language"
-                    options={languages.map(lang => ({
-                      value: lang.id.toString(),
-                      label: `${lang.name} (${lang.nativeName})`
-                    }))}
-                  />
-                ) : (
-                  <div className="text-sm text-muted-foreground">Loading languages...</div>
-                )}
-              </div>
-              
-              
-            </div>
-              <div>
-              <label htmlFor="timezone-select" className="text-sm font-medium">Timezone</label>              
-              <div className="mt-1">
-                {timezones.length > 0 ? (
-                  <Select
-                    value={preferences.timezoneId?.toString() || ''}
-                    onValueChange={(value) => updatePreference('timezoneId', value || null)}
-                    placeholder="Select Timezone"
-                    options={timezones.map(tz => ({
-                      value: tz.id.toString(),
-                      label: `${tz.description} (${tz.utcOffset})`
-                    }))}
-                  />
-                ) : (
-                  <div className="text-sm text-muted-foreground">Loading timezones...</div>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Save Button */}

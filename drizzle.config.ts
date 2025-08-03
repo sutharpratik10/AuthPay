@@ -1,6 +1,22 @@
 import type { Config } from 'drizzle-kit';
 import * as dotenv from 'dotenv';
+import * as fs from 'fs';
 
+let ssl: boolean | { ca: string; rejectUnauthorized: boolean } = true; // default to basic SSL
+
+const useCustomCa = process.env.DB_USE_CA === 'true';
+const dbCertPath = process.env.db_cert_path;
+if (useCustomCa && dbCertPath && fs.existsSync(dbCertPath)) {
+  ssl = {
+    ca: fs.readFileSync(dbCertPath, 'utf8'),
+    rejectUnauthorized: false,
+  };
+} else {
+  ssl = {
+    ca: '',
+    rejectUnauthorized: false,
+  };
+}
 // Load environment variables
 dotenv.config();
 
@@ -21,7 +37,7 @@ export default {
     user: databaseUrl.username,
     password: databaseUrl.password,
     database: databaseUrl.pathname.substring(1), // Remove leading '/'
-    ssl: databaseUrl.searchParams.get('sslmode') === 'require',
+    ssl,
   },
   // Use a verbose flag for debugging
   verbose: true,

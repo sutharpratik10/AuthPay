@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
 import { db } from '@/db';
 import { subscriptionPlans } from '@/db/schema';
 import { desc } from 'drizzle-orm';
 
-async function getSubscriptionPlans(req: NextRequest) {
+async function getSubscriptionPlans() {
   try {
     // Get all subscription plans ordered by creation date
     const plans = await db

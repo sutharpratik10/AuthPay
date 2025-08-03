@@ -6,7 +6,7 @@ dotenv.config();
 
 async function testConnection() {
   // Test with the connection string from .env
-  const connectionString = process.env.DATABASE_URL || "postgresql://postgres:admin@localhost:5432/rsvp";
+  const connectionString = process.env.DATABASE_URL || '';
   console.log('Testing connection with .env DATABASE_URL:', connectionString);try {
     // Create a connection
     const sql = postgres(connectionString, { 
