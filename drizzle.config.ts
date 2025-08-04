@@ -2,23 +2,32 @@ import type { Config } from 'drizzle-kit';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 
-let ssl: boolean | { ca: string; rejectUnauthorized: boolean } = true; // default to basic SSL
+// Load environment variables early
+dotenv.config();
+
+// Decide SSL strictly based on env and cert availability
+let ssl: boolean | { ca: string; rejectUnauthorized: boolean } = false;
 
 const useCustomCa = process.env.DB_USE_CA === 'true';
-const dbCertPath = process.env.db_cert_path;
+const dbCertPath = process.env.DB_CERT_PATH || process.env.db_cert_path;
+const requireSsl =
+  process.env.DB_REQUIRE_SSL === 'true' ||
+  /[?&]sslmode=require\b/i.test(process.env.DATABASE_URL || '');
+
 if (useCustomCa && dbCertPath && fs.existsSync(dbCertPath)) {
+  // Use custom CA bundle when provided
   ssl = {
     ca: fs.readFileSync(dbCertPath, 'utf8'),
+    // Set to true if your CA is trusted and you want strict verification
     rejectUnauthorized: false,
   };
+} else if (requireSsl) {
+  // Provider requires SSL but no custom CA provided
+  ssl = true;
 } else {
-  ssl = {
-    ca: '',
-    rejectUnauthorized: false,
-  };
+  // Default: no SSL (e.g., local dev)
+  ssl = false;
 }
-// Load environment variables
-dotenv.config();
 
 // Parse DATABASE_URL for credentials
 if (!process.env.DATABASE_URL) {

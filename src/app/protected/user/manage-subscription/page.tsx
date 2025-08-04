@@ -4,6 +4,7 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { PhonePeSubscriptionManager } from '@/components/PhonePeSubscriptionManager';
 import { Crown, CheckCircle } from 'lucide-react';
 
 interface SubscriptionStatus {
@@ -121,10 +122,12 @@ export default function ManageSubscriptionPage() {
                     formatDate(subscriptionStatus.expiryDate)
                 ) : 'N/A'}
               </p>
-            </div>
-          </div>
+            </div>          </div>
         </CardContent>
       </Card>
+
+      {/* PhonePe Subscription Management */}
+      <PhonePeSubscriptionManager />
     </div>
   );
 }
