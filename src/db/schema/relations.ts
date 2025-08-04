@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { subscriptionPlans, tenants, adminDashboardStats, featureUsageAnalytics, userUsageMetrics, users, auditLogs, errorLogs, systemNotifications, userNotifications, billings, tenantSettings, usageStatistics, invitations, tenantUsers, userActivityLogs, customUserPermissions, permissions, permissionGroups, permissionGroupItems, roles, rolePermissions, userRoles, resources, resourceAccessControls, resourceComments, resourceShares, resourceVersions, otpCodes, recoveryCodes, twoFactorAuth, sessions, userAvatars, passwordResetTokens, userPreferences, languages, timezones, accounts } from "./schema";
+import { subscriptionPlans, tenants, adminDashboardStats, featureUsageAnalytics, userUsageMetrics, users, auditLogs, errorLogs, systemNotifications, userNotifications, billings, tenantSettings, usageStatistics, invitations, tenantUsers, userActivityLogs, customUserPermissions, permissions, permissionGroups, permissionGroupItems, roles, rolePermissions, userRoles, resources, resourceAccessControls, resourceComments, resourceShares, resourceVersions, otpCodes, recoveryCodes, twoFactorAuth, sessions, userAvatars, passwordResetTokens, userPreferences, languages, timezones, accounts, paymentOrders, paymentTransactions } from "./schema";
 
 export const tenantsRelations = relations(tenants, ({one, many}) => ({
 	subscriptionPlan: one(subscriptionPlans, {
@@ -419,6 +419,29 @@ export const permissionGroupItemsRelations = relations(permissionGroupItems, ({ 
   permission: one(permissions, {
 	fields: [permissionGroupItems.permissionId],
 	references: [permissions.id],
+  }),
+}));
+
+export const paymentOrdersRelations = relations(paymentOrders, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [paymentOrders.tenantId],
+    references: [tenants.id],
+  }),
+  user: one(users, {
+    fields: [paymentOrders.userId],
+    references: [users.id],
+  }),
+  plan: one(subscriptionPlans, {
+    fields: [paymentOrders.planId],
+    references: [subscriptionPlans.id],
+  }),
+  transactions: many(paymentTransactions),
+}));
+
+export const paymentTransactionsRelations = relations(paymentTransactions, ({ one }) => ({
+  paymentOrder: one(paymentOrders, {
+    fields: [paymentTransactions.paymentOrderId],
+    references: [paymentOrders.id],
   }),
 }));
 

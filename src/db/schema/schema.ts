@@ -792,3 +792,68 @@ export const accounts = pgTable("accounts", {
 	primaryKey({ columns: [table.provider, table.providerAccountId], name: "accounts_provider_provider_account_id_pk"}),
 ]);
 
+export const paymentOrders = pgTable("payment_orders", {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    planId: uuid('plan_id').references(() => subscriptionPlans.id),
+    // Link to billing by invoice number if created beforehand (optional)
+    invoiceNumber: varchar('invoice_number', { length: 50 }),
+    // Your internal order id to reconcile UI/client flows
+    orderId: varchar('order_id', { length: 100 }).notNull().unique(),
+    // Provider specific identifiers
+    provider: varchar('provider', { length: 50 }).notNull().default('phonepe'),
+    providerOrderId: varchar('provider_order_id', { length: 150 }),
+    providerTransactionId: varchar('provider_transaction_id', { length: 150 }),
+    // Amounts
+    amountMinor: integer('amount_minor').notNull(), // in paise
+    currency: varchar('currency', { length: 3 }).notNull().default('INR'),
+    purpose: varchar('purpose', { length: 50 }).notNull().default('subscription'),
+    status: varchar('status', { length: 20 }).notNull().default('created'), // created, pending, success, failed, expired
+    // PhonePe redirect/intent urls and callback data
+    redirectUrl: varchar('redirect_url', { length: 500 }),
+    callbackUrl: varchar('callback_url', { length: 500 }),
+    // Integrity fields
+    saltIndex: varchar('salt_index', { length: 10 }),
+    xVerify: varchar('x_verify', { length: 255 }),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+    foreignKey({
+        columns: [table.tenantId],
+        foreignColumns: [tenants.id],
+        name: "payment_orders_tenant_id_tenants_id_fk"
+    }).onDelete("cascade"),
+    foreignKey({
+        columns: [table.userId],
+        foreignColumns: [users.id],
+        name: "payment_orders_user_id_users_id_fk"
+    }).onDelete("set null"),
+    foreignKey({
+        columns: [table.planId],
+        foreignColumns: [subscriptionPlans.id],
+        name: "payment_orders_plan_id_subscription_plans_id_fk"
+    }),
+]);
+
+export const paymentTransactions = pgTable("payment_transactions", {
+    id: uuid('id').defaultRandom().primaryKey(),
+    paymentOrderId: uuid('payment_order_id').notNull().references(() => paymentOrders.id, { onDelete: 'cascade' }),
+    provider: varchar('provider', { length: 50 }).notNull().default('phonepe'),
+    event: varchar('event', { length: 50 }).notNull(), // created, callback, status_check, refund, etc.
+    status: varchar('status', { length: 20 }).notNull(), // success, pending, failed, initiated
+    providerOrderId: varchar('provider_order_id', { length: 150 }),
+    providerTransactionId: varchar('provider_transaction_id', { length: 150 }),
+    message: varchar('message', { length: 255 }),
+    rawRequest: jsonb('raw_request'),
+    rawResponse: jsonb('raw_response'),
+    receivedAt: timestamp('received_at').defaultNow().notNull(),
+}, (table) => [
+    foreignKey({
+        columns: [table.paymentOrderId],
+        foreignColumns: [paymentOrders.id],
+        name: "payment_transactions_payment_order_id_payment_orders_id_fk"
+    }).onDelete("cascade"),
+]);
+
