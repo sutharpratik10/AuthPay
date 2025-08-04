@@ -109,15 +109,33 @@ export function Navigationbar() {
     };
   }, [isMenuOpen]);  // Get navigation items from the new configuration
   const navItems = APP_CONFIG.NAVIGATION.MAIN;
-    // Only add Dashboard link for authenticated users after component is mounted
+  // Only add Dashboard link for authenticated users after component is mounted
   const navigationItems: readonly NavigationItem[] = useMemo(() => {
     if (!mounted || !isAuthenticated) {
       return navItems;
     }
-    
+    const role = (user as { role?: string } | undefined)?.role ?? 'user'
+    const dashboardHref = role === 'admin' ? '/protected/admin/dashboard' : '/protected/user/dashboard'
     // Add Dashboard as the first item for authenticated users
-    return [{ title: "Dashboard", href: ROUTES.PROTECTED.DASHBOARD }, ...navItems];
-  }, [mounted, isAuthenticated, navItems]);
+    return [{ title: "Dashboard", href: dashboardHref }, ...navItems];
+  }, [mounted, isAuthenticated, navItems, user]);
+
+  // After a successful login, redirect users to their role-based dashboard if they landed on a neutral page
+  useEffect(() => {
+    if (!mounted) return;
+    if (!isAuthenticated) return;
+    const role = (user as { role?: string } | undefined)?.role ?? 'user'
+    const desired = role === 'admin' ? '/protected/admin/dashboard' : '/protected/user/dashboard'
+    // If current path is generic dashboard or auth page, push to desired dashboard
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname
+      const isAuthPage = path.startsWith('/auth/') || path === '/'
+      const isGenericDash = path === '/protected/dashboard'
+      if (isAuthPage || isGenericDash) {
+        router.replace(desired)
+      }
+    }
+  }, [mounted, isAuthenticated, user, router])
 
   // Type guard functions
   const hasHref = (item: NavigationItem): item is NavigationItem & { href: string } => {
