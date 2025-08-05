@@ -10,15 +10,16 @@ export const ROUTES = {
     LOGIN: "/auth/login",
     SIGNUP: "/auth/signup",
     FORGOT_PASSWORD: "/auth/forgot-password",
-  },
-  // Protected routes
+  },  // Protected routes
   PROTECTED: {
     ROOT: "/protected",
-    DASHBOARD: "/protected/dashboard",
     SETTINGS: "/protected/settings",
     PROFILE: "/protected/profile",
     ACCOUNT: "/protected/account",
     VERIFY: "/auth/verify",
+    // Role-specific dashboards
+    ADMIN_DASHBOARD: "/protected/admin/dashboard",
+    USER_DASHBOARD: "/protected/user/dashboard",
   },
   
   // Public routes
@@ -61,7 +62,8 @@ export const URL = {
   forgotPassword: () => ROUTES.AUTH.FORGOT_PASSWORD,
   // Protected
   verify: () => ROUTES.PROTECTED.VERIFY,
-  dashboard: () => ROUTES.PROTECTED.DASHBOARD,
+  adminDashboard: () => ROUTES.PROTECTED.ADMIN_DASHBOARD,
+  userDashboard: () => ROUTES.PROTECTED.USER_DASHBOARD,
   settings: () => ROUTES.PROTECTED.SETTINGS,
   profile: () => ROUTES.PROTECTED.PROFILE,
   account: () => ROUTES.PROTECTED.ACCOUNT,

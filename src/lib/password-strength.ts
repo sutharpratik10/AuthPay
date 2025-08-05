@@ -81,7 +81,7 @@ export function calculatePasswordStrength(password: string): PasswordStrength {
       break
     case 4:
       label = 'Good'
-      color = 'bg-blue-500'
+      color = 'bg-slate-600'
       break
     default:
       label = 'Strong'

@@ -152,9 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: "An unexpected error occurred" }
     }
   }
-  
-  const socialLogin = async (provider: string) => {
-    await signIn(provider, { callbackUrl: "/protected/dashboard" })
+    const socialLogin = async (provider: string) => {
+    await signIn(provider, { callbackUrl: "/protected" })
   }
 
   const register = async (email: string, password: string, name?: string) => {
@@ -231,11 +230,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Use router instead of window.location.href to prevent unhandled rejections
       setTimeout(() => {
         try {
-          router.push('/protected/dashboard')
+          // Get user role to determine correct dashboard
+          // After verification, we should refresh the session to get updated user data
+          const currentUser = session?.user;
+          const userRole = currentUser?.role || 'user';
+          const dashboardUrl = userRole === 'admin' 
+            ? '/protected/admin/dashboard' 
+            : '/protected/user/dashboard';
+          router.push(dashboardUrl)
         } catch (routerError) {
           console.error("Failed to redirect after verification:", routerError)
           // Fallback to window.location if router fails
-          window.location.href = '/protected/dashboard'
+          const currentUser = session?.user;
+          const userRole = currentUser?.role || 'user';
+          const dashboardUrl = userRole === 'admin' 
+            ? '/protected/admin/dashboard' 
+            : '/protected/user/dashboard';
+          window.location.href = dashboardUrl
         }
       }, 1500)
 

@@ -6,11 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/lib/auth-context';
+import { getRoleDashboard } from '@/routes/authRoutes';
 
 function PaymentSuccessContent() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     // Since we're now using internal subscription assignment,
@@ -30,9 +33,8 @@ function PaymentSuccessContent() {
   const handleGoToSubscription = () => {
     router.push('/protected/user/manage-subscription');
   };
-
   const handleGoToDashboard = () => {
-    router.push('/protected/dashboard');
+    router.push(getRoleDashboard(user));
   };
 
   if (loading) {

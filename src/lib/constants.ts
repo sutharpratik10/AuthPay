@@ -82,12 +82,12 @@ export const APP_CONFIG = {
   
   // Routes
   ROUTES: {
-    HOME: '/',
-    LOGIN: '/auth/login',
+    HOME: '/',    LOGIN: '/auth/login',
     REGISTER: '/auth/signup',
     FORGOT_PASSWORD: '/auth/forgot-password',
     VERIFY: '/auth/verify',
-    DASHBOARD: '/protected/dashboard',
+    ADMIN_DASHBOARD: '/protected/admin/dashboard',
+    USER_DASHBOARD: '/protected/user/dashboard',
     PROFILE: '/protected/profile',
     ACCOUNT: '/protected/account',
     SETTINGS: '/protected/settings',

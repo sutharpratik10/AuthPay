@@ -68,15 +68,15 @@ export default function TwoFactorVerifyPage() {
           password: data.credentials.password,
           skipPasswordCheck: data.credentials.skipPasswordCheck,
           redirect: false,
-        });
-
-        if (signInResult?.error) {
+        });        if (signInResult?.error) {
           setError('Failed to complete authentication after verification')
           return
         }
 
-        // Authentication successful - redirect to dashboard
-        router.push('/protected/dashboard')
+        // Authentication successful - redirect to role-based dashboard
+        // Note: After signIn, we should get user role from session
+        // For now, default to user dashboard and let middleware handle proper redirect
+        router.push('/protected/user/dashboard')
       } else {
         setError('Invalid response from server')
       }

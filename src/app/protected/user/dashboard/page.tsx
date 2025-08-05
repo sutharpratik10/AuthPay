@@ -22,13 +22,12 @@ export default function UserDashboardPage() {
     // auth gate: only role 'user' allowed
     if (status === 'unauthenticated') {
       redirect('/auth/login')
-    }
-    if (status === 'authenticated') {
+    }    if (status === 'authenticated') {
       const role = typeof session?.user === 'object' && session?.user && 'role' in session.user
         ? (session.user as { role?: string }).role ?? 'user'
         : 'user'
       if (role !== 'user') {
-        redirect('/protected/dashboard')
+        redirect('/protected/admin/dashboard')
       }
       const nameFromSession = session?.user?.name
       setUserName(nameFromSession || 'User')

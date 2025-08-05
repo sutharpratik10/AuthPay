@@ -29,23 +29,22 @@ export default function HomePage() {
   ];
 
   return (
-    <main className="min-h-screen w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 font-sans">
+    <main className="min-h-screen w-full bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 font-sans">
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="relative z-10 container mx-auto px-4 py-20 lg:py-32">
           <div className="text-center max-w-5xl mx-auto">
             {/* Badge */}
-            <div className="mb-6 px-6 py-2 text-sm font-semibold bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 shadow-lg rounded-full inline-block">
+            <div className="mb-6 px-6 py-2 text-sm font-semibold bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 text-white border-0 shadow-lg rounded-full inline-block">
               🚀 Production-Ready Authentication System
-            </div>            {/* Main Headline */}
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-8 text-slate-900 dark:text-white leading-tight">
-              <span className="bg-gradient-to-r from-slate-900 via-blue-800 to-indigo-900 dark:from-white dark:via-blue-200 dark:to-indigo-200 bg-clip-text text-transparent">
+            </div>            {/* Main Headline */}            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-8 text-slate-900 dark:text-white leading-tight">
+              <span className="bg-gradient-to-r from-slate-900 via-slate-700 to-slate-800 dark:from-white dark:via-gray-200 dark:to-zinc-200 bg-clip-text text-transparent">
                 Enterprise-Grade
               </span>
               <br />
-              <span className="relative bg-gradient-to-r from-slate-900 via-blue-800 to-indigo-900 dark:from-white dark:via-blue-200 dark:to-indigo-200 bg-clip-text text-transparent">
+              <span className="relative bg-gradient-to-r from-slate-900 via-slate-700 to-slate-800 dark:from-white dark:via-gray-200 dark:to-zinc-200 bg-clip-text text-transparent">
                 Authentication System
-                <div className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full" />
+                <div className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-slate-600 to-slate-800 dark:from-slate-400 dark:to-slate-600 rounded-full" />
               </span>
             </h1>
 
@@ -53,14 +52,14 @@ export default function HomePage() {
             <p className="text-xl md:text-2xl mb-12 text-slate-600 dark:text-slate-300 max-w-4xl mx-auto leading-relaxed">
               Complete, secure, and scalable authentication solution with{" "}
               <span className="font-semibold text-blue-600 dark:text-blue-400">email-based OTP</span>,{" "}
-              <span className="font-semibold text-purple-600 dark:text-purple-400">2FA</span>, and{" "}
-              <span className="font-semibold text-indigo-600 dark:text-indigo-400">enterprise security</span> features.
+              <span className="font-semibold text-slate-700 dark:text-slate-300">2FA</span>, and{" "}
+              <span className="font-semibold text-slate-700 dark:text-slate-300">enterprise security</span> features.
               Ready to deploy and customize for your business.
             </p>
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-              <button className="px-8 py-4 text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-xl rounded-xl transition-all duration-300 hover:scale-105">
+              <button className="px-8 py-4 text-lg font-bold bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-slate-950 dark:from-slate-600 dark:to-slate-800 dark:hover:from-slate-700 dark:hover:to-slate-900 text-white shadow-xl rounded-xl transition-all duration-300 hover:scale-105">
                 Purchase & Download
               </button>
               <button className="px-8 py-4 text-lg font-semibold border-2 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-300">
@@ -75,11 +74,11 @@ export default function HomePage() {
                 <div className="text-sm text-slate-600 dark:text-slate-400">Uptime SLA</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">10M+</div>
+                <div className="text-3xl font-bold text-slate-700 dark:text-slate-300">10M+</div>
                 <div className="text-sm text-slate-600 dark:text-slate-400">Auth Requests/Day</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">SOC 2</div>
+                <div className="text-3xl font-bold text-slate-700 dark:text-slate-300">SOC 2</div>
                 <div className="text-sm text-slate-600 dark:text-slate-400">Compliant</div>
               </div>
             </div>
@@ -212,7 +211,7 @@ export default function HomePage() {
       </section>
 
       {/* Pricing Section */}
-      <section className="py-20 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-800 dark:to-slate-900">
+      <section className="py-20 bg-gradient-to-br from-slate-50 to-gray-100 dark:from-slate-800 dark:to-slate-900">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white">
@@ -264,20 +263,17 @@ export default function HomePage() {
               <button className="w-full py-4 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors">
                 Purchase Developer License
               </button>
-            </div>
-
-            {/* Commercial License */}
-            <div className="relative p-8 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border-2 border-purple-300 dark:border-purple-600 shadow-2xl rounded-2xl">
+            </div>            {/* Commercial License */}
+            <div className="relative p-8 bg-gradient-to-br from-slate-50 to-gray-50 dark:from-slate-900/20 dark:to-gray-900/20 border-2 border-slate-300 dark:border-slate-600 shadow-2xl rounded-2xl">
               <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2 text-sm font-bold rounded-full">
+                <span className="bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 text-white px-6 py-2 text-sm font-bold rounded-full">
                   ⭐ COMMERCIAL
                 </span>
               </div>
               <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4 mt-4">
                 Commercial License
-              </h3>
-              <div className="flex items-baseline mb-4">
-                <span className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">$1,499</span>
+              </h3>              <div className="flex items-baseline mb-4">
+                <span className="text-5xl font-bold bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100 bg-clip-text text-transparent">$1,499</span>
                 <span className="text-slate-600 dark:text-slate-400 ml-2">one-time</span>
               </div>
               <p className="text-lg text-slate-600 dark:text-slate-300 mb-6">
@@ -300,12 +296,12 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <div className="pt-4 border-t border-purple-200 dark:border-purple-700 mb-6">
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-700 mb-6">
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   Full commercial rights including resale and redistribution.
                 </p>
               </div>
-              <button className="w-full py-4 text-lg font-bold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-xl transition-colors">
+              <button className="w-full py-4 text-lg font-bold bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-slate-950 dark:from-slate-600 dark:to-slate-800 dark:hover:from-slate-700 dark:hover:to-slate-900 text-white rounded-xl transition-colors">
                 Purchase Commercial License
               </button>
             </div>
@@ -360,15 +356,13 @@ export default function HomePage() {
             ))}
           </div>
         </div>
-      </section>
-
-      {/* Final CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+      </section>      {/* Final CTA Section */}
+      <section className="py-20 bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-800 dark:to-slate-950 text-white">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
             Ready to Secure Your Application?
           </h2>
-          <p className="text-xl mb-8 max-w-3xl mx-auto text-blue-100">
+          <p className="text-xl mb-8 max-w-3xl mx-auto text-slate-200">
             Join thousands of developers who trust our authentication system for their mission-critical applications.
           </p>
           

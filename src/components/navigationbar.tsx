@@ -122,16 +122,14 @@ export function Navigationbar() {
 
   // After a successful login, redirect users to their role-based dashboard if they landed on a neutral page
   useEffect(() => {
-    if (!mounted) return;
-    if (!isAuthenticated) return;
+    if (!mounted) return;    if (!isAuthenticated) return;
     const role = (user as { role?: string } | undefined)?.role ?? 'user'
     const desired = role === 'admin' ? '/protected/admin/dashboard' : '/protected/user/dashboard'
-    // If current path is generic dashboard or auth page, push to desired dashboard
+    // If current path is auth page, push to desired dashboard
     if (typeof window !== 'undefined') {
       const path = window.location.pathname
       const isAuthPage = path.startsWith('/auth/') || path === '/'
-      const isGenericDash = path === '/protected/dashboard'
-      if (isAuthPage || isGenericDash) {
+      if (isAuthPage) {
         router.replace(desired)
       }
     }
@@ -145,18 +143,16 @@ export function Navigationbar() {
   const hasItems = (item: NavigationItem): item is NavigationItem & { items: NavigationSubItem[] } => {
     return item.items !== undefined;
   };
-
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-neutral-800 border-b border-border/40">
-      <div className="flex items-center justify-between h-16 px-4">        
-        {/* Logo on the left */}          
-        <div className="flex items-center">
+    <div className="fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border">
+      <div className="flex items-center justify-between h-16 px-4">
+        {/* Logo on the left */}        <div className="flex items-center">
           <Link href={ROUTES.PUBLIC.HOME}>
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">{(getAppName() ?? "").charAt(0)}</span>
               </div>
-              <span className="font-semibold text-lg">{getAppName()}</span>
+              <span className="font-semibold text-lg text-sidebar-foreground">{getAppName()}</span>
             </div>
           </Link>
         </div>
@@ -201,16 +197,16 @@ export function Navigationbar() {
             {mounted && isAuthenticated ? (
               <UserProfileDropdown />
             ) : (
-              <div className="flex items-center space-x-4">
-                <Link
+              <div className="flex items-center space-x-4">                
+              <Link
                   href={ROUTES.AUTH.LOGIN}
-                  className="text-sm font-medium hover:text-primary transition-colors"
+                  className="text-sm font-medium text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors"
                 >
                   Login
                 </Link>
                 <Link
                   href={ROUTES.AUTH.SIGNUP}
-                  className="text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md transition-colors"
+                  className="text-sm font-medium bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 px-4 py-2 rounded-md transition-colors"
                 >
                   Sign Up
                 </Link>
@@ -221,17 +217,16 @@ export function Navigationbar() {
           {/* Show theme toggle only for non-authenticated users */}
           <ModeToggle />
           
-          {/* Mobile menu button - only visible on mobile */}
-          <button
+          {/* Mobile menu button - only visible on mobile */}          <button
             onClick={toggleMenu}
-            className="md:hidden relative p-2 rounded-xl hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-200 cursor-pointer"
+            className="md:hidden relative p-2 rounded-xl hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-sidebar-ring transition-all duration-200 cursor-pointer"
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           >
             <div className="relative w-5 h-5">
-              <span className={`absolute inset-0 transition-all duration-300 ${isMenuOpen ? 'rotate-45 opacity-0' : 'rotate-0 opacity-100'}`}>
+              <span className={`absolute inset-0 transition-all duration-300 text-sidebar-foreground ${isMenuOpen ? 'rotate-45 opacity-0' : 'rotate-0 opacity-100'}`}>
                 <Menu className="h-5 w-5" />
               </span>
-              <span className={`absolute inset-0 transition-all duration-300 ${isMenuOpen ? 'rotate-0 opacity-100' : '-rotate-45 opacity-0'}`}>
+              <span className={`absolute inset-0 transition-all duration-300 text-sidebar-foreground ${isMenuOpen ? 'rotate-0 opacity-100' : '-rotate-45 opacity-0'}`}>
                 <X className="h-5 w-5" />
               </span>
             </div>
@@ -248,39 +243,36 @@ export function Navigationbar() {
           }`}
           onClick={closeMenu}
           aria-hidden="true"
-        />
-
-        {/* Mobile menu sidebar */}
-        <div 
+        />        {/* Mobile menu sidebar */}        <div 
           ref={sidebarRef}
-          className={`fixed inset-y-0 right-0 z-[60] w-80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-2xl md:hidden h-screen flex flex-col overflow-hidden transition-all duration-300 ease-out border-l border-border/20 ${
+          className={`fixed inset-y-0 right-0 z-[60] w-80 bg-sidebar backdrop-blur-md shadow-2xl md:hidden h-screen flex flex-col overflow-hidden transition-all duration-300 ease-out border-l border-sidebar-border ${
             isMenuOpen ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
-          {/* Menu header with improved styling */}
-          <div className="flex items-center justify-between h-16 px-6 border-b border-border/20 bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:from-blue-950/30 dark:to-purple-950/30">
+          {/* Menu header with improved styling */}          
+          <div className="flex items-center justify-between h-16 px-6 border-b border-sidebar-border bg-gradient-to-r from-sidebar to-sidebar/90">
             <Link href={ROUTES.PUBLIC.HOME} className="flex items-center space-x-3" onClick={closeMenu}>
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">{(getAppName() ?? "").charAt(0)}</span>
               </div>
-              <h2 className="text-lg font-semibold tracking-tight">
+              <h2 className="text-lg font-semibold tracking-tight text-sidebar-foreground">
                 {getAppName()}
               </h2>
             </Link>
             <button
               onClick={closeMenu}
-              className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200"
+              className="p-2 rounded-xl hover:bg-sidebar-accent transition-colors duration-200"
               aria-label="Close menu"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5 text-sidebar-foreground" />
             </button>
           </div>          
           {/* User profile section for authenticated users */}
-          {mounted && isAuthenticated && (
-            <div className="px-6 py-4 bg-gradient-to-r from-blue-50/30 to-purple-50/30 dark:from-blue-950/20 dark:to-purple-950/20 border-b border-border/20">
+          {mounted && isAuthenticated && (            
+            <div className="px-6 py-4 bg-gradient-to-r from-sidebar-accent/30 to-sidebar-accent/50 border-b border-sidebar-border">
               <div className="flex items-center space-x-3">
                 <div className="relative">
-                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-lg shadow-lg">
+                  <div className="h-12 w-12 rounded-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 text-sidebar-primary-foreground dark:text-white font-semibold text-lg shadow-lg">
                     {(user?.name || user?.email)?.charAt(0).toUpperCase()}
                   </div>
                   {isEmailVerified && (
@@ -290,10 +282,10 @@ export function Navigationbar() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate">
+                  <div className="text-sm font-semibold truncate text-sidebar-foreground">
                     {user?.name || user?.email?.split("@")[0] || "User"}
                   </div>
-                  <div className="text-xs text-muted-foreground truncate">
+                  <div className="text-xs text-sidebar-foreground/70 truncate">
                     {user?.email}
                   </div>
                   <div className="mt-1">
@@ -313,31 +305,30 @@ export function Navigationbar() {
 
           {/* Menu items with modern accordion styling */}
           <div className="flex-1 overflow-y-auto py-2">
-            <div className="px-3 space-y-1">
-              {navigationItems.map((item, index) => 
-                hasHref(item) ? (
-                  <Link 
+            <div className="px-3 space-y-1">              {navigationItems.map((item, index) => 
+                hasHref(item) ? (                  
+                <Link 
                     key={index}
                     href={item.href}
-                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
+                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-sidebar-accent transition-all duration-200 group text-sidebar-foreground"
                     onClick={closeMenu}
                   >
                     <span>{item.title}</span>
-                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-sidebar-foreground/70" />
                   </Link>
                 ) : (
                   <Accordion key={index} type="single" collapsible className="w-full">
-                    <AccordionItem value={`item-${index}`} className="border-none">
-                      <AccordionTrigger className="px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 hover:no-underline [&[data-state=open]>svg]:rotate-90">
+                    <AccordionItem value={`item-${index}`} className="border-none">                      
+                      <AccordionTrigger className="px-4 py-3 text-sm font-medium rounded-xl hover:bg-sidebar-accent transition-all duration-200 hover:no-underline [&[data-state=open]>svg]:rotate-90 text-sidebar-foreground">
                         {item.title}
                       </AccordionTrigger>
                       <AccordionContent className="pt-1 pb-2">
                         <div className="space-y-1 ml-4">
-                          {hasItems(item) && item.items.map((subItem: NavigationSubItem, subIndex: number) => (
+                          {hasItems(item) && item.items.map((subItem: NavigationSubItem, subIndex: number) => (                            
                             <Link 
                               key={`${index}-${subIndex}`}
                               href={subItem.href} 
-                              className="flex items-center justify-between px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent/30 transition-all duration-200 group"
+                              className="flex items-center justify-between px-4 py-2.5 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground rounded-lg hover:bg-sidebar-accent/50 transition-all duration-200 group"
                               onClick={closeMenu}
                             >
                               <span>{subItem.title}</span>
@@ -354,31 +345,29 @@ export function Navigationbar() {
             {/* Authentication and user actions - always show auth buttons first */}
             <div className="px-3 mt-6 pt-4 border-t border-border/20">
               {mounted && isAuthenticated ? (
-                <div className="space-y-2">
-                  <Link 
+                <div className="space-y-2">                  <Link 
                     href="/profile" 
                     onClick={closeMenu}
-                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
+                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-muted/60 dark:hover:bg-slate-800/60 transition-all duration-200 group text-foreground"
                   >
                     <div className="flex items-center space-x-3">
-                      <User className="w-4 h-4" />
+                      <User className="w-4 h-4 text-muted-foreground" />
                       <span>Profile</span>
                     </div>
-                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-muted-foreground" />
                   </Link>
-                    <Link 
+                  <Link 
                     href="/settings" 
                     onClick={closeMenu}
-                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
+                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-muted/60 dark:hover:bg-slate-800/60 transition-all duration-200 group text-foreground"
                   >
                     <div className="flex items-center space-x-3">
-                      <Settings className="w-4 h-4" />
+                      <Settings className="w-4 h-4 text-muted-foreground" />
                       <span>Settings</span>
                     </div>
-                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-muted-foreground" />
                   </Link>
-                  
-                  <button 
+                    <button 
                     className="flex items-center space-x-3 w-full px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200 cursor-pointer"
                     onClick={handleLogout}
                   >
@@ -391,25 +380,22 @@ export function Navigationbar() {
                   <Link 
                     href={ROUTES.AUTH.LOGIN} 
                     onClick={closeMenu}
-                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-accent/50 transition-all duration-200 group"
+                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-muted/60 dark:hover:bg-slate-800/60 transition-all duration-200 group text-foreground"
                   >
                     <span>Login</span>
-                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                  </Link>
-                  <Link 
+                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-muted-foreground" />
+                  </Link><Link 
                     href={ROUTES.AUTH.SIGNUP} 
                     onClick={closeMenu}
-                    className="flex items-center justify-center px-4 py-3 text-sm font-medium bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg"
+                    className="flex items-center justify-center px-4 py-3 text-sm font-medium bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 text-white rounded-xl hover:from-slate-800 hover:to-slate-950 dark:hover:from-slate-700 dark:hover:to-slate-900 transition-all duration-200 shadow-lg"
                   >
                     Sign Up
                   </Link>
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Footer with theme toggle */}
-          <div className="px-6 py-4 border-t border-border/20 bg-gradient-to-r from-blue-50/30 to-purple-50/30 dark:from-blue-950/20 dark:to-purple-950/20">
+          </div>          {/* Footer with theme toggle */}
+          <div className="px-6 py-4 border-t border-border/20 bg-gradient-to-r from-muted/30 to-muted/50 dark:from-slate-800/30 dark:to-slate-700/30">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Theme</span>
               <ModeToggle />

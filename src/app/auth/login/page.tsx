@@ -5,21 +5,29 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import LoginForm from "@/components/auth/LoginForm"
 
-export default function LoginPage() {
-  const router = useRouter()
+export default function LoginPage() {  const router = useRouter()
   const searchParams = useSearchParams()
   const returnTo = searchParams.get('returnTo')
   const message = searchParams.get('message')
-  const { isAuthenticated, isEmailVerified, loading } = useAuth()
+  const { isAuthenticated, isEmailVerified, loading, user } = useAuth()
     // Redirect if already authenticated
-  useEffect(() => {
-    if (!loading && isAuthenticated) {
+  useEffect(() => {    if (!loading && isAuthenticated) {
       // Add a small delay to ensure session data is fully loaded
       const redirectTimer = setTimeout(() => {
         if (isEmailVerified) {
-          const redirectPath = returnTo ? decodeURIComponent(returnTo) : "/protected/dashboard"
-          console.log('[LOGIN] Redirecting verified user to:', redirectPath)
-          router.push(redirectPath)
+          if (returnTo) {
+            const redirectPath = decodeURIComponent(returnTo);
+            console.log('[LOGIN] Redirecting verified user to:', redirectPath)
+            router.push(redirectPath)
+          } else {
+            // Determine dashboard based on user role
+            const userRole = (user as { role?: string })?.role || 'user';
+            const dashboardUrl = userRole === 'admin' 
+              ? '/protected/admin/dashboard' 
+              : '/protected/user/dashboard';
+            console.log('[LOGIN] Redirecting verified user to role-based dashboard:', dashboardUrl)
+            router.push(dashboardUrl)
+          }
         } else {          console.log('[LOGIN] Redirecting unverified user to verify')
           router.push("/auth/verify")
         }
@@ -27,7 +35,7 @@ export default function LoginPage() {
       
       return () => clearTimeout(redirectTimer)
     }
-  }, [isAuthenticated, isEmailVerified, loading, returnTo, router])
+  }, [isAuthenticated, isEmailVerified, loading, returnTo, router, user])
     return (
     <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8 animate-in fade-in duration-500">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">

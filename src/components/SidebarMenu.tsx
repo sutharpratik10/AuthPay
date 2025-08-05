@@ -116,8 +116,7 @@ export function AppSidebar() {
         </svg>
       ),
     },
-  ];
-  // Add admin navigation items if user is admin
+  ];  // Add admin navigation items if user is admin
   const adminNavigation = [
     {
       name: 'Manage Users',
@@ -129,6 +128,16 @@ export function AppSidebar() {
           <path d="m22 2-5 5"/>
           <path d="m16 7 5-5"/>
           <circle cx="18" cy="8" r="3"/>
+        </svg>
+      ),
+    },    {
+      name: 'Manage Roles',
+      href: '/protected/admin/roles',
+      icon: (
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
         </svg>
       ),
     },
@@ -168,7 +177,7 @@ export function AppSidebar() {
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex h-16 items-center px-4">
           <Link href={ROUTES.PUBLIC.HOME} className="flex items-center gap-3 transition-opacity hover:opacity-80">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shrink-0 shadow-sm">
+            <div className="w-8 h-8 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 rounded-lg flex items-center justify-center shrink-0 shadow-sm">
               <span className="text-white font-bold text-sm">{(getAppName() ?? "").charAt(0)}</span>
             </div>
             <h2 className="text-lg font-semibold tracking-tight text-sidebar-foreground group-data-[collapsible=icon]:hidden">
@@ -180,14 +189,14 @@ export function AppSidebar() {
       <SidebarContent className={cn(
         "px-3 py-4",
         "group-data-[collapsible=icon]:px-2"
-      )}>        
-      <SidebarMenu className="space-y-1">
+      )}>          <SidebarMenu className="space-y-1">
           {finalNavigation.map((item) => {
             const isActive = pathname === item.href;
             return (
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton
                   asChild
+                  tooltip={item.name}
                   className={cn(
                     "w-full h-11 px-3 rounded-lg transition-all duration-200 relative group",
                     "group-data-[collapsible=icon]:px-0",
@@ -251,7 +260,7 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 lg:hidden">
           <SidebarTrigger className="h-8 w-8 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-0 focus-visible:outline-none" />
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gradient-to-br from-blue-600 to-purple-600 rounded-md flex items-center justify-center shadow-sm">
+            <div className="w-6 h-6 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 rounded-md flex items-center justify-center shadow-sm">
               <span className="text-white font-bold text-xs">{(getAppName() ?? "").charAt(0)}</span>
             </div>
             <span className="text-sm font-semibold">{getAppName()}</span>

@@ -468,7 +468,7 @@ export default function AdminSubscriptionPlansPage() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <Calendar className="h-8 w-8 text-purple-600" />
+              <Calendar className="h-8 w-8 text-slate-700 dark:text-slate-300" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Monthly Plans</p>
                 <p className="text-2xl font-bold">{plans.filter(p => p.billingCycle === 'monthly').length}</p>

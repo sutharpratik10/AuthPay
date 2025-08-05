@@ -80,24 +80,23 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             {selectedOption && value && value !== '' ? selectedOption.label : placeholder}
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent 
-          className="w-full min-w-[8rem] bg-neutral-700 border-neutral-600 p-0"
+        </DropdownMenuTrigger>        <DropdownMenuContent 
+          className="w-full min-w-[8rem] bg-popover border-border p-0"
           style={{
             width: 'var(--radix-dropdown-menu-trigger-width)'
           }}
         >
           {/* Search Input */}
-          <div className="p-2 border-b border-neutral-600">
+          <div className="p-2 border-b border-border">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 ref={searchInputRef}
                 type="text"
                 placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 h-8 bg-neutral-800 border-neutral-600 text-neutral-100 placeholder-neutral-400 focus:border-neutral-500"
+                className="pl-8 h-8 bg-background border-input text-foreground placeholder-muted-foreground focus:border-ring"
                 onKeyDown={(e) => {
                   // Prevent dropdown from closing when typing
                   e.stopPropagation()
@@ -109,7 +108,7 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
           {/* Scrollable Options Container */}
           <div className="max-h-60 overflow-y-auto p-1">
             {filteredOptions.length === 0 ? (
-              <div className="py-2 px-2 text-sm text-neutral-400 text-center">
+              <div className="py-2 px-2 text-sm text-muted-foreground text-center">
                 No options found
               </div>
             ) : (
@@ -122,8 +121,8 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
                     setSearchTerm("")
                   }}
                   className={cn(
-                    "cursor-pointer text-neutral-100 hover:bg-neutral-900 hover:text-white focus:bg-neutral-900 focus:text-white",
-                    value === option.value && "bg-neutral-800 text-white"
+                    "cursor-pointer text-foreground hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
+                    value === option.value && "bg-accent text-accent-foreground"
                   )}
                 >
                   {option.label}

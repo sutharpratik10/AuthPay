@@ -16,7 +16,7 @@ export interface ProtectedRouteProps {
 export function ProtectedRoute({ 
   children
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isEmailVerified, loading } = useAuth()
+  const { isAuthenticated, isEmailVerified, loading, user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   
@@ -24,8 +24,9 @@ export function ProtectedRoute({
   const authState = useMemo(() => ({
     isAuthenticated,
     isEmailVerified,
-    loading
-  }), [isAuthenticated, isEmailVerified, loading]);
+    loading,
+    user
+  }), [isAuthenticated, isEmailVerified, loading, user]);
 
   useEffect(() => {
     // Only process redirects when loading is complete

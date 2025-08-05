@@ -62,12 +62,12 @@ export async function middleware(request: NextRequest) {
     '/auth/signup', 
     '/auth/forgot-password'
   ];
-  
-  const protectedRoutes = [
-    '/protected/dashboard',
+    const protectedRoutes = [
     '/protected/profile',
     '/protected/account',
-    '/protected/settings'
+    '/protected/settings',
+    '/protected/admin',
+    '/protected/user'
   ];
   
   const verificationRoute = '/auth/verify';
@@ -88,11 +88,14 @@ export async function middleware(request: NextRequest) {
     if (!isAuthenticated) {
       console.log(`[MIDDLEWARE] 🔒 Unauthenticated user trying to access verify page, redirecting to login`);
       return NextResponse.redirect(new URL('/auth/login', request.url));
-    }
-    
-    if (isEmailVerified) {
-      console.log(`[MIDDLEWARE] ✅ Email already verified, redirecting to dashboard`);
-      return NextResponse.redirect(new URL('/protected/dashboard', request.url));
+    }    if (isEmailVerified) {
+      console.log(`[MIDDLEWARE] ✅ Email already verified, redirecting to role-based dashboard`);
+      // Determine dashboard based on user role
+      const userRole = (session?.user as { role?: string })?.role || 'user';
+      const dashboardUrl = userRole === 'admin' 
+        ? '/protected/admin/dashboard' 
+        : '/protected/user/dashboard';
+      return NextResponse.redirect(new URL(dashboardUrl, request.url));
     }
     
     console.log(`[MIDDLEWARE] ✅ Authenticated unverified user accessing verify page`);
@@ -100,11 +103,15 @@ export async function middleware(request: NextRequest) {
   }
   
   // Handle auth pages (login, signup, forgot-password)
-  if (authRoutes.includes(path)) {
-    if (isAuthenticated) {
+  if (authRoutes.includes(path)) {    if (isAuthenticated) {
       if (isEmailVerified) {
-        console.log(`[MIDDLEWARE] ✅ Authenticated verified user, redirecting to dashboard`);
-        return NextResponse.redirect(new URL('/protected/dashboard', request.url));
+        console.log(`[MIDDLEWARE] ✅ Authenticated verified user, redirecting to role-based dashboard`);
+        // Determine dashboard based on user role
+        const userRole = (session?.user as { role?: string })?.role || 'user';
+        const dashboardUrl = userRole === 'admin' 
+          ? '/protected/admin/dashboard' 
+          : '/protected/user/dashboard';
+        return NextResponse.redirect(new URL(dashboardUrl, request.url));
       } else {
         console.log(`[MIDDLEWARE] ⚠️ Authenticated unverified user, redirecting to verify`);
         return NextResponse.redirect(new URL('/auth/verify', request.url));

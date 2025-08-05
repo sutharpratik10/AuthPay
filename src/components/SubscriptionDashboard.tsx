@@ -13,15 +13,14 @@ export default function SubscriptionDashboard() {
   if (!subscriptionStatus?.hasSubscription) {
     return (
       <div className="space-y-8">
-        {/* Welcome Message */}
-        <Card className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/50 dark:via-indigo-950/50 dark:to-purple-950/50 border-0 shadow-xl backdrop-blur-sm">
+        {/* Welcome Message */}        <Card className="bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 dark:from-slate-950/50 dark:via-gray-950/50 dark:to-zinc-950/50 border-0 shadow-xl backdrop-blur-sm">
           <CardContent className="p-10 text-center">
             <div className="mb-6">
-              <div className="mx-auto mb-6 p-6 rounded-3xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-xl w-fit">
+              <div className="mx-auto mb-6 p-6 rounded-3xl bg-gradient-to-br from-slate-600 to-slate-800 dark:from-slate-500 dark:to-slate-700 shadow-xl w-fit">
                 {/* <Package className="h-12 w-12 text-white" /> */}
               </div>
             </div>
-            <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+            <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100 bg-clip-text text-transparent">
               Welcome to TrueAuth!
             </h2>
             <p className="text-muted-foreground mb-8 max-w-2xl mx-auto text-lg leading-relaxed">
@@ -30,7 +29,7 @@ export default function SubscriptionDashboard() {
             </p>
             <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground mb-6">
               <div className="w-1 h-1 bg-muted-foreground/30 rounded-full"></div>
-              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-8 py-3 rounded-xl text-base font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300">
+              <Button className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-slate-950 dark:from-slate-600 dark:to-slate-800 dark:hover:from-slate-700 dark:hover:to-slate-900 text-white border-0 px-8 py-3 rounded-xl text-base font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300">
                 Explore Plans Below
                 <ArrowRight className="h-5 w-5 ml-2" />
               </Button>
@@ -53,9 +52,8 @@ export default function SubscriptionDashboard() {
   return (
     <div className="space-y-8">
       {/* Welcome Message */}
-      <Card className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/50 dark:via-indigo-950/50 dark:to-purple-950/50 border-0 shadow-xl backdrop-blur-sm">
-        <CardContent className="p-10 text-center">
-          <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+      <Card className="bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 dark:from-slate-950/50 dark:via-gray-950/50 dark:to-zinc-950/50 border-0 shadow-xl backdrop-blur-sm">
+        <CardContent className="p-10 text-center">          <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-300 dark:to-slate-100 bg-clip-text text-transparent">
             Welcome to TrueAuth!
           </h2>
           <p className="text-muted-foreground mb-8 max-w-2xl mx-auto text-lg leading-relaxed">

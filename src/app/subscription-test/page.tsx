@@ -35,7 +35,7 @@ function SubscriptionTestContent() {
         <CardContent>
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-3">
-              <h3 className="font-semibold text-blue-600">Automated Billing</h3>
+              <h3 className="font-semibold text-slate-700 dark:text-slate-300">Automated Billing</h3>
               <ul className="space-y-2 text-sm">
                 <li>✓ Automatic recurring payments</li>
                 <li>✓ No manual renewal required</li>

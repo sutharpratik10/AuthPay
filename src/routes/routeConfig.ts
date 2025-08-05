@@ -3,11 +3,11 @@ import { ROUTES } from './routeUtils';
 /**
  * Configuration for route permissions
  */
-export const ROUTE_CONFIG = {
-  // Which routes require authentication
+export const ROUTE_CONFIG = {  // Which routes require authentication
   requiresAuth: [
     ROUTES.PROTECTED.ROOT,
-    ROUTES.PROTECTED.DASHBOARD,
+    ROUTES.PROTECTED.ADMIN_DASHBOARD,
+    ROUTES.PROTECTED.USER_DASHBOARD,
   ],
   
   // Which routes are public (don't require auth)
@@ -19,9 +19,8 @@ export const ROUTE_CONFIG = {
     ROUTES.AUTH.SIGNUP,
     ROUTES.AUTH.FORGOT_PASSWORD,
   ],
-  
-  // Default redirect after login (if no returnTo parameter)
-  defaultAuthRedirect: ROUTES.PROTECTED.DASHBOARD,
+    // Default redirect after login (if no returnTo parameter) - will be determined by role
+  defaultAuthRedirect: '/protected/user/dashboard', // fallback, but should be role-based
   
   // Default redirect when accessing a protected route while unauthenticated
   defaultUnauthRedirect: ROUTES.AUTH.LOGIN,

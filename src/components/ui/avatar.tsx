@@ -36,7 +36,7 @@ const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
             className="aspect-square h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-white font-medium">
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800  text-white font-medium">
             {fallback}
           </div>
         )}

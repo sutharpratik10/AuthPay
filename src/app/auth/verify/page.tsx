@@ -6,20 +6,25 @@ import { useAuth } from "@/lib/auth-context"
 import EmailVerificationForm from "@/components/auth/EmailVerificationForm"
 
 export default function VerifyPage() {
-  const { isAuthenticated, isEmailVerified, loading } = useAuth()
+  const { isAuthenticated, isEmailVerified, loading, user } = useAuth()
   const router = useRouter()
     // Redirect if user is already verified
   useEffect(() => {
     if (!loading) {
       // If user is authenticated and already verified, redirect to dashboard
       if (isAuthenticated && isEmailVerified) {
-        router.push("/protected/dashboard")
+        // Determine dashboard based on user role
+        const userRole = (user as { role?: string })?.role || 'user';
+        const dashboardUrl = userRole === 'admin' 
+          ? '/protected/admin/dashboard' 
+          : '/protected/user/dashboard';
+        router.push(dashboardUrl)
         return
       }
       // Allow both authenticated and unauthenticated users to access verification
       // Unauthenticated users might be verifying after registration from another session
     }
-  }, [isAuthenticated, isEmailVerified, loading, router])
+  }, [isAuthenticated, isEmailVerified, loading, router, user])
 
   // Show loading while checking authentication state
   if (loading) {

@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { ROUTES } from "@/routes/routeUtils"
+import { getRoleDashboard } from "@/routes/authRoutes"
 
 export function AuthLinks() {
-  const { isAuthenticated, logout, loading } = useAuth()
+  const { isAuthenticated, logout, loading, user } = useAuth()
   const router = useRouter()
 
   const handleLogout = () => {
@@ -28,7 +29,7 @@ export function AuthLinks() {
   if (isAuthenticated) {
     return (
       <div className="flex items-center space-x-4">
-        <Link href={ROUTES.PROTECTED.DASHBOARD} className="text-sm font-medium hover:text-primary transition-colors">
+        <Link href={getRoleDashboard(user)} className="text-sm font-medium hover:text-primary transition-colors">
           Dashboard
         </Link>
         <Button variant="outline" size="sm" onClick={handleLogout}>

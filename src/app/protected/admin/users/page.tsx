@@ -9,12 +9,11 @@ export default async function ManageUsersPage() {
   if (!session?.user?.id) {
     redirect('/auth/login');
   }
-
   // Check if user is admin
   const isAdmin = await PermissionService.isAdmin(session.user.id);
   
   if (!isAdmin) {
-    redirect('/protected/dashboard');
+    redirect('/protected/user/dashboard');
   }
 
   return (
