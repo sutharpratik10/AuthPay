@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { MobileInputModal } from '@/components/ui/mobile-input-modal';
 import { 
   Check, 
   Crown, 
@@ -40,8 +39,6 @@ export default function SubscriptionPlansSelector({
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [selectedBillingCycle, setSelectedBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
-  const [showMobileModal, setShowMobileModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const { toast } = useToast();
 
   // Load subscription plans
@@ -72,8 +69,8 @@ export default function SubscriptionPlansSelector({
       }
     };
 
-    loadPlans();
-  }, [toast]);  // Handle plan purchase with PhonePe
+    loadPlans();  }, [toast]);
+  // Handle plan purchase (direct activation without modal)
   const handlePurchasePlan = async (planId: string) => {
     const plan = plans.find(p => p.id === planId);
     if (!plan) {
@@ -85,109 +82,33 @@ export default function SubscriptionPlansSelector({
       return;
     }
     
-    setSelectedPlan(plan);
-    setShowMobileModal(true);
-  };
-  // Handle mobile number submission
-  const handleMobileSubmit = async (mobileNumber: string) => {
-    if (!selectedPlan) return;
-    
-    setPurchasing(selectedPlan.id);
+    setPurchasing(planId);
     
     try {
-      // Use the new enhanced create-order endpoint that supports both payment types
-      const response = await fetch('/api/payments/phonepe/create-order', {
+      // Use internal subscription purchase endpoint directly
+      const response = await fetch('/api/subscription-plans/purchase', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },        body: JSON.stringify({ 
-          planId: selectedPlan.id,
-          mobileNumber,
-          paymentType: 'subscription'
+        },
+        body: JSON.stringify({ 
+          planId: planId
         }),
       });
 
-      const data = await response.json();      if (data.success) {
-        // Close modal
-        setShowMobileModal(false);
+      const data = await response.json();
 
-        // Check if we got subscription setup or standard payment (fallback)
-        if (data.data.subscriptionSetupUrl && data.data.accessToken) {
-          // Show success message for subscription
-          toast({
-            title: "Redirecting to Payment",
-            description: `You will be redirected to PhonePe for subscription setup...`,
-          });
-
-          // For subscription flow, redirect to PhonePe with OAuth headers
-          const form = document.createElement('form');
-          form.method = 'POST';
-          form.action = data.data.subscriptionSetupUrl;
-          
-          // Add subscription payload
-          const payloadInput = document.createElement('input');
-          payloadInput.type = 'hidden';
-          payloadInput.name = 'request';
-          payloadInput.value = JSON.stringify(data.data.payload);
-          form.appendChild(payloadInput);
-          
-          // Add authorization header if provided
-          const authInput = document.createElement('input');
-          authInput.type = 'hidden';
-          authInput.name = 'Authorization';
-          authInput.value = `O-Bearer ${data.data.accessToken}`;
-          form.appendChild(authInput);
-          
-          console.log('Submitting subscription setup to PhonePe:', {
-            url: form.action,
-            payload: data.data.payload,
-            hasAuth: !!data.data.accessToken
-          });
-          
-          document.body.appendChild(form);
-          form.submit();
-            } else if (data.data.paymentUrl && data.data.payload && data.data.xVerify) {
-          // Fallback to standard payment
-          toast({
-            title: "Payment Method Updated",
-            description: `Using standard payment method. You'll need to manually renew when your subscription expires.`,
-            variant: "default"
-          });
-
-          // For standard payment flow, create form and submit to PhonePe
-          const form = document.createElement('form');
-          form.method = 'POST';
-          form.action = data.data.paymentUrl;
-          form.enctype = 'application/x-www-form-urlencoded';
-          
-          // Add payload and X-VERIFY header as form fields
-          const payloadInput = document.createElement('input');
-          payloadInput.type = 'hidden';
-          payloadInput.name = 'request';
-          payloadInput.value = data.data.payload;
-          form.appendChild(payloadInput);
-          
-          const xVerifyInput = document.createElement('input');
-          xVerifyInput.type = 'hidden';
-          xVerifyInput.name = 'X-VERIFY';
-          xVerifyInput.value = data.data.xVerify;
-          form.appendChild(xVerifyInput);
-          
-          console.log('Submitting standard payment to PhonePe:', {
-            url: form.action,
-            payload: payloadInput.value,
-            xVerify: xVerifyInput.value
-          });
-          
-          document.body.appendChild(form);
-          form.submit();
-        } else {
-          throw new Error('Invalid payment response format');
-        }
+      if (data.success) {
+        // Show success message
+        toast({
+          title: "Subscription Activated",
+          description: `Your ${plan.name} subscription has been activated successfully!`,
+          variant: "default"
+        });
 
         // Call the callback if provided
         if (onPlanSelected) {
-          onPlanSelected(selectedPlan.id);
+          onPlanSelected(planId);
         }
         
       } else {
@@ -201,19 +122,11 @@ export default function SubscriptionPlansSelector({
       console.error('Error purchasing plan:', error);
       toast({
         title: "Error",
-        description: "Failed to purchase subscription",
+        description: "Failed to purchase subscription. Please try again.",
         variant: "destructive"
-      });
-    } finally {
+      });    } finally {
       setPurchasing(null);
     }
-  };
-
-  // Handle modal close
-  const handleModalClose = () => {
-    setShowMobileModal(false);
-    setSelectedPlan(null);
-    setPurchasing(null);
   };
 
   // Get plan icon
@@ -323,7 +236,7 @@ export default function SubscriptionPlansSelector({
       <div className="text-center max-w-2xl mx-auto">
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
           <p className="text-sm text-blue-700 dark:text-blue-300">
-            <strong>Smart Payment System:</strong> We'll attempt automatic recurring billing first. If unavailable, you'll get standard payment with manual renewal options.
+            <strong>Instant Activation:</strong> Your subscription will be activated immediately upon selection. Choose the plan that best fits your needs.
           </p>
         </div>
       </div>
@@ -457,16 +370,6 @@ export default function SubscriptionPlansSelector({
           <p className="text-muted-foreground">No subscription plans available at the moment.</p>
         </div>
       )}
-
-      {/* Mobile Number Input Modal */}
-      <MobileInputModal
-        isOpen={showMobileModal}
-        onClose={handleModalClose}
-        onSubmit={handleMobileSubmit}
-        planName={selectedPlan?.name}
-        planPrice={selectedPlan?.price}
-        isLoading={purchasing !== null}
-      />
     </div>
   );
 }

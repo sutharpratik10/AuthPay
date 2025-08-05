@@ -3,23 +3,22 @@ import SubscriptionPlansSelector from '@/components/SubscriptionPlansSelector';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 function SubscriptionTestContent() {
-  return (
-    <div className="container mx-auto py-8 space-y-8">
+  return (    <div className="container mx-auto py-8 space-y-8">
       <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold">PhonePe Subscription Payment Test</h1>
+        <h1 className="text-3xl font-bold">Subscription Plans Test</h1>
         <p className="text-gray-600 max-w-2xl mx-auto">
-          Test the recurring subscription payment system using PhonePe&apos;s subscription APIs.
+          Test the internal subscription assignment system.
         </p>
       </div>
 
       {/* Main Subscription Flow */}
       <Card>
         <CardHeader>
-          <CardTitle>Recurring Subscription Plans</CardTitle>
+          <CardTitle>Subscription Plans</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-600 mb-4">
-            Automatic recurring billing with PhonePe&apos;s subscription service. Cancel anytime from your dashboard.
+            Choose a subscription plan to get started with premium features.
           </p>
           <SubscriptionPlansSelector 
             showTitle={false}

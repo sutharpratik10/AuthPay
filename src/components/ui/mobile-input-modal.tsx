@@ -38,22 +38,17 @@ export function MobileInputModal({
     const mobileRegex = /^[6-9]\d{9}$/;
     return mobileRegex.test(number);
   };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!mobileNumber.trim()) {
-      setError('Mobile number is required');
-      return;
-    }
-
-    if (!validateMobileNumber(mobileNumber)) {
+    // Mobile number is optional for internal subscription activation
+    if (mobileNumber && !validateMobileNumber(mobileNumber)) {
       setError('Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9');
       return;
     }
 
     setError('');
-    onSubmit(mobileNumber);
+    onSubmit(mobileNumber || ''); // Pass empty string if no mobile number provided
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,14 +69,13 @@ export function MobileInputModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md">        <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Smartphone className="h-5 w-5 text-blue-600" />
-            Payment Details
+            Subscription Details
           </DialogTitle>
           <DialogDescription>
-            Enter your mobile number to proceed with PhonePe payment
+            Enter your mobile number to activate your subscription
           </DialogDescription>
         </DialogHeader>
 
@@ -100,8 +94,7 @@ export function MobileInputModal({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="mobile">Mobile Number</Label>
+          <div className="space-y-2">            <Label htmlFor="mobile">Mobile Number (Optional)</Label>
             <div className="relative">
               <div className="absolute left-3 top-3 text-sm text-muted-foreground">
                 +91
@@ -109,7 +102,7 @@ export function MobileInputModal({
               <Input
                 id="mobile"
                 type="tel"
-                placeholder="Enter 10-digit mobile number"
+                placeholder="Enter 10-digit mobile number (optional)"
                 value={mobileNumber}
                 onChange={handleInputChange}
                 className="pl-12"
@@ -122,9 +115,8 @@ export function MobileInputModal({
                 <AlertCircle className="h-4 w-4" />
                 {error}
               </div>
-            )}
-            <div className="text-xs text-muted-foreground">
-              Your mobile number will be used for PhonePe payment authentication
+            )}            <div className="text-xs text-muted-foreground">
+              Mobile number is optional and can be used for future subscription notifications
             </div>
           </div>
 
@@ -136,19 +128,17 @@ export function MobileInputModal({
               disabled={isLoading}
             >
               Cancel
-            </Button>
-            <Button
+            </Button>            <Button
               type="submit"
-              disabled={isLoading || !mobileNumber || mobileNumber.length !== 10}
+              disabled={isLoading}
               className="min-w-[100px]"
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-b-transparent border-current"></div>
                   Processing...
-                </div>
-              ) : (
-                'Proceed to Pay'
+                </div>              ) : (
+                'Activate Subscription'
               )}
             </Button>
           </DialogFooter>

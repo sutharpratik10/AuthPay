@@ -800,17 +800,15 @@ export const paymentOrders = pgTable("payment_orders", {
     // Link to billing by invoice number if created beforehand (optional)
     invoiceNumber: varchar('invoice_number', { length: 50 }),
     // Your internal order id to reconcile UI/client flows
-    orderId: varchar('order_id', { length: 100 }).notNull().unique(),
-    // Provider specific identifiers
-    provider: varchar('provider', { length: 50 }).notNull().default('phonepe'),
+    orderId: varchar('order_id', { length: 100 }).notNull().unique(),    // Provider specific identifiers
+    provider: varchar('provider', { length: 50 }).notNull().default('internal'),
     providerOrderId: varchar('provider_order_id', { length: 150 }),
     providerTransactionId: varchar('provider_transaction_id', { length: 150 }),
     // Amounts
     amountMinor: integer('amount_minor').notNull(), // in paise
     currency: varchar('currency', { length: 3 }).notNull().default('INR'),
-    purpose: varchar('purpose', { length: 50 }).notNull().default('subscription'),
-    status: varchar('status', { length: 20 }).notNull().default('created'), // created, pending, success, failed, expired
-    // PhonePe redirect/intent urls and callback data
+    purpose: varchar('purpose', { length: 50 }).notNull().default('subscription'),    status: varchar('status', { length: 20 }).notNull().default('created'), // created, pending, success, failed, expired
+    // Payment provider redirect/callback urls and data
     redirectUrl: varchar('redirect_url', { length: 500 }),
     callbackUrl: varchar('callback_url', { length: 500 }),
     // Integrity fields
@@ -840,7 +838,7 @@ export const paymentOrders = pgTable("payment_orders", {
 export const paymentTransactions = pgTable("payment_transactions", {
     id: uuid('id').defaultRandom().primaryKey(),
     paymentOrderId: uuid('payment_order_id').notNull().references(() => paymentOrders.id, { onDelete: 'cascade' }),
-    provider: varchar('provider', { length: 50 }).notNull().default('phonepe'),
+    provider: varchar('provider', { length: 50 }).notNull().default('internal'),
     event: varchar('event', { length: 50 }).notNull(), // created, callback, status_check, refund, etc.
     status: varchar('status', { length: 20 }).notNull(), // success, pending, failed, initiated
     providerOrderId: varchar('provider_order_id', { length: 150 }),
