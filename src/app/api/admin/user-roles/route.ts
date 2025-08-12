@@ -25,8 +25,7 @@ async function getUserRoles() {
         userId: users.id,
         userName: users.name,
         userEmail: users.email,
-        roleId: users.roleId,
-        roleID: users.roleID,
+        roleId: users.roleId
       })
       .from(users);
 

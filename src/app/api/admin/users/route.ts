@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPermission, API_PERMISSIONS, requireAdmin } from '@/lib/api-permissions';
 import { db } from '@/db';
-import { users, subscriptionPlans, roles } from '@/db/schema';
+import { users, subscriptionPlans, roles, userSubscriptions } from '@/db/schema';
 import { eq, or, ilike, count } from 'drizzle-orm';
 
 /**
@@ -29,16 +29,19 @@ async function getUsers(req: NextRequest) {
       email: users.email,
       name: users.name,
       roleId: users.roleId,
-      roleID: users.roleID,
+      roleName: roles.name,
       isEmailVerified: users.isEmailVerified,
       isActive: users.isActive,
       lastLoginAt: users.lastLoginAt,
       createdAt: users.createdAt,
-      // Subscription info
+      // Subscription info (joined)
       subscriptionName: subscriptionPlans.name,
       subscriptionBillingCycle: subscriptionPlans.billingCycle,
     })
     .from(users)
+    .leftJoin(userSubscriptions, eq(users.id, userSubscriptions.userId))
+    .leftJoin(subscriptionPlans, eq(userSubscriptions.planId, subscriptionPlans.id))
+    .leftJoin(roles, eq(users.roleId, roles.id))
     .where(whereCondition)
     .limit(limit)
     .offset(offset);
@@ -98,7 +101,7 @@ async function updateUserRole(req: NextRequest) {
     // Check if user exists
     const existingUser = await db.query.users.findFirst({
       where: eq(users.id, userId),
-      columns: { id: true, email: true, roleId: true, roleID: true }
+      columns: { id: true, email: true, roleId: true }
     });
 
     if (!existingUser) {
@@ -143,7 +146,7 @@ async function updateUserRole(req: NextRequest) {
       message: `User role updated to ${role}`,
       data: {
         userId,
-        oldRole: existingUser.roleId || existingUser.roleID,
+        oldRole: existingUser.roleId || existingUser.roleId,
         newRole: roleRecord.id
       }
     });
