@@ -16,7 +16,7 @@ export const subscriptionAnalytics = pgTable("subscription_analytics", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	subscriptionPlanId: uuid("subscription_plan_id").notNull().references(() => subscriptionPlans.id),
 	statDate: timestamp("stat_date", { mode: 'string' }).notNull(),
-	activeTenants: integer("active_tenants").default(0),
+	activeUsers: integer("active_users").default(0),
 	newSubscriptions: integer("new_subscriptions").default(0),
 	cancelledSubscriptions: integer("cancelled_subscriptions").default(0),
 	upgrades: integer("upgrades").default(0),
@@ -43,28 +43,9 @@ export const systemHealthLogs = pgTable("system_health_logs", {
 	loggedAt: timestamp("logged_at", { mode: 'string' }).defaultNow().notNull(),
 });
 
-export const tenants = pgTable("tenants", {
-	id: uuid('id').defaultRandom().primaryKey(),	name: varchar('name', { length: 255 }).notNull(),
-	slug: varchar('slug', { length: 50 }).notNull().unique(),
-	logoUrl: varchar('logo_url', { length: 255 }),
-	primaryColor: varchar('primary_color', { length: 7 }),
-	planId: uuid('plan_id').references(() => subscriptionPlans.id),
-	planEffectiveDate: timestamp('plan_effective_date').defaultNow(),
-	planExpiryDate: timestamp('plan_expiry_date'),
-	isActive: boolean('is_active').default(true).notNull(),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.planId],
-			foreignColumns: [subscriptionPlans.id],
-			name: "tenants_plan_id_subscription_plans_id_fk"
-		}),
-]);
-
 export const adminDashboardStats = pgTable("admin_dashboard_stats", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	tenantId: uuid("tenant_id").references(() => tenants.id),
+	userId: uuid("user_id").references(() => users.id),
 	statDate: timestamp("stat_date", { mode: 'string' }).notNull(),
 	activeUsers: integer("active_users").default(0),
 	newUsers: integer("new_users").default(0),
@@ -76,15 +57,15 @@ export const adminDashboardStats = pgTable("admin_dashboard_stats", {
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "admin_dashboard_stats_tenant_id_tenants_id_fk"
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "admin_dashboard_stats_user_id_users_id_fk"
 		}),
 ]);
 
 export const featureUsageAnalytics = pgTable("feature_usage_analytics", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	tenantId: uuid("tenant_id").references(() => tenants.id),
+	userId: uuid("user_id").references(() => users.id),
 	featureName: varchar("feature_name", { length: 100 }).notNull(),
 	usageCount: integer("usage_count").default(0),
 	uniqueUsers: integer("unique_users").default(0),
@@ -93,15 +74,14 @@ export const featureUsageAnalytics = pgTable("feature_usage_analytics", {
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "feature_usage_analytics_tenant_id_tenants_id_fk"
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "feature_usage_analytics_user_id_users_id_fk"
 		}),
 ]);
 
 export const userUsageMetrics = pgTable("user_usage_metrics", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
 	userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
 	lastLoginDate: timestamp("last_login_date", { mode: 'string' }),
 	sessionCount: integer("session_count").default(0),
@@ -113,23 +93,17 @@ export const userUsageMetrics = pgTable("user_usage_metrics", {
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "user_usage_metrics_tenant_id_tenants_id_fk"
-		}).onDelete("cascade"),
-	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [users.id],
-			name: "user_usage_metrics_user_id_users_id_fk"
+			name: "user_usage_metrics_id_fk"
 		}).onDelete("cascade"),
 ]);
 
 export const auditLogs = pgTable("audit_logs", {
 	id: uuid('id').defaultRandom().primaryKey(),
-	tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'set null' }),
 	userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
 	action: varchar('action', { length: 100 }).notNull(),
-	entityType: varchar('entity_type', { length: 50 }).notNull(), // user, role, permission, tenant, etc.
+	entityType: varchar('entity_type', { length: 50 }).notNull(), // user, role, permission, etc.
 	entityId: varchar('entity_id', { length: 50 }),
 	oldValues: jsonb('old_values'),
 	newValues: jsonb('new_values'),
@@ -139,11 +113,6 @@ export const auditLogs = pgTable("audit_logs", {
 	performedAt: timestamp('performed_at').defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "audit_logs_tenant_id_tenants_id_fk"
-		}).onDelete("set null"),
-	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [users.id],
 			name: "audit_logs_user_id_users_id_fk"
@@ -152,7 +121,6 @@ export const auditLogs = pgTable("audit_logs", {
 
 export const errorLogs = pgTable("error_logs", {
 	id: uuid('id').defaultRandom().primaryKey(),
-	tenantId: uuid('tenant_id').references(() => tenants.id),
 	userId: uuid('user_id').references(() => users.id),
 	errorCode: varchar('error_code', { length: 50 }),
 	errorMessage: text('error_message').notNull(),
@@ -165,11 +133,6 @@ export const errorLogs = pgTable("error_logs", {
 	solvedAt: timestamp('solved_at'),
 }, (table) => [
 	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "error_logs_tenant_id_tenants_id_fk"
-		}),
-	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [users.id],
 			name: "error_logs_user_id_users_id_fk"
@@ -178,7 +141,7 @@ export const errorLogs = pgTable("error_logs", {
 
 export const systemNotifications = pgTable("system_notifications", {
 	id: uuid('id').defaultRandom().primaryKey(),
-	tenantId: uuid('tenant_id').references(() => tenants.id), // Optional, null for system-wide
+	userId: uuid('user_id').references(() => users.id), // Optional, null for system-wide
 	title: varchar('title', { length: 200 }).notNull(),
 	content: text('content').notNull(),
 	type: varchar('type', { length: 20 }).notNull(), // info, warning, error, success
@@ -190,11 +153,6 @@ export const systemNotifications = pgTable("system_notifications", {
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
-	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "system_notifications_tenant_id_tenants_id_fk"
-		}),
 	foreignKey({
 			columns: [table.createdByUserId],
 			foreignColumns: [users.id],
@@ -223,7 +181,7 @@ export const userNotifications = pgTable("user_notifications", {
 
 export const billings = pgTable("billings", {
 	id: uuid('id').defaultRandom().primaryKey(),
-	tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 	planId: uuid('plan_id').references(() => subscriptionPlans.id),
 	invoiceNumber: varchar('invoice_number', { length: 50 }).notNull().unique(),
 	amount: varchar('amount', { length: 50 }).notNull(),
@@ -237,9 +195,9 @@ export const billings = pgTable("billings", {
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "billings_tenant_id_tenants_id_fk"
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "billings_user_id_users_id_fk"
 		}).onDelete("cascade"),
 	foreignKey({
 			columns: [table.planId],
@@ -260,91 +218,9 @@ export const subscriptionPlans = pgTable("subscription_plans", {
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-export const tenantSettings = pgTable("tenant_settings", {
-	id: uuid('id').defaultRandom().primaryKey(),
-	tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
-	key: varchar('key', { length: 100 }).notNull(),
-	value: varchar('value', { length: 1000 }).notNull(),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "tenant_settings_tenant_id_tenants_id_fk"
-		}).onDelete("cascade"),
-]);
-
-export const usageStatistics = pgTable("usage_statistics", {
-	id: uuid('id').defaultRandom().primaryKey(),
-	tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
-	userCount: varchar('user_count', { length: 10 }),
-	storageUsed: varchar('storage_used', { length: 20 }), // in bytes as string
-	apiCalls: varchar('api_calls', { length: 10 }),
-	lastActivityDate: timestamp('last_activity_date'),
-	recordedAt: timestamp('recorded_at').defaultNow().notNull(),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "usage_statistics_tenant_id_tenants_id_fk"
-		}).onDelete("cascade"),
-]);
-
-export const invitations = pgTable("invitations", {
-	id: uuid('id').defaultRandom().primaryKey(),
-	tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
-	email: varchar('email', { length: 255 }).notNull(),
-	token: varchar('token', { length: 255 }).notNull().unique(),
-	roleId: uuid('role_id'),
-	sentByUserId: uuid('sent_by_user_id').references(() => users.id),
-	expiresAt: timestamp('expires_at').notNull(),
-	status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, accepted, expired
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "invitations_tenant_id_tenants_id_fk"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.sentByUserId],
-			foreignColumns: [users.id],
-			name: "invitations_sent_by_user_id_users_id_fk"
-		}),
-]);
-
-export const tenantUsers = pgTable("tenant_users", {
-	id: uuid('id').defaultRandom().primaryKey(),
-	tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
-	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-	isOwner: boolean('is_owner').default(false),
-	isPrimary: boolean('is_primary').default(false), // If user belongs to multiple tenants, which one is primary
-	status: varchar('status', { length: 20 }).notNull().default('invited'), // invited, active, inactive, suspended
-	joinedAt: timestamp('joined_at'),
-	lastAccessedAt: timestamp('last_accessed_at'),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "tenant_users_tenant_id_tenants_id_fk"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "tenant_users_user_id_users_id_fk"
-		}).onDelete("cascade"),
-]);
-
 export const userActivityLogs = pgTable("user_activity_logs", {
 	id: uuid('id').defaultRandom().primaryKey(),
 	userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
-	tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }),
 	action: varchar('action', { length: 100 }).notNull(),
 	resourceType: varchar('resource_type', { length: 50 }),
 	resourceId: varchar('resource_id', { length: 50 }),
@@ -358,25 +234,20 @@ export const userActivityLogs = pgTable("user_activity_logs", {
 			foreignColumns: [users.id],
 			name: "user_activity_logs_user_id_users_id_fk"
 		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "user_activity_logs_tenant_id_tenants_id_fk"
-		}).onDelete("cascade"),
 ]);
 
 export const customUserPermissions = pgTable("custom_user_permissions", {
 	id: uuid('id').defaultRandom().primaryKey(),
-	tenantUserId: uuid('tenant_user_id').notNull().references(() => tenantUsers.id, { onDelete: 'cascade' }),
+	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 	permissionId: uuid('permission_id').notNull().references(() => permissions.id, { onDelete: 'cascade' }),
 	granted: boolean('granted').notNull().default(true),
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.tenantUserId],
-			foreignColumns: [tenantUsers.id],
-			name: "custom_user_permissions_tenant_user_id_tenant_users_id_fk"
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "custom_user_permissions_user_id_users_id_fk"
 		}).onDelete("cascade"),
 	foreignKey({
 			columns: [table.permissionId],
@@ -424,20 +295,13 @@ export const permissionGroupItems = pgTable("permission_group_items", {
 
 export const roles = pgTable("roles", {
 	id: uuid('id').defaultRandom().primaryKey(),
-	tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
-	name: varchar('name', { length: 100 }).notNull(),
+	name: varchar('name', { length: 100 }).notNull().unique(),
 	description: varchar('description', { length: 500 }),
 	isDefault: boolean('is_default').default(false),
 	isSystemManaged: boolean('is_system_managed').default(false),
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "roles_tenant_id_tenants_id_fk"
-		}).onDelete("cascade"),
-]);
+});
 
 export const rolePermissions = pgTable("role_permissions", {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -457,28 +321,9 @@ export const rolePermissions = pgTable("role_permissions", {
 		}).onDelete("cascade"),
 ]);
 
-export const userRoles = pgTable("user_roles", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	tenantUserId: uuid("tenant_user_id").notNull(),
-	roleId: uuid("role_id").notNull(),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.tenantUserId],
-			foreignColumns: [tenantUsers.id],
-			name: "user_roles_tenant_user_id_tenant_users_id_fk"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.roleId],
-			foreignColumns: [roles.id],
-			name: "user_roles_role_id_roles_id_fk"
-		}).onDelete("cascade"),
-]);
-
 export const resources = pgTable("resources", {
 	id: uuid('id').defaultRandom().primaryKey(),
-	tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 	name: varchar('name', { length: 100 }).notNull(),
 	type: varchar('type', { length: 50 }).notNull(), // document, project, report, etc.
 	path: varchar('path', { length: 255 }),
@@ -487,9 +332,9 @@ export const resources = pgTable("resources", {
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.tenantId],
-			foreignColumns: [tenants.id],
-			name: "resources_tenant_id_tenants_id_fk"
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "resources_user_id_users_id_fk"
 		}).onDelete("cascade"),
 ]);
 
@@ -695,13 +540,18 @@ export const users = pgTable("users", {
 	isEmailVerified: boolean("is_email_verified").default(false),
 	lastLoginAt: timestamp("last_login_at", { mode: 'string' }),
 	isActive: boolean("is_active").default(true),
-	role: varchar("role", { length: 20 }).default('user').notNull(), // 'admin' or 'user'
+	roleId: uuid("role_id").references(() => roles.id), // Only one direct relationship to roles table
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 	emailVerified: timestamp({ mode: 'string' }),
 	avatarUrl: varchar("avatar_url", { length: 255 }),
 }, (table) => [
 	unique("users_email_unique").on(table.email),
+	foreignKey({
+		columns: [table.roleId],
+		foreignColumns: [roles.id],
+		name: "users_role_id_roles_id_fk"
+	})
 ]);
 
 export const userPreferences = pgTable("user_preferences", {
@@ -761,8 +611,8 @@ export const timezones = pgTable("timezones", {
 
 export const verificationTokens = pgTable("verification_tokens", {
 	identifier: text("identifier").notNull(),
-    token: text("token").notNull(),
-    expires: timestamp("expires").notNull(),
+	token: text("token").notNull(),
+	expires: timestamp("expires").notNull(),
 }, (table) => [
 	primaryKey({ columns: [table.identifier, table.token], name: "verification_tokens_identifier_token_pk"}),
 ]);
@@ -793,65 +643,71 @@ export const accounts = pgTable("accounts", {
 ]);
 
 export const paymentOrders = pgTable("payment_orders", {
-    id: uuid('id').defaultRandom().primaryKey(),
-    tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
-    planId: uuid('plan_id').references(() => subscriptionPlans.id),
-    // Link to billing by invoice number if created beforehand (optional)
-    invoiceNumber: varchar('invoice_number', { length: 50 }),
-    // Your internal order id to reconcile UI/client flows
-    orderId: varchar('order_id', { length: 100 }).notNull().unique(),    // Provider specific identifiers
-    provider: varchar('provider', { length: 50 }).notNull().default('internal'),
-    providerOrderId: varchar('provider_order_id', { length: 150 }),
-    providerTransactionId: varchar('provider_transaction_id', { length: 150 }),
-    // Amounts
-    amountMinor: integer('amount_minor').notNull(), // in paise
-    currency: varchar('currency', { length: 3 }).notNull().default('INR'),
-    purpose: varchar('purpose', { length: 50 }).notNull().default('subscription'),    status: varchar('status', { length: 20 }).notNull().default('created'), // created, pending, success, failed, expired
-    // Payment provider redirect/callback urls and data
-    redirectUrl: varchar('redirect_url', { length: 500 }),
-    callbackUrl: varchar('callback_url', { length: 500 }),
-    // Integrity fields
-    saltIndex: varchar('salt_index', { length: 10 }),
-    xVerify: varchar('x_verify', { length: 255 }),
-    metadata: jsonb('metadata'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+	id: uuid('id').defaultRandom().primaryKey(),
+	userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+	planId: uuid('plan_id').references(() => subscriptionPlans.id),
+	// Link to billing by invoice number if created beforehand (optional)
+	invoiceNumber: varchar('invoice_number', { length: 50 }),
+	// Your internal order id to reconcile UI/client flows
+	orderId: varchar('order_id', { length: 100 }).notNull().unique(),    // Provider specific identifiers
+	provider: varchar('provider', { length: 50 }).notNull().default('internal'),
+	providerOrderId: varchar('provider_order_id', { length: 150 }),
+	providerTransactionId: varchar('provider_transaction_id', { length: 150 }),
+	// Amounts
+	amountMinor: integer('amount_minor').notNull(), // in paise
+	currency: varchar('currency', { length: 3 }).notNull().default('INR'),
+	purpose: varchar('purpose', { length: 50 }).notNull().default('subscription'),    status: varchar('status', { length: 20 }).notNull().default('created'), // created, pending, success, failed, expired
+	// Payment provider redirect/callback urls and data
+	redirectUrl: varchar('redirect_url', { length: 500 }),
+	callbackUrl: varchar('callback_url', { length: 500 }),
+	// Integrity fields
+	saltIndex: varchar('salt_index', { length: 10 }),
+	xVerify: varchar('x_verify', { length: 255 }),
+	metadata: jsonb('metadata'),
+	createdAt: timestamp('created_at').defaultNow().notNull(),
+	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
-    foreignKey({
-        columns: [table.tenantId],
-        foreignColumns: [tenants.id],
-        name: "payment_orders_tenant_id_tenants_id_fk"
-    }).onDelete("cascade"),
-    foreignKey({
-        columns: [table.userId],
-        foreignColumns: [users.id],
-        name: "payment_orders_user_id_users_id_fk"
-    }).onDelete("set null"),
-    foreignKey({
-        columns: [table.planId],
-        foreignColumns: [subscriptionPlans.id],
-        name: "payment_orders_plan_id_subscription_plans_id_fk"
-    }),
+	foreignKey({
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "payment_orders_user_id_users_id_fk"
+	}).onDelete("set null"),
+	foreignKey({
+		columns: [table.planId],
+		foreignColumns: [subscriptionPlans.id],
+		name: "payment_orders_plan_id_subscription_plans_id_fk"
+	}),
 ]);
 
 export const paymentTransactions = pgTable("payment_transactions", {
-    id: uuid('id').defaultRandom().primaryKey(),
-    paymentOrderId: uuid('payment_order_id').notNull().references(() => paymentOrders.id, { onDelete: 'cascade' }),
-    provider: varchar('provider', { length: 50 }).notNull().default('internal'),
-    event: varchar('event', { length: 50 }).notNull(), // created, callback, status_check, refund, etc.
-    status: varchar('status', { length: 20 }).notNull(), // success, pending, failed, initiated
-    providerOrderId: varchar('provider_order_id', { length: 150 }),
-    providerTransactionId: varchar('provider_transaction_id', { length: 150 }),
-    message: varchar('message', { length: 255 }),
-    rawRequest: jsonb('raw_request'),
-    rawResponse: jsonb('raw_response'),
-    receivedAt: timestamp('received_at').defaultNow().notNull(),
+	id: uuid('id').defaultRandom().primaryKey(),
+	paymentOrderId: uuid('payment_order_id').notNull().references(() => paymentOrders.id, { onDelete: 'cascade' }),
+	provider: varchar('provider', { length: 50 }).notNull().default('internal'),
+	event: varchar('event', { length: 50 }).notNull(), // created, callback, status_check, refund, etc.
+	status: varchar('status', { length: 20 }).notNull(), // success, pending, failed, initiated
+	providerOrderId: varchar('provider_order_id', { length: 150 }),
+	providerTransactionId: varchar('provider_transaction_id', { length: 150 }),
+	message: varchar('message', { length: 255 }),
+	rawRequest: jsonb('raw_request'),
+	rawResponse: jsonb('raw_response'),
+	receivedAt: timestamp('received_at').defaultNow().notNull(),
 }, (table) => [
-    foreignKey({
-        columns: [table.paymentOrderId],
-        foreignColumns: [paymentOrders.id],
-        name: "payment_transactions_payment_order_id_payment_orders_id_fk"
-    }).onDelete("cascade"),
+	foreignKey({
+		columns: [table.paymentOrderId],
+		foreignColumns: [paymentOrders.id],
+		name: "payment_transactions_payment_order_id_payment_orders_id_fk"
+	}).onDelete("cascade"),
 ]);
+
+export const userSubscriptions = pgTable("user_subscriptions", {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  planId: uuid('plan_id').notNull().references(() => subscriptionPlans.id, { onDelete: 'cascade' }),
+  status: varchar('status', { length: 32 }).notNull(), // e.g., active, trialing, cancelled
+  startDate: timestamp('start_date', { mode: 'string' }).notNull(),
+  expiryDate: timestamp('expiry_date', { mode: 'string' }),
+  endDate: timestamp('end_date', { mode: 'string' }),
+  createdAt: timestamp('created_at', { mode: 'string' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'string' }).defaultNow().notNull(),
+});
 

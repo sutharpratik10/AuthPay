@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { users, tenants, tenantUsers, subscriptionPlans } from '@/db/schema';
+import { users, subscriptionPlans, userSubscriptions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { calculateSubscriptionExpiryDate } from '@/lib/subscription-utils';
 
@@ -56,76 +56,50 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if user already has a tenant
-    const existingTenant = await db.query.tenantUsers.findFirst({
-      where: eq(tenantUsers.userId, userId),
-      with: {
-        tenant: true
-      }
+    // Calculate subscription dates
+    const startDate = new Date();
+    const expiryDate = calculateSubscriptionExpiryDate(startDate, plan.billingCycle);
+
+    // Check if user already has a subscription
+    const existingSubscription = await db.query.userSubscriptions.findFirst({
+      where: eq(userSubscriptions.userId, userId),
+      columns: { id: true }
     });
 
-    let tenantId: string;
-
-    if (!existingTenant) {
-      // Create a new tenant for this user
-      const shortUserId = userId.substring(0, 8);
-      const timestamp = Date.now().toString().slice(-8);
-      const slug = `user-${shortUserId}-${timestamp}`;
-      
-      const tenantName = `${user.name || user.email}'s Workspace`;
-      const truncatedName = tenantName.length > 255 ? tenantName.substring(0, 252) + '...' : tenantName;
-      
-      const effectiveDate = new Date();
-      const expiryDate = calculateSubscriptionExpiryDate(effectiveDate, plan.billingCycle);
-      
-      const newTenant = await db.insert(tenants).values({
-        name: truncatedName,
-        slug: slug,
-        planId: planId,
-        planEffectiveDate: effectiveDate,
-        planExpiryDate: expiryDate,
-        isActive: true
-      }).returning();
-
-      tenantId = newTenant[0].id;
-
-      // Associate the user with their new tenant
-      await db.insert(tenantUsers).values({
-        tenantId: tenantId,
-        userId: userId,
-        isOwner: true,
-        isPrimary: true,
-        status: 'active',
-        joinedAt: new Date()
-      });
-
-    } else {
-      // Update existing tenant's subscription plan
-      tenantId = existingTenant.tenant.id;
-      
-      const effectiveDate = new Date();
-      const expiryDate = calculateSubscriptionExpiryDate(effectiveDate, plan.billingCycle);
-      
-      await db
-        .update(tenants)
+    if (existingSubscription) {
+      // Update existing subscription
+      await db.update(userSubscriptions)
         .set({
-          planId: planId,
-          planEffectiveDate: effectiveDate,
-          planExpiryDate: expiryDate,
-          updatedAt: new Date()
+          planId: plan.id,
+          status: 'active',
+          startDate: startDate.toISOString(),
+          expiryDate: expiryDate.toISOString(),
+          updatedAt: new Date().toISOString()
         })
-        .where(eq(tenants.id, tenantId));
+        .where(eq(userSubscriptions.userId, userId));
+    } else {
+      // Create new subscription
+      await db.insert(userSubscriptions).values({
+        userId,
+        planId: plan.id,
+        status: 'active',
+        startDate: startDate.toISOString(),
+        expiryDate: expiryDate.toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
     }
 
     return NextResponse.json({
       success: true,
       message: `Successfully subscribed to ${plan.name} plan`,
       data: {
-        planId,
+        planId: plan.id,
         planName: plan.name,
         billingCycle: plan.billingCycle,
         price: plan.price,
-        tenantId
+        startDate: startDate.toISOString(),
+        expiryDate: expiryDate.toISOString(),
       }
     });
 

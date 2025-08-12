@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
 import { db } from '@/db';
-import { users, userRoles, tenantUsers, roles } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { users } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 import { auth } from '@/auth';
 
 /**
@@ -18,38 +18,17 @@ async function getUserRoles() {
       );
     }
 
-    // Get user's tenant
-    const userTenant = await db.query.tenantUsers.findFirst({
-      where: eq(tenantUsers.userId, session.user.id),
-      with: {
-        tenant: true,
-      },
-    });
-
-    if (!userTenant) {
-      return NextResponse.json(
-        { error: 'No tenant found for user' },
-        { status: 400 }
-      );
-    }
-
-    // Get all user role assignments for this tenant
+    // List all users and their roles
     const userRoleAssignments = await db
       .select({
-        id: userRoles.id,
+        id: users.id,
         userId: users.id,
         userName: users.name,
         userEmail: users.email,
-        roleId: roles.id,
-        roleName: roles.name,
-        assignedAt: userRoles.createdAt,
+        roleId: users.roleId,
+        roleID: users.roleID,
       })
-      .from(userRoles)
-      .innerJoin(tenantUsers, eq(userRoles.tenantUserId, tenantUsers.id))
-      .innerJoin(users, eq(tenantUsers.userId, users.id))
-      .innerJoin(roles, eq(userRoles.roleId, roles.id))
-      .where(eq(tenantUsers.tenantId, userTenant.tenantId))
-      .orderBy(userRoles.createdAt);
+      .from(users);
 
     return NextResponse.json({
       success: true,
@@ -90,79 +69,15 @@ async function assignUserRole(req: NextRequest) {
       );
     }
 
-    // Get user's tenant
-    const userTenant = await db.query.tenantUsers.findFirst({
-      where: eq(tenantUsers.userId, session.user.id),
-      with: {
-        tenant: true,
-      },
-    });
-
-    if (!userTenant) {
-      return NextResponse.json(
-        { error: 'No tenant found for user' },
-        { status: 400 }
-      );
-    }
-
-    // Check if target user exists in the same tenant
-    const targetTenantUser = await db.query.tenantUsers.findFirst({
-      where: and(
-        eq(tenantUsers.userId, userId),
-        eq(tenantUsers.tenantId, userTenant.tenantId)
-      ),
-    });
-
-    if (!targetTenantUser) {
-      return NextResponse.json(
-        { error: 'User not found in this tenant' },
-        { status: 404 }
-      );
-    }
-
-    // Check if role exists in the same tenant
-    const targetRole = await db.query.roles.findFirst({
-      where: and(
-        eq(roles.id, roleId),
-        eq(roles.tenantId, userTenant.tenantId)
-      ),
-    });
-
-    if (!targetRole) {
-      return NextResponse.json(
-        { error: 'Role not found in this tenant' },
-        { status: 404 }
-      );
-    }
-
-    // Check if user already has this role
-    const existingAssignment = await db.query.userRoles.findFirst({
-      where: and(
-        eq(userRoles.tenantUserId, targetTenantUser.id),
-        eq(userRoles.roleId, roleId)
-      ),
-    });
-
-    if (existingAssignment) {
-      return NextResponse.json(
-        { error: 'User already has this role assigned' },
-        { status: 400 }
-      );
-    }
-
-    // Create the role assignment
-    const newAssignment = await db
-      .insert(userRoles)
-      .values({
-        tenantUserId: targetTenantUser.id,
-        roleId: roleId,
-      })
-      .returning();
+    // Update user's roleId
+    await db.update(users)
+      .set({ roleId, updatedAt: new Date().toISOString() })
+      .where(eq(users.id, userId));
 
     return NextResponse.json({
       success: true,
       message: 'Role assigned successfully',
-      data: { assignment: newAssignment[0] }
+      data: { userId, roleId }
     });
 
   } catch (error) {
@@ -188,61 +103,19 @@ async function removeUserRole(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { userId, roleId } = body;
+    const { userId } = body;
 
-    if (!userId || !roleId) {
+    if (!userId) {
       return NextResponse.json(
-        { error: 'User ID and Role ID are required' },
+        { error: 'User ID is required' },
         { status: 400 }
       );
     }
 
-    // Get user's tenant
-    const userTenant = await db.query.tenantUsers.findFirst({
-      where: eq(tenantUsers.userId, session.user.id),
-      with: {
-        tenant: true,
-      },
-    });
-
-    if (!userTenant) {
-      return NextResponse.json(
-        { error: 'No tenant found for user' },
-        { status: 400 }
-      );
-    }
-
-    // Check if target user exists in the same tenant
-    const targetTenantUser = await db.query.tenantUsers.findFirst({
-      where: and(
-        eq(tenantUsers.userId, userId),
-        eq(tenantUsers.tenantId, userTenant.tenantId)
-      ),
-    });
-
-    if (!targetTenantUser) {
-      return NextResponse.json(
-        { error: 'User not found in this tenant' },
-        { status: 404 }
-      );
-    }
-
-    // Find and remove the role assignment
-    const existingAssignment = await db.query.userRoles.findFirst({
-      where: and(
-        eq(userRoles.tenantUserId, targetTenantUser.id),
-        eq(userRoles.roleId, roleId)
-      ),
-    });
-
-    if (!existingAssignment) {
-      return NextResponse.json(
-        { error: 'Role assignment not found' },
-        { status: 404 }
-      );
-    }
-
-    await db.delete(userRoles).where(eq(userRoles.id, existingAssignment.id));
+    // Remove user's roleId
+    await db.update(users)
+      .set({ roleId: null, updatedAt: new Date().toISOString() })
+      .where(eq(users.id, userId));
 
     return NextResponse.json({
       success: true,

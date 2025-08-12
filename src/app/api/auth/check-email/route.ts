@@ -26,14 +26,13 @@ export async function POST(req: NextRequest) {
       where: (users, { eq }) => eq(users.email, email.toLowerCase()),
       columns: { id: true, email: true }
     })
-
     const emailExists = !!existingUser
 
     return NextResponse.json({
       success: true,
       emailExists,
       message: emailExists 
-        ? 'Email is already registered' 
+        ? 'Email is already registered, kindly SignIn' 
         : 'Email is available'
     })
 

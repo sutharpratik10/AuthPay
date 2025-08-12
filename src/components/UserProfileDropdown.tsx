@@ -27,6 +27,13 @@ export function UserProfileDropdown({ className }: UserProfileDropdownProps) {
 
   const handleLogout = async () => {
     await signOut({ redirect: false })
+    // Clear cookies (best effort, JS can't remove HttpOnly cookies)
+    document.cookie.split(';').forEach((c) => {
+      document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date(0).toUTCString() + ';path=/');
+    });
+    // Clear localStorage and sessionStorage
+    localStorage.clear();
+    sessionStorage.clear();
     router.push(ROUTES.PUBLIC.HOME)
   }
 

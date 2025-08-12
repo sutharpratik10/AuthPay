@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
 import { db } from '@/db';
-import { users, tenants, tenantUsers, subscriptionPlans } from '@/db/schema';
+import { users, subscriptionPlans, userSubscriptions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { calculateSubscriptionExpiryDate } from '@/lib/subscription-utils';
 
@@ -57,64 +57,40 @@ async function assignSubscriptionToUser(req: NextRequest) {
         { error: 'Subscription plan not found' },
         { status: 404 }
       );
-    }    // Check if user already has a tenant (for individual users, they typically have their own tenant)
-    const userTenant = await db.query.tenantUsers.findFirst({
-      where: eq(tenantUsers.userId, userId),
-      with: {
-        tenant: true
-      }
+    }
+
+    // Calculate subscription dates
+    const startDate = new Date();
+    const expiryDate = calculateSubscriptionExpiryDate(startDate, plan.billingCycle);
+
+    // Check if user already has a subscription
+    const existingSubscription = await db.query.userSubscriptions.findFirst({
+      where: eq(userSubscriptions.userId, userId),
+      columns: { id: true }
     });
 
-    let tenantId: string;    if (!userTenant) {
-      // Create a new tenant for this user if they don't have one
-      // Generate a shorter slug (max 50 chars) by using first 8 chars of userId + timestamp
-      const shortUserId = userId.substring(0, 8);
-      const timestamp = Date.now().toString().slice(-8); // Last 8 digits
-      const slug = `user-${shortUserId}-${timestamp}`;
-        // Ensure tenant name doesn't exceed 255 chars
-      const tenantName = `${user.name || user.email}'s Workspace`;
-      const truncatedName = tenantName.length > 255 ? tenantName.substring(0, 252) + '...' : tenantName;
-      
-      // Calculate expiration date based on billing cycle
-      const effectiveDate = new Date();
-      const expiryDate = calculateSubscriptionExpiryDate(effectiveDate, plan.billingCycle);
-      
-      const newTenant = await db.insert(tenants).values({
-        name: truncatedName,
-        slug: slug,
-        planId: planId,
-        planEffectiveDate: effectiveDate,
-        planExpiryDate: expiryDate,
-        isActive: true
-      }).returning();
-
-      tenantId = newTenant[0].id;
-
-      // Associate the user with their new tenant
-      await db.insert(tenantUsers).values({
-        tenantId: tenantId,
-        userId: userId,
-        isOwner: true,
-        isPrimary: true,
-        status: 'active',
-        joinedAt: new Date()
-      });    } else {
-      // Update existing tenant's subscription plan
-      tenantId = userTenant.tenant.id;
-      
-      // Calculate new expiration date based on billing cycle
-      const effectiveDate = new Date();
-      const expiryDate = calculateSubscriptionExpiryDate(effectiveDate, plan.billingCycle);
-      
-      await db
-        .update(tenants)
+    if (existingSubscription) {
+      // Update existing subscription
+      await db.update(userSubscriptions)
         .set({
           planId: planId,
-          planEffectiveDate: effectiveDate,
-          planExpiryDate: expiryDate,
-          updatedAt: new Date()
+          status: 'active',
+          startDate: startDate.toISOString(),
+          expiryDate: expiryDate.toISOString(),
+          updatedAt: new Date().toISOString()
         })
-        .where(eq(tenants.id, tenantId));
+        .where(eq(userSubscriptions.userId, userId));
+    } else {
+      // Create new subscription
+      await db.insert(userSubscriptions).values({
+        userId,
+        planId,
+        status: 'active',
+        startDate: startDate.toISOString(),
+        expiryDate: expiryDate.toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
     }
 
     return NextResponse.json({
@@ -124,7 +100,8 @@ async function assignSubscriptionToUser(req: NextRequest) {
         userId,
         planId,
         planName: plan.name,
-        tenantId
+        startDate: startDate.toISOString(),
+        expiryDate: expiryDate.toISOString(),
       }
     });
 

@@ -4,6 +4,12 @@ import React, { useState } from 'react';
 
 export default function HomePage() {
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
+  const [showCookieBanner, setShowCookieBanner] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('cookieConsent') == null;
+    }
+    return false;
+  });
 
   const faqs = [
     {
@@ -28,8 +34,36 @@ export default function HomePage() {
     }
   ];
 
+  const handleCookieConsent = (allow: boolean) => {
+    localStorage.setItem('cookieConsent', allow ? 'allow' : 'deny');
+    setShowCookieBanner(false);
+  };
+
   return (
     <main className="min-h-screen w-full bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 font-sans">
+      {/* Cookie Consent Banner */}
+      {showCookieBanner && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 shadow-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <span className="text-sm text-slate-700 dark:text-slate-200">
+            This site uses cookies to enhance your experience. You can choose to allow or deny cookies. See our <a href="/privacy" className="underline">Privacy Policy</a>.
+          </span>
+          <div className="flex gap-2">
+            <button
+              className="px-4 py-2 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+              onClick={() => handleCookieConsent(true)}
+            >
+              Allow
+            </button>
+            <button
+              className="px-4 py-2 rounded bg-gray-300 dark:bg-gray-700 text-slate-900 dark:text-white font-semibold hover:bg-gray-400 dark:hover:bg-gray-600 transition"
+              onClick={() => handleCookieConsent(false)}
+            >
+              Don&apos;t Allow
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="relative z-10 container mx-auto px-4 py-20 lg:py-32">

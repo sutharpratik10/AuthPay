@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
 import { db } from '@/db';
-import { roles, tenantUsers } from '@/db/schema';
-import { eq, or, ilike, count, and, sql } from 'drizzle-orm';
+import { roles } from '@/db/schema';
+import { eq, or, ilike, count, and } from 'drizzle-orm';
 import { auth } from '@/auth';
 
 /**
@@ -22,27 +22,10 @@ async function getRoles(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
-
     const offset = (page - 1) * limit;
 
-    // For now, get the user's tenant to scope roles
-    // In a proper implementation, this would be based on the admin's current tenant context
-    const userTenant = await db.query.tenantUsers.findFirst({
-      where: eq(tenantUsers.userId, session.user.id),
-      with: {
-        tenant: true,
-      },
-    });
-
-    if (!userTenant) {
-      return NextResponse.json(
-        { error: 'No tenant found for user' },
-        { status: 400 }
-      );
-    }
-
     // Build where condition for search
-    const whereConditions = [eq(roles.tenantId, userTenant.tenantId)];
+    const whereConditions = [];
     
     if (search.trim()) {
       whereConditions.push(
@@ -63,15 +46,9 @@ async function getRoles(req: NextRequest) {
         isSystemManaged: roles.isSystemManaged,
         createdAt: roles.createdAt,
         updatedAt: roles.updatedAt,
-        userCount: sql<number>`COALESCE((
-          SELECT COUNT(*)::int 
-          FROM user_roles ur 
-          INNER JOIN tenant_users tu ON ur.tenant_user_id = tu.id 
-          WHERE ur.role_id = ${roles.id} AND tu.tenant_id = ${userTenant.tenantId}
-        ), 0)`,
       })
       .from(roles)
-      .where(and(...whereConditions))
+      .where(whereConditions.length ? and(...whereConditions) : undefined)
       .limit(limit)
       .offset(offset)
       .orderBy(roles.createdAt);
@@ -80,22 +57,14 @@ async function getRoles(req: NextRequest) {
     const totalCountResult = await db
       .select({ count: count() })
       .from(roles)
-      .where(and(...whereConditions));
+      .where(whereConditions.length ? and(...whereConditions) : undefined);
     
     const totalCount = totalCountResult[0]?.count || 0;
-
-    // Transform the data to match the expected format
-    const rolesWithCount = rolesList.map(role => ({
-      ...role,
-      _count: {
-        userRoles: role.userCount,
-      },
-    }));
 
     return NextResponse.json({
       success: true,
       data: {
-        roles: rolesWithCount,
+        roles: rolesList,
         pagination: {
           page,
           limit,
@@ -138,27 +107,9 @@ async function createRole(req: NextRequest) {
       );
     }
 
-    // Get user's tenant
-    const userTenant = await db.query.tenantUsers.findFirst({
-      where: eq(tenantUsers.userId, session.user.id),
-      with: {
-        tenant: true,
-      },
-    });
-
-    if (!userTenant) {
-      return NextResponse.json(
-        { error: 'No tenant found for user' },
-        { status: 400 }
-      );
-    }
-
-    // Check if role with same name exists in this tenant
+    // Check if role with same name exists
     const existingRole = await db.query.roles.findFirst({
-      where: and(
-        eq(roles.tenantId, userTenant.tenantId),
-        eq(roles.name, name.trim())
-      ),
+      where: eq(roles.name, name.trim())
     });
 
     if (existingRole) {
@@ -173,17 +124,13 @@ async function createRole(req: NextRequest) {
       await db
         .update(roles)
         .set({ isDefault: false })
-        .where(and(
-          eq(roles.tenantId, userTenant.tenantId),
-          eq(roles.isDefault, true)
-        ));
+        .where(eq(roles.isDefault, true));
     }
 
     // Create the role
     const newRole = await db
       .insert(roles)
       .values({
-        tenantId: userTenant.tenantId,
         name: name.trim(),
         description: description?.trim() || null,
         isDefault: isDefault || false,

@@ -1,13 +1,30 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { tenantUsers } from '@/db/schema';
+import {userSubscriptions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getExpiryStatus } from '@/lib/subscription-utils';
 
 /**
  * GET /api/user/subscription-status - Get current user's subscription status
  */
+
+// Define the type for the subscription query result
+interface SubscriptionPlan {
+  id: string | number;
+  name: string;
+  description: string;
+  price: number;
+  billingCycle: string;
+  features?: string;
+}
+interface UserSubscription {
+  plan: SubscriptionPlan;
+  expiryDate?: string;
+  startDate?: string;
+  status: string;
+}
+
 export async function GET() {
   try {
     const session = await auth();
@@ -21,19 +38,15 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    // Get user's tenant and subscription info
-    const userTenant = await db.query.tenantUsers.findFirst({
-      where: eq(tenantUsers.userId, userId),
+    // Get user's subscription info
+    const subscription = await db.query.userSubscriptions.findFirst({
+      where: eq(userSubscriptions.userId, userId),
       with: {
-        tenant: {
-          with: {
-            subscriptionPlan: true
-          }
-        }
+        plan: true
       }
-    });
+    }) as UserSubscription | null;
 
-    if (!userTenant?.tenant) {
+    if (!subscription || !subscription.plan) {
       return NextResponse.json({
         success: true,
         data: {
@@ -43,33 +56,22 @@ export async function GET() {
       });
     }
 
-    const tenant = userTenant.tenant;
-    const plan = tenant.subscriptionPlan;
-
-    if (!plan) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          hasSubscription: false,
-          message: 'No subscription plan assigned'
-        }
-      });
-    }
-
     // Get expiry status
-    const expiryStatus = getExpiryStatus(tenant.planExpiryDate);    return NextResponse.json({
+    const expiryDate = subscription.expiryDate ? new Date(subscription.expiryDate) : null;
+    const expiryStatus = getExpiryStatus(expiryDate);
+    return NextResponse.json({
       success: true,
       data: {
         hasSubscription: true,
-        planId: plan.id,
-        planName: plan.name,
-        planDescription: plan.description,
-        price: `$${plan.price}`,
-        billingCycle: plan.billingCycle,
-        features: plan.features ? JSON.parse(plan.features) : [],
-        startDate: tenant.planEffectiveDate,
-        expiryDate: tenant.planExpiryDate,
-        isActive: tenant.isActive,
+        planId: subscription.plan.id,
+        planName: subscription.plan.name,
+        planDescription: subscription.plan.description,
+        price: `$${subscription.plan.price}`,
+        billingCycle: subscription.plan.billingCycle,
+        features: subscription.plan.features ? JSON.parse(subscription.plan.features) : [],
+        startDate: subscription.startDate,
+        expiryDate: subscription.expiryDate,
+        isActive: subscription.status === 'active',
         status: expiryStatus.status,
         message: expiryStatus.message,
         daysRemaining: expiryStatus.daysRemaining

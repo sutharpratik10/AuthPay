@@ -37,15 +37,10 @@ Concrete implementations for specific API endpoints:
 - `LogoutRouteHandler` - User logout
 - `AuthStateHandler` - Authentication status checks
 
-### 5. Tenant API Handlers
+### 5. User API Handlers
 
-The system includes specialized handlers for tenant management:
-- `TenantRouteHandler` - Base class with common tenant functionality
-- `CreateTenantRouteHandler` - Create new tenants
-- `GetTenantRouteHandler` - Retrieve tenant data
-- `UpdateTenantRouteHandler` - Update tenant information
-- `DeleteTenantRouteHandler` - Delete tenants
-- `TenantSettingsRouteHandler` - Manage tenant settings
+The system includes specialized handlers for user management:
+- `UserRouteHandler` - Base class with common user functionality
 
 ## Class Hierarchy
 
@@ -55,141 +50,12 @@ IRouteHandler (Interface)
     ├── AuthRouteHandler (Abstract)
     │   ├── RegistrationRouteHandler
     │   └── LoginRouteHandler
-    ├── TenantRouteHandler (Abstract)
-    │   ├── CreateTenantRouteHandler
-    │   ├── GetTenantRouteHandler
-    │   ├── UpdateTenantRouteHandler
-    │   ├── DeleteTenantRouteHandler
-    │   ├── TenantSettingsRouteHandler
-    │   ├── TenantUsersRouteHandler
-    │   ├── TenantRolesRouteHandler
-    │   └── TenantBillingRouteHandler
+    ├── UserRouteHandler (Abstract)
     ├── VerifyEmailRouteHandler
     ├── ResendVerificationEmailRouteHandler
     ├── AuthStateHandler
     └── LogoutRouteHandler
 ```
-
-## Tenant API Endpoints
-
-The routing system supports the following tenant-related endpoints:
-
-1. **Create Tenant**
-   - Path: `/api/tenant/create`
-   - Method: `POST`
-   - Description: Creates a new tenant
-   - Payload:
-     ```json
-     {
-       "name": "Tenant Name",
-       "slug": "tenant-slug",
-       "logoUrl": "https://example.com/logo.png",
-       "primaryColor": "#FF5733"
-     }
-     ```
-
-2. **Get Tenant**
-   - Path: `/api/tenant/:slug`
-   - Method: `GET`
-   - Description: Retrieves tenant data by slug
-
-3. **Update Tenant**
-   - Path: `/api/tenant/:slug/update`
-   - Method: `PUT` or `PATCH`
-   - Description: Updates tenant information
-   - Payload: Same as Create Tenant (fields to update)
-
-4. **Delete Tenant**
-   - Path: `/api/tenant/:slug/delete`
-   - Method: `DELETE`
-   - Description: Deletes a tenant
-
-5. **Manage Tenant Settings**
-   - Path: `/api/tenant/:slug/settings`
-   - Methods:
-     - `GET`: Retrieve all settings
-     - `POST`/`PUT`: Create or update settings
-     - `DELETE`: Delete a setting
-   - Payload for Create/Update:
-     ```json
-     {
-       "key": "setting-key",
-       "value": "setting-value"
-     }
-     ```
-   - Payload for Delete:
-     ```json
-     {
-       "key": "setting-key"
-     }
-     ```
-
-6. **Manage Tenant Users**
-   - Path: `/api/tenant/:slug/users`
-   - Methods:
-     - `GET`: List all users in the tenant
-     - `POST`: Add a user to the tenant or update role
-     - `DELETE`: Remove a user from the tenant
-   - Payload for Add/Update:
-     ```json
-     {
-       "email": "user@example.com",
-       "role": "admin|member|guest"
-     }
-     ```
-   - Payload for Delete:
-     ```json
-     {
-       "userId": "user-uuid",
-       "role": "admin|member|guest"
-     }
-     ```
-
-7. **Manage Tenant Roles**
-   - Path: `/api/tenant/:slug/roles`
-   - Methods:
-     - `GET`: List all roles in the tenant
-     - `POST`: Create a new role
-     - `PUT`/`PATCH`: Update an existing role
-     - `DELETE`: Delete a role
-   - Payload for Create:
-     ```json
-     {
-       "name": "Role Name",
-       "description": "Role description",
-       "isDefault": false,
-       "permissionIds": ["uuid1", "uuid2", "uuid3"]
-     }
-     ```
-   - Payload for Update:
-     ```json
-     {
-       "id": "role-uuid",
-       "name": "Updated Role Name",
-       "description": "Updated description",
-       "isDefault": true,
-       "permissionIds": ["uuid1", "uuid2", "uuid3"]
-     }
-     ```
-   - Payload for Delete:
-     ```json
-     {
-       "id": "role-uuid"
-     }
-     ```
-
-8. **Manage Tenant Billing**
-   - Path: `/api/tenant/:slug/billing`
-   - Methods:
-     - `GET`: Get billing details including subscription plan and invoice history
-     - `POST`/`PUT`: Update subscription plan or billing details
-   - Payload for Update:
-     ```json
-     {
-       "planId": "plan-uuid",
-       "paymentMethod": "credit_card|paypal|bank_transfer"
-     }
-     ```
 
 ## How to Add a New Route
 

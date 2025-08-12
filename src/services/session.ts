@@ -48,7 +48,7 @@ export class SessionService {
     try {
       const sessionToken = nanoid(32);
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
+      expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours
 
       // Parse browser name from user agent string
       const browserName = userAgent ? parseBrowserName(userAgent) : null;      // Use a transaction to batch the operations

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { userPreferences } from "@/db/schema";
+import { userPreferences, sessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 /**
@@ -125,7 +125,7 @@ export async function middleware(request: NextRequest) {
   const needsProtection = protectedRoutes.some(route => 
     path.startsWith(route) || path === route
   );
-  
+
   if (needsProtection) {
     if (!isAuthenticated) {
       console.log(`[MIDDLEWARE] 🔒 Redirecting unauthenticated user from ${path} to login`);
@@ -133,21 +133,31 @@ export async function middleware(request: NextRequest) {
       loginUrl.searchParams.set('returnTo', path);
       return NextResponse.redirect(loginUrl);
     }
-      if (!isEmailVerified) {
+    // Server-side session expiry check
+    const sessionToken = request.cookies.get('session-token')?.value || request.cookies.get('next-auth.session-token')?.value;
+    if (session?.user?.id && sessionToken) {
+      const sessionRecord = await db.query.sessions.findFirst({
+        where: eq(sessions.token, sessionToken),
+        columns: { expiresAt: true }
+      });
+      if (!sessionRecord || new Date() > new Date(sessionRecord.expiresAt)) {
+        console.log(`[MIDDLEWARE] 🔒 Session expired for user ${session.user.id}, redirecting to login`);
+        // Optionally: clean up expired session here
+        return NextResponse.redirect(new URL('/auth/login', request.url));
+      }
+    }
+    if (!isEmailVerified) {
       console.log(`[MIDDLEWARE] ⚠️ Authenticated but unverified user, redirecting to verify page`);
       return NextResponse.redirect(new URL('/auth/verify', request.url));
     }
-    
     // Check if session requires 2FA verification
     if (session?.user?.id) {
       const { requires2FA, isVerified } = await checkSessionRequires2FA(session.user.id);
-      
       if (requires2FA && !isVerified) {
         console.log(`[MIDDLEWARE] 🔒 User requires 2FA verification, redirecting to 2FA page`);
         return NextResponse.redirect(new URL('/auth/2fa-verify', request.url));
       }
     }
-    
     console.log(`[MIDDLEWARE] ✅ Authenticated verified user accessing: ${path}`);
     return NextResponse.next();
   }

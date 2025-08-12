@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
 import { db } from '@/db';
-import { users, tenants, tenantUsers } from '@/db/schema';
+import { users, userSubscriptions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 /**
@@ -35,38 +35,35 @@ async function removeSubscriptionFromUser(req: NextRequest) {
       );
     }
 
-    // Find user's tenant
-    const userTenant = await db.query.tenantUsers.findFirst({
-      where: eq(tenantUsers.userId, userId),
-      with: {
-        tenant: true
-      }
+    // Check if user has a subscription
+    const existingSubscription = await db.query.userSubscriptions.findFirst({
+      where: eq(userSubscriptions.userId, userId),
+      columns: { id: true }
     });
 
-    if (!userTenant) {
+    if (!existingSubscription) {
       return NextResponse.json(
-        { error: 'User has no tenant or subscription to remove' },
+        { error: 'User has no subscription to remove' },
         { status: 404 }
       );
     }
 
-    // Remove subscription plan from tenant
-    await db
-      .update(tenants)
+    // Remove subscription by updating status and expiry/end dates
+    await db.update(userSubscriptions)
       .set({
-        planId: null,
-        planEffectiveDate: null,
-        planExpiryDate: null,
-        updatedAt: new Date()
+        status: 'cancelled',
+        expiryDate: new Date().toISOString(),
+        endDate: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       })
-      .where(eq(tenants.id, userTenant.tenant.id));
+      .where(eq(userSubscriptions.userId, userId));
 
     return NextResponse.json({
       success: true,
       message: 'Subscription removed from user successfully',
       data: {
         userId,
-        tenantId: userTenant.tenant.id
+        subscriptionId: existingSubscription.id
       }
     });
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
 import { db } from '@/db';
-import { roles, userRoles, tenantUsers } from '@/db/schema';
+import { roles, users } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { auth } from '@/auth';
 
@@ -39,27 +39,9 @@ async function updateRole(req: NextRequest) {
       );
     }
 
-    // Get user's tenant
-    const userTenant = await db.query.tenantUsers.findFirst({
-      where: eq(tenantUsers.userId, session.user.id),
-      with: {
-        tenant: true,
-      },
-    });
-
-    if (!userTenant) {
-      return NextResponse.json(
-        { error: 'No tenant found for user' },
-        { status: 400 }
-      );
-    }
-
-    // Check if role exists and belongs to user's tenant
+    // Check if role exists (global, not tenant-based)
     const existingRole = await db.query.roles.findFirst({
-      where: and(
-        eq(roles.id, roleId),
-        eq(roles.tenantId, userTenant.tenantId)
-      ),
+      where: eq(roles.id, roleId),
     });
 
     if (!existingRole) {
@@ -77,12 +59,11 @@ async function updateRole(req: NextRequest) {
       );
     }
 
-    // Check if another role with same name exists (excluding current role)
+    // Check if another role with same name exists (excluding current role, global)
     const duplicateRole = await db.query.roles.findFirst({
       where: and(
-        eq(roles.tenantId, userTenant.tenantId),
         eq(roles.name, name.trim()),
-        eq(roles.id, roleId) // Exclude current role
+        eq(roles.id, roleId)
       ),
     });
 
@@ -93,16 +74,14 @@ async function updateRole(req: NextRequest) {
       );
     }
 
-    // If this is set as default, remove default from other roles
+    // If this is set as default, remove default from other roles (global)
     if (isDefault && !existingRole.isDefault) {
       await db
         .update(roles)
         .set({ isDefault: false })
-        .where(and(
-          eq(roles.tenantId, userTenant.tenantId),
-          eq(roles.isDefault, true)
-        ));
-    }    // Update the role
+        .where(eq(roles.isDefault, true));
+    }
+    // Update the role
     const updatedRole = await db
       .update(roles)
       .set({
@@ -153,27 +132,9 @@ async function deleteRole(req: NextRequest) {
       );
     }
 
-    // Get user's tenant
-    const userTenant = await db.query.tenantUsers.findFirst({
-      where: eq(tenantUsers.userId, session.user.id),
-      with: {
-        tenant: true,
-      },
-    });
-
-    if (!userTenant) {
-      return NextResponse.json(
-        { error: 'No tenant found for user' },
-        { status: 400 }
-      );
-    }
-
-    // Check if role exists and belongs to user's tenant
+    // Check if role exists (global)
     const existingRole = await db.query.roles.findFirst({
-      where: and(
-        eq(roles.id, roleId),
-        eq(roles.tenantId, userTenant.tenantId)
-      ),
+      where: eq(roles.id, roleId),
     });
 
     if (!existingRole) {
@@ -199,12 +160,10 @@ async function deleteRole(req: NextRequest) {
       );
     }
 
-    // Check if role is assigned to any users
-    const assignedUsers = await db.query.userRoles.findFirst({
-      where: eq(userRoles.roleId, roleId),
-    });
+    // Check if role is assigned to any users (global)
+    const assignedUsers = await db.select().from(users).where(eq(users.roleId, roleId));
 
-    if (assignedUsers) {
+    if (assignedUsers.length > 0) {
       return NextResponse.json(
         { error: 'Cannot delete role that is assigned to users. Please reassign users first.' },
         { status: 400 }

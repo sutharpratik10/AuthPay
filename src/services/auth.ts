@@ -23,12 +23,22 @@ export class AuthService {
       // Hash the password
       const hashedPassword = await bcrypt.hash(password, 10);
 
+      // Get the default 'user' role id
+      const userRole = await db.query.roles.findFirst({
+        where: (roles, { eq }) => eq(roles.name, 'user'),
+        columns: { id: true }
+      });
+      if (!userRole) {
+        throw new Error('Default user role not found');
+      }
       // Create the user
       const [newUser] = await db.insert(users).values({
         id: uuidv4(),
         email: email.toLowerCase(),
-        password: hashedPassword,        name: name || null,
+        password: hashedPassword,
+        name: name || null,
         isEmailVerified: false,
+        roleId: userRole.id, // Only one roleId property
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }).returning();
@@ -83,7 +93,7 @@ export class AuthService {
         with: {
           user: true,
         },
-      });
+      }) as (typeof otpCodes.$inferSelect & { user: { email: string; name?: string } });
 
       if (!otpRecord) {
         return { success: false, error: "Invalid or expired verification code" };
@@ -249,7 +259,7 @@ export class AuthService {
         with: {
           user: true,
         },
-      });
+      }) as (typeof otpCodes.$inferSelect & { user?: { email: string; name?: string } });
 
       if (!otpRecord) {
         return { 
