@@ -69,6 +69,13 @@ export async function GET() {
         : Array.isArray(sub.planFeatures) ? sub.planFeatures : [];
 
     const expiry = sub.expiryDate ? new Date(sub.expiryDate) : null;
+    const now = new Date();
+    let status = sub.subStatus;
+    let isActive = sub.subStatus === 'active';
+    if (expiry && expiry < now) {
+      status = 'expired';
+      isActive = false;
+    }
     const expiryStatus = getExpiryStatus(expiry);
 
     return NextResponse.json({
@@ -83,8 +90,8 @@ export async function GET() {
         features,
         startDate: sub.startDate,
         expiryDate: sub.expiryDate,
-        isActive: sub.subStatus === 'active',
-        status: expiryStatus.status,
+        isActive,
+        status,
         message: expiryStatus.message,
         daysRemaining: expiryStatus.daysRemaining
       }
