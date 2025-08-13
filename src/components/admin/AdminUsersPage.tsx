@@ -54,6 +54,7 @@ interface SubscriptionPlan {
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -426,6 +427,16 @@ export default function AdminUsersPage() {
     fetchUsers();
     loadSubscriptionPlans();
     loadRoleOptions();
+    // Get current user id
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/session');
+        const data = await res.json();
+        setCurrentUserId(data?.user?.id ?? null);
+      } catch {
+        setCurrentUserId(null);
+      }
+    })();
   }, [fetchUsers, loadSubscriptionPlans, loadRoleOptions]);
 
   const formatDate = (dateString: string) => {
@@ -680,6 +691,7 @@ export default function AdminUsersPage() {
                             options={roleOptions}
                             className="w-24"
                             placeholder="Select role"
+                            disabled={user.id === currentUserId}
                           />
                         </div>
                       </TableCell>
@@ -769,15 +781,7 @@ export default function AdminUsersPage() {
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="John Doe"
               />
-            </div>            <div className="grid gap-2">
-              <Label htmlFor="edit-role">Role</Label>
-              <Select 
-                value={formData.role} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as 'admin' | 'user' }))}
-                options={roleOptions}
-                placeholder="Select role"
-              />
-            </div>
+            </div>            
             
             <div className="grid gap-2">
               <Label htmlFor="subscription-plan">Subscription Plan</Label>
@@ -805,6 +809,7 @@ export default function AdminUsersPage() {
                 id="edit-active"
                 checked={formData.isActive}
                 onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: !!checked }))}
+                disabled={selectedUser?.id === currentUserId}
               />
               <Label htmlFor="edit-active">Active</Label>
             </div>

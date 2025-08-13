@@ -79,7 +79,7 @@ async function getRoles(req: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        roles: rolesList,
+        roles: rolesWithCount,
         pagination: {
           page,
           limit,

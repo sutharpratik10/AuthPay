@@ -437,7 +437,7 @@ export default function AdminRolesPage() {
                           <TableCell>
                             <div className="flex items-center space-x-1">
                               <Users className="h-4 w-4 text-gray-400" />
-                              <span>{role.userCount ?? 0}</span>
+                              <span>{role.userCount}</span>
                             </div>
                           </TableCell>
                           <TableCell>

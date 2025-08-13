@@ -26,7 +26,6 @@ export default async function RolesPage() {
           Create, edit, and manage roles and permissions for your organization
         </p>
       </div>
-      
       <AdminRolesPage />
     </div>
   );
