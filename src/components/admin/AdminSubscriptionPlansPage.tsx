@@ -27,7 +27,8 @@ import {
   Calendar,
   CheckCircle,
   XCircle,
-  Package
+  Package,
+  Users
 } from 'lucide-react';
 
 interface SubscriptionPlan {
@@ -40,6 +41,7 @@ interface SubscriptionPlan {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  userCountActive?: number;
 }
 
 interface CreatePlanData {
@@ -77,10 +79,21 @@ export default function AdminSubscriptionPlansPage() {
   const loadPlans = useCallback(async () => {
     try {
       const response = await fetch('/api/admin/subscription-plans');
+      if (!response.ok) {
+        throw new Error(`Failed to load: ${response.status}`);
+      }
       const data = await response.json();
       
       if (data.success) {
-        setPlans(data.data.plans);
+        // Fetch active user count for each plan
+        const plansWithCounts = await Promise.all(
+          data.data.plans.map(async (plan: SubscriptionPlan) => {
+            const res = await fetch(`/api/admin/subscription-plans/${plan.id}/active-user-count`);
+            const countData = res.ok ? await res.json() : { count: 0 };
+            return { ...plan, userCountActive: countData.count ?? 0 };
+          })
+        );
+        setPlans(plansWithCounts);
       } else {
         toast({
           title: "Error",
@@ -130,7 +143,8 @@ export default function AdminSubscriptionPlansPage() {
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();      if (data.success) {
+      const data = await response.json();      
+      if (data.success) {
         toast({
           title: "Success",
           description: "Subscription plan created successfully",
@@ -511,13 +525,14 @@ export default function AdminSubscriptionPlansPage() {
                   <TableHead>Features</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
+                  <TableHead>User Count</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredPlans.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8">
                       <div className="text-muted-foreground">
                         {searchTerm ? 'No plans found matching your search.' : 'No subscription plans found.'}
                       </div>
@@ -576,6 +591,12 @@ export default function AdminSubscriptionPlansPage() {
                           {new Date(plan.createdAt).toLocaleDateString()}
                         </div>
                       </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <Users className="h-4 w-4 mr-1" />
+                          <span className="font-medium">{plan.userCountActive ?? 0}</span>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end space-x-2">
                           <Button
@@ -588,8 +609,13 @@ export default function AdminSubscriptionPlansPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => openDeleteDialog(plan)}
-                            className="text-red-600 hover:text-red-900"
+                            onClick={() => {
+                              if (!(plan.userCountActive && plan.userCountActive > 0)) {
+                                openDeleteDialog(plan);
+                              }
+                            }}
+                            className={`text-red-600 hover:text-red-900 ${plan.userCountActive && plan.userCountActive > 0 ? 'cursor-not-allowed opacity-60' : ''}`}
+                            title={plan.userCountActive && plan.userCountActive > 0 ? 'Cannot delete: plan has active users' : 'Delete plan'}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -724,7 +750,8 @@ export default function AdminSubscriptionPlansPage() {
           <DialogHeader>
             <DialogTitle>Delete Subscription Plan</DialogTitle>
           </DialogHeader>
-          <div className="py-4">            <p className="text-sm text-muted-foreground">
+          <div className="py-4">            
+            <p className="text-sm text-muted-foreground">
               Are you sure you want to delete the plan &ldquo;{selectedPlan?.name}&rdquo;? This action cannot be undone.
             </p>
             <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">

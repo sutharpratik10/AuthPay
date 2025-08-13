@@ -3,7 +3,6 @@ import { db } from "@/db";
 import authConfig from "./auth.config";
 import type { Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
-import {roles, users } from "@/db/schema";
 
 export const {
   handlers: { GET, POST },
@@ -125,7 +124,7 @@ export const {
           return false;
         }
       }
-
+      
       return true;
     },    async session({ session, token }: { session: Session; token: JWT }) {
       if (token.sub && session.user) {

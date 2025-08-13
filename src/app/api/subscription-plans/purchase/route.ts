@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { users, subscriptionPlans, userSubscriptions } from '@/db/schema';
+import { users, subscriptionPlans, userSubscriptions, subscriptionStatuses, subscriptionRenewalTypes } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { calculateSubscriptionExpiryDate } from '@/lib/subscription-utils';
 
@@ -60,35 +60,40 @@ export async function POST(req: NextRequest) {
     const startDate = new Date();
     const expiryDate = calculateSubscriptionExpiryDate(startDate, plan.billingCycle);
 
-    // Check if user already has a subscription
-    const existingSubscription = await db.query.userSubscriptions.findFirst({
-      where: eq(userSubscriptions.userId, userId),
+    // Get status and renewal type UUIDs
+    const status = await db.query.subscriptionStatuses.findFirst({
+      where: eq(subscriptionStatuses.name, 'active'),
+      columns: { id: true }
+    });
+    const renewalType = await db.query.subscriptionRenewalTypes.findFirst({
+      where: eq(subscriptionRenewalTypes.name, 'auto'),
       columns: { id: true }
     });
 
-    if (existingSubscription) {
-      // Update existing subscription
-      await db.update(userSubscriptions)
-        .set({
-          planId: plan.id,
-          status: 'active',
-          startDate: startDate.toISOString(),
-          expiryDate: expiryDate.toISOString(),
-          updatedAt: new Date().toISOString()
-        })
-        .where(eq(userSubscriptions.userId, userId));
-    } else {
-      // Create new subscription
-      await db.insert(userSubscriptions).values({
-        userId,
-        planId: plan.id,
-        status: 'active',
-        startDate: startDate.toISOString(),
-        expiryDate: expiryDate.toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
+    if (!status?.id) {
+      return NextResponse.json(
+        { error: 'Subscription status "active" not found' },
+        { status: 500 }
+      );
     }
+    if (!renewalType?.id) {
+      return NextResponse.json(
+        { error: 'Subscription renewal type "auto" not found' },
+        { status: 500 }
+      );
+    }
+
+    // Always create a new subscription entry for every purchase
+    await db.insert(userSubscriptions).values({
+      userId,
+      planId: plan.id,
+      statusId: status.id,
+      renewalTypeId: renewalType.id,
+      startDate: startDate.toISOString(),
+      expiryDate: expiryDate.toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
 
     return NextResponse.json({
       success: true,

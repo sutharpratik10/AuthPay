@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
 import { db } from '@/db';
-import { subscriptionPlans } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { subscriptionPlans, userSubscriptions, subscriptionStatuses } from '@/db/schema';
+import { eq, inArray, and } from 'drizzle-orm';
 
 async function updateSubscriptionPlan(req: NextRequest, context?: unknown) {
   try {
@@ -121,19 +121,30 @@ async function deleteSubscriptionPlan(req: NextRequest, context?: unknown) {
       );
     }
 
-    // Check if plan is associated with any tenants
-    const { tenants } = await import('@/db/schema');
-    const associatedTenants = await db
-      .select()
-      .from(tenants)
-      .where(eq(tenants.planId, planId))
-      .limit(1);
+    // Get status IDs for 'active' and 'trialing'
+    const activeOrTrialingStatuses = await db
+      .select({ id: subscriptionStatuses.id })
+      .from(subscriptionStatuses)
+      .where(inArray(subscriptionStatuses.name, ['active', 'trialing']));
+    const statusIds = activeOrTrialingStatuses.map((row: { id: string }) => row.id);
 
-    if (associatedTenants.length > 0) {
+    let associatedUsers = [];
+    if (statusIds.length > 0) {
+      associatedUsers = await db
+        .select()
+        .from(userSubscriptions)
+        .where(and(
+          eq(userSubscriptions.planId, planId),
+          inArray(userSubscriptions.statusId, statusIds)
+        ))
+        .limit(1);
+    }
+
+    if (associatedUsers.length > 0) {
       return NextResponse.json(
         { 
           success: false, 
-          error: 'Cannot delete plan that is currently assigned to tenants. Please reassign tenants to a different plan first.' 
+          error: 'Cannot delete plan that is currently assigned to users with active or trialing subscriptions. Please reassign or expire those subscriptions first.' 
         },
         { status: 400 }
       );

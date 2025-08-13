@@ -699,14 +699,31 @@ export const paymentTransactions = pgTable("payment_transactions", {
 	}).onDelete("cascade"),
 ]);
 
+export const subscriptionStatuses = pgTable("subscription_statuses", {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: varchar('name', { length: 32 }).notNull().unique(),
+  description: varchar('description', { length: 255 })
+});
+
+export const subscriptionRenewalTypes = pgTable("subscription_renewal_types", {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: varchar('name', { length: 20 }).notNull().unique(),
+  description: varchar('description', { length: 255 })
+});
+
 export const userSubscriptions = pgTable("user_subscriptions", {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   planId: uuid('plan_id').notNull().references(() => subscriptionPlans.id, { onDelete: 'cascade' }),
-  status: varchar('status', { length: 32 }).notNull(), // e.g., active, trialing, cancelled
+  statusId: uuid('status_id').notNull().references(() => subscriptionStatuses.id),
+  renewalTypeId: uuid('renewal_type_id').references(() => subscriptionRenewalTypes.id),
   startDate: timestamp('start_date', { mode: 'string' }).notNull(),
   expiryDate: timestamp('expiry_date', { mode: 'string' }),
   endDate: timestamp('end_date', { mode: 'string' }),
+  cancellationReason: varchar('cancellation_reason', { length: 255 }),
+  paymentMethod: varchar('payment_method', { length: 50 }),
+  lastPaymentDate: timestamp('last_payment_date', { mode: 'string' }),
+  nextBillingDate: timestamp('next_billing_date', { mode: 'string' }),
   createdAt: timestamp('created_at', { mode: 'string' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'string' }).defaultNow().notNull(),
 });

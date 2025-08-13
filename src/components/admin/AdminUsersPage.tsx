@@ -85,13 +85,14 @@ export default function AdminUsersPage() {
       const response = await fetch('/api/admin/roles');
       const data = await response.json();
       if (data.success && data.data?.roles) {
+        // Fix roleOptions mapping to avoid 'any' type
         setRoleOptions(
-          data.data.roles.map((role: any) => ({ value: role.name, label: role.name.charAt(0).toUpperCase() + role.name.slice(1) }))
+          data.data.roles.map((role: { name: string }) => ({ value: role.name, label: role.name.charAt(0).toUpperCase() + role.name.slice(1) }))
         );
       } else {
         setRoleOptions([]);
       }
-    } catch (error) {
+    } catch {
       setRoleOptions([]);
     }
   }, []);
@@ -449,6 +450,11 @@ export default function AdminUsersPage() {
     });
   };
 
+  // Deduplicate users by id before rendering
+  const uniqueUsers = users.filter((user, index, self) =>
+    index === self.findIndex(u => u.id === user.id)
+  );
+
   return (
     <div className="space-y-6">
       {/* Header with search and create button */}
@@ -559,7 +565,7 @@ export default function AdminUsersPage() {
                   </TableRow>
                 </TableHeader>                
                 <TableBody>
-                  {users.map((user) => (
+                  {uniqueUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell>
                         <div className="flex items-center space-x-3">

@@ -10,6 +10,7 @@ interface UserSubscriptionStatus {
   hasSubscription: boolean;
   planName?: string;
   role?: string;
+  isActive?: boolean;
 }
 
 export default function UserDashboardPage() {
@@ -57,7 +58,8 @@ export default function UserDashboardPage() {
     )
   }
 
-  const hasSub = !!subscriptionStatus?.hasSubscription
+  // Determine if the user has an active subscription
+  const isActiveSub = !!subscriptionStatus && subscriptionStatus.isActive === true;
 
   return (
     <div className="w-full max-w-full px-2 sm:px-4 py-6 mx-auto">
@@ -65,12 +67,12 @@ export default function UserDashboardPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">User Dashboard</h1>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Welcome back, {userName}! {hasSub
+            Welcome back, {userName}! {isActiveSub
               ? `You have an active ${subscriptionStatus?.planName ?? ''} subscription.`
               : 'Manage your subscription and explore our features.'}
           </p>
         </div>
-        {hasSub ? (
+        {isActiveSub ? (
           <span className="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
             Active Subscription
           </span>
@@ -81,11 +83,11 @@ export default function UserDashboardPage() {
         )}
       </div>
 
-      {!hasSub && (
+      {!isActiveSub && (
         <SubscriptionDashboard />
       )}
 
-      {hasSub && (
+      {isActiveSub && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
             <h3 className="text-lg font-semibold">Quick Start</h3>

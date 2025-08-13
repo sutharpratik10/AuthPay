@@ -106,25 +106,25 @@ export default function SignupForm() {
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
-    
+
     // Basic validation
     if (!formData.email || !formData.password) {
       return setError("Email and password are required")
     }
-    
+
     // Email availability check
     if (emailStatus.available === false) {
       return setError("Email is already registered. Please use a different email or try logging in.")
     }
-    
+
     if (formData.password !== formData.confirmPassword) {
       return setError("Passwords do not match")
     }
-    
+
     if (formData.password.length < 8) {
       return setError("Password must be at least 8 characters")
     }
-    
+
     // Password strength validation
     if (passwordStrength.score < 2) {
       return setError("Password is too weak. Please create a stronger password.")
@@ -133,11 +133,21 @@ export default function SignupForm() {
     try {
       setIsSubmitting(true)
       const result = await register(formData.email, formData.password, formData.name)
-        if (result.error) {
-        setError(result.error)
+      if (result.error) {
+        setError(result.error || "Registration failed. Please try again later.")
       }
-      // Auth context will handle redirection after successful registration    } catch (error) {
-      setError("An error occurred during registration")
+      // Auth context will handle redirection after successful registration
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'message' in error &&
+        typeof (error as { message: unknown }).message === 'string'
+      ) {
+        setError((error as { message: string }).message)
+      } else {
+        setError("An error occurred during registration. Please try again later.")
+      }
       console.error("Registration error:", error)
     } finally {
       setIsSubmitting(false)
