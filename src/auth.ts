@@ -3,6 +3,7 @@ import { db } from "@/db";
 import authConfig from "./auth.config";
 import type { Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
+import {roles, users } from "@/db/schema";
 
 export const {
   handlers: { GET, POST },
@@ -168,15 +169,23 @@ export const {
 
         if (shouldRefresh) {
           try {
-            const dbUser = await db.query.users.findFirst({
+            const userRecord = await db.query.users.findFirst({
               where: (users, { eq }) => eq(users.id, token.sub as string),
-              columns: { isEmailVerified: true, name: true, role: true } // Include role
+              columns: { isEmailVerified: true, name: true, roleId: true },
             });
 
-            if (dbUser) {
-              token.isEmailVerified = dbUser.isEmailVerified ?? false;
-              token.name = dbUser.name;
-              token.role = dbUser.role || 'user'; // Default to 'user' if no role set
+            if (userRecord) {
+              token.isEmailVerified = userRecord.isEmailVerified ?? false;
+              token.name = userRecord.name;
+              if (userRecord.roleId != null) {
+                const roleRecord = await db.query.roles.findFirst({
+                  where: (roles, { eq }) => eq(roles.id, userRecord.roleId as string),
+                  columns: { name: true },
+                });
+                token.role = roleRecord?.name ?? 'user';
+              } else {
+                token.role = 'user';
+              }
               token.lastVerifiedCheck = Date.now();
             }
           } catch (error) {

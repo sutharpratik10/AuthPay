@@ -23,7 +23,7 @@ function StatCard({ title, value, subtitle }: StatCardProps) {
 
 export default function AdminDashboardPage() {
   const { data: session, status } = useSession()
-  const [adminName, setAdminName] = useState("Admin")
+  const [adminName, setAdminName] = useState("admin")
   const [loading, setLoading] = useState(true)
 
   // demo stats; wire to DB later
@@ -43,7 +43,7 @@ export default function AdminDashboardPage() {
       if (role !== 'admin') {
         redirect(ROUTES.PROTECTED.USER_DASHBOARD)
       }
-      setAdminName(session?.user?.name || 'Admin')
+      setAdminName(session?.user?.name || 'admin')
 
       ;(async () => {
         try {
