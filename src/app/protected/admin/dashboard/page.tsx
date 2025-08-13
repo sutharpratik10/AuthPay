@@ -39,10 +39,6 @@ export default function AdminDashboardPage() {
       redirect(ROUTES.AUTH.LOGIN)
     }
     if (status === 'authenticated') {
-      const role = getRoleName(session?.user);
-      if (role !== 'admin') {
-        redirect(ROUTES.PROTECTED.USER_DASHBOARD)
-      }
       setAdminName(session?.user?.name || 'admin')
 
       ;(async () => {

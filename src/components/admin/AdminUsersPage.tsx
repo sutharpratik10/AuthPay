@@ -70,16 +70,30 @@ export default function AdminUsersPage() {
   const [formData, setFormData] = useState({
     email: '',
     name: '',
-    role: 'user' as 'admin' | 'user',
+    role: '',
     password: '',
     isActive: true,
     isEmailVerified: true,
   });
-  // Role options for Select components
-  const roleOptions = [
-    { value: 'user', label: 'User' },
-    { value: 'admin', label: 'Admin' },
-  ];
+
+  // Role options from DB
+  const [roleOptions, setRoleOptions] = useState<{ value: string; label: string }[]>([]);
+
+  const loadRoleOptions = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/roles');
+      const data = await response.json();
+      if (data.success && data.data?.roles) {
+        setRoleOptions(
+          data.data.roles.map((role: any) => ({ value: role.name, label: role.name.charAt(0).toUpperCase() + role.name.slice(1) }))
+        );
+      } else {
+        setRoleOptions([]);
+      }
+    } catch (error) {
+      setRoleOptions([]);
+    }
+  }, []);
 
   // Load subscription plans
   const loadSubscriptionPlans = useCallback(async () => {
@@ -234,7 +248,7 @@ export default function AdminUsersPage() {
   };
 
   // Update user role
-  const updateUserRole = async (userId: string, newRole: 'admin' | 'user') => {
+  const updateUserRole = async (userId: string, newRole: string) => {
     try {
       const response = await fetch('/api/admin/users', {
         method: 'PATCH',
@@ -411,7 +425,8 @@ export default function AdminUsersPage() {
   useEffect(() => {
     fetchUsers();
     loadSubscriptionPlans();
-  }, [fetchUsers, loadSubscriptionPlans]);
+    loadRoleOptions();
+  }, [fetchUsers, loadSubscriptionPlans, loadRoleOptions]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -528,7 +543,8 @@ export default function AdminUsersPage() {
                     <TableHead>Expiry Date</TableHead>
                     <TableHead>Last Login</TableHead>
                     <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>                
                 <TableBody>
@@ -658,6 +674,17 @@ export default function AdminUsersPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end space-x-2">
+                          <Select
+                            value={user.role ?? ''}
+                            onValueChange={(value) => updateUserRole(user.id, value as string)}
+                            options={roleOptions}
+                            className="w-24"
+                            placeholder="Select role"
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end space-x-2">
                           <Button
                             variant="outline"
                             size="sm"
@@ -672,12 +699,6 @@ export default function AdminUsersPage() {
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
-                          <Select
-                            value={user.role}
-                            onValueChange={(value) => updateUserRole(user.id, value as 'admin' | 'user')}
-                            options={roleOptions}
-                            className="w-24"
-                          />
                         </div>
                       </TableCell>
                     </TableRow>

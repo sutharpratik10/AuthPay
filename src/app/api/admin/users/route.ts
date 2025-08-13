@@ -29,7 +29,7 @@ async function getUsers(req: NextRequest) {
       email: users.email,
       name: users.name,
       roleId: users.roleId,
-      roleName: roles.name,
+      role: roles.name, // alias as role for frontend
       isEmailVerified: users.isEmailVerified,
       isActive: users.isActive,
       lastLoginAt: users.lastLoginAt,

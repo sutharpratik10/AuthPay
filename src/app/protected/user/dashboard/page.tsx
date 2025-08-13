@@ -19,16 +19,10 @@ export default function UserDashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // auth gate: only role 'user' allowed
     if (status === 'unauthenticated') {
       redirect('/auth/login')
-    }    if (status === 'authenticated') {
-      const role = typeof session?.user === 'object' && session?.user && 'role' in session.user
-        ? (session.user as { role?: string }).role ?? 'user'
-        : 'user'
-      if (role !== 'user') {
-        redirect('/protected/admin/dashboard')
-      }
+    }
+    if (status === 'authenticated') {
       const nameFromSession = session?.user?.name
       setUserName(nameFromSession || 'User')
 
@@ -40,10 +34,10 @@ export default function UserDashboardPage() {
           if (data?.success) {
             setSubscriptionStatus(data.data)
           } else {
-            setSubscriptionStatus({ hasSubscription: false, role })
+            setSubscriptionStatus({ hasSubscription: false })
           }
         } catch {
-          setSubscriptionStatus({ hasSubscription: false, role })
+          setSubscriptionStatus({ hasSubscription: false })
         } finally {
           setIsLoading(false)
         }
