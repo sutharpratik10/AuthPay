@@ -36,7 +36,8 @@ async function getRoles(req: NextRequest) {
       );
     }
 
-    // Get roles with pagination and search
+
+    // Get roles with user count
     const rolesList = await db
       .select({
         id: roles.id,
@@ -52,6 +53,20 @@ async function getRoles(req: NextRequest) {
       .limit(limit)
       .offset(offset)
       .orderBy(roles.createdAt);
+
+    // For each role, count users
+    // Import users from db/schema
+    const { users } = await import('@/db/schema');
+    const userCounts = Object.fromEntries(
+      (await db
+        .select({ roleId: roles.id, count: count() })
+        .from(roles)
+        .leftJoin(users, eq(roles.id, users.roleId))
+        .groupBy(roles.id)
+      ).map(r => [r.roleId, Number(r.count)])
+    );
+
+    const rolesWithCount = rolesList.map(role => ({ ...role, userCount: userCounts[role.id] || 0 }));
 
     // Get total count for pagination
     const totalCountResult = await db

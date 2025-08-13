@@ -16,14 +16,12 @@ import { Search, Plus, Edit, Trash2, Shield, Users, Settings, CheckCircle, Alert
 interface Role {
   id: string;
   name: string;
-  description: string | null;
-  isDefault: boolean;
-  isSystemManaged: boolean;
-  createdAt: string;
-  updatedAt: string;
-  _count?: {
-    userRoles: number;
-  };
+  description?: string | null;
+  isDefault?: boolean;
+  isSystemManaged?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  userCount?: number;
 }
 
 interface RoleResponse {
@@ -287,7 +285,7 @@ export default function AdminRolesPage() {
     setFormData({
       name: role.name,
       description: role.description || '',
-      isDefault: role.isDefault,
+  isDefault: !!role.isDefault,
     });
     setIsEditDialogOpen(true);
   };
@@ -310,33 +308,7 @@ export default function AdminRolesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-        <button
-          onClick={() => setActiveTab('roles')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'roles'
-              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-        >
-          <Shield className="h-4 w-4 inline mr-2" />
-          Roles
-        </button>
-        <button
-          onClick={() => setActiveTab('assignments')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'assignments'
-              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-        >
-          <Users className="h-4 w-4 inline mr-2" />
-          Role Assignments
-        </button>
-      </div>
 
-      {activeTab === 'roles' && (
         <>
           {/* Header with search and create button */}
           <div className="flex justify-between items-center">
@@ -465,12 +437,12 @@ export default function AdminRolesPage() {
                           <TableCell>
                             <div className="flex items-center space-x-1">
                               <Users className="h-4 w-4 text-gray-400" />
-                              <span>{role._count?.userRoles || 0}</span>
+                              <span>{role.userCount ?? 0}</span>
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="text-sm">
-                              {formatDate(role.createdAt)}
+                              {formatDate(role.createdAt ?? '')}
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
@@ -533,72 +505,6 @@ export default function AdminRolesPage() {
             </CardContent>
           </Card>
         </>
-      )}
-
-      {activeTab === 'assignments' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Role Assignments</CardTitle>
-            <CardDescription>
-              View and manage role assignments for users
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Assigned Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {userRoles.map((userRole) => (
-                  <TableRow key={userRole.id}>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <div className="flex-shrink-0">
-                          <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                            <Users className="h-4 w-4 text-gray-500" />
-                          </div>
-                        </div>
-                        <div>
-                          <div className="font-medium">{userRole.userName || 'No name'}</div>
-                          <div className="text-sm text-gray-500">{userRole.userEmail}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        <Shield className="h-3 w-3 mr-1" />
-                        {userRole.roleName}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {formatDate(userRole.assignedAt)}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          // TODO: Implement role change functionality
-                        }}
-                      >
-                        <Settings className="h-3 w-3" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Edit Role Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800">
@@ -669,14 +575,14 @@ export default function AdminRolesPage() {
                 </div>
               </div>
               
-              {(selectedRole._count?.userRoles || 0) > 0 && (
+              {(selectedRole.userCount ?? 0) > 0 && (
                 <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <div className="flex items-center">
                     <AlertTriangle className="h-4 w-4 text-amber-600 mr-2" />
                     <span className="text-sm text-amber-800 font-medium">Warning</span>
                   </div>
                   <p className="text-sm text-amber-700 mt-1">
-                    This role is currently assigned to {selectedRole._count?.userRoles} user(s). 
+                    This role is currently assigned to {selectedRole.userCount ?? 0} user(s).
                     Deleting it will remove these assignments.
                   </p>
                 </div>
