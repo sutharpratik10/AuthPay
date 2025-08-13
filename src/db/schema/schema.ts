@@ -1,5 +1,17 @@
 import { pgTable, uuid, varchar, text, boolean, jsonb, timestamp, integer, foreignKey, unique, primaryKey } from "drizzle-orm/pg-core"
 
+export const subscriptionPlans = pgTable("subscription_plans", {
+	id: uuid('id').defaultRandom().primaryKey(),
+	name: varchar('name', { length: 100 }).notNull(),
+	description: varchar('description', { length: 500 }),
+	price: varchar('price', { length: 50 }).notNull(), // Stored as string to handle different currencies
+	billingCycle: varchar('billing_cycle', { length: 20 }).notNull(), // monthly, yearly, etc.
+	features: varchar('features', { length: 1000 }), // JSON stringified list of features
+	isActive: boolean('is_active').default(true).notNull(),
+	createdAt: timestamp('created_at').defaultNow().notNull(),
+	updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const adminNotifications = pgTable("admin_notifications", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	title: varchar({ length: 200 }).notNull(),
@@ -205,18 +217,6 @@ export const billings = pgTable("billings", {
 			name: "billings_plan_id_subscription_plans_id_fk"
 		}),
 ]);
-
-export const subscriptionPlans = pgTable("subscription_plans", {
-	id: uuid('id').defaultRandom().primaryKey(),
-	name: varchar('name', { length: 100 }).notNull(),
-	description: varchar('description', { length: 500 }),
-	price: varchar('price', { length: 50 }).notNull(), // Stored as string to handle different currencies
-	billingCycle: varchar('billing_cycle', { length: 20 }).notNull(), // monthly, yearly, etc.
-	features: varchar('features', { length: 1000 }), // JSON stringified list of features
-	isActive: boolean('is_active').default(true).notNull(),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
 
 export const userActivityLogs = pgTable("user_activity_logs", {
 	id: uuid('id').defaultRandom().primaryKey(),
