@@ -9,13 +9,6 @@ export default async function ManageUsersPage() {
   if (!session?.user?.id) {
     redirect('/auth/login');
   }
-  // Check if user is admin
-  const isAdmin = await PermissionService.isAdmin(session.user.id);
-  
-  if (!isAdmin) {
-    redirect('/protected/user/dashboard');
-  }
-
   return (
     <div className="container mx-auto py-6">
       <div className="mb-6">
@@ -24,7 +17,6 @@ export default async function ManageUsersPage() {
           Create, edit, and manage user accounts and roles
         </p>
       </div>
-      
       <AdminUsersPage />
     </div>
   );

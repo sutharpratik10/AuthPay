@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { redirect } from "next/navigation"
+import { getRoleName } from "@/lib/role-utils"
+import { ROUTES } from "@/routes/routeUtils"
 import { Button } from "@/components/ui/button"
 
 interface StatCardProps { title: string; value: string | number; subtitle?: string }
@@ -34,13 +36,12 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      redirect('/auth/login')
-    }    if (status === 'authenticated') {
-      const role = typeof session?.user === 'object' && session?.user && 'role' in session.user
-        ? (session.user as { role?: string }).role ?? 'user'
-        : 'user'
+      redirect(ROUTES.AUTH.LOGIN)
+    }
+    if (status === 'authenticated') {
+      const role = getRoleName(session?.user);
       if (role !== 'admin') {
-        redirect('/protected/user/dashboard')
+        redirect(ROUTES.PROTECTED.USER_DASHBOARD)
       }
       setAdminName(session?.user?.name || 'Admin')
 

@@ -3,6 +3,8 @@
 import { ReactNode, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { getRoleName } from "@/lib/role-utils"
+import { ROUTES } from "@/routes/routeUtils"
 
 export interface AuthRouteProps {
   children: ReactNode
@@ -14,8 +16,8 @@ export interface AuthRouteProps {
  * Helper function to get the correct dashboard URL based on user role
  */
 export function getRoleDashboard(user: { role?: string } | null | undefined): string {
-  const role = user?.role || 'user';
-  return role === 'admin' ? '/protected/admin/dashboard' : '/protected/user/dashboard';
+  const role = getRoleName(user);
+  return role === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
 }
 
 /**

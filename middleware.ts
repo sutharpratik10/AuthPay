@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { userPreferences, sessions } from "@/db/schema";
+import { userPreferences, sessions, roles, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 /**
@@ -83,21 +83,46 @@ export async function middleware(request: NextRequest) {
   const isAuthenticated = !!session?.user;
   const isEmailVerified = session?.user?.isEmailVerified === true;
   
+  // Helper to get role name from userId
+async function getUserRoleName(userId: string): Promise<string> {
+  try {
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { roleId: true }
+    });
+    if (!user?.roleId) return "user";
+    const role = await db.query.roles.findFirst({
+      where: eq(roles.id, user.roleId),
+      columns: { name: true }
+    });
+    return role?.name || "user";
+  } catch (e) {
+    console.error("Error fetching user role:", e);
+    return "user";
+  }
+}
+
   // Handle verification page access
   if (path === verificationRoute) {
     if (!isAuthenticated) {
       console.log(`[MIDDLEWARE] 🔒 Unauthenticated user trying to access verify page, redirecting to login`);
       return NextResponse.redirect(new URL('/auth/login', request.url));
-    }    if (isEmailVerified) {
-      console.log(`[MIDDLEWARE] ✅ Email already verified, redirecting to role-based dashboard`);
-      // Determine dashboard based on user role
-      const userRole = (session?.user as { role?: string })?.role || 'user';
-      const dashboardUrl = userRole === 'admin' 
-        ? '/protected/admin/dashboard' 
-        : '/protected/user/dashboard';
-      return NextResponse.redirect(new URL(dashboardUrl, request.url));
     }
-    
+    if (isEmailVerified) {
+      // Fetch role from DB using userId and roleId foreign key
+      const userId = session?.user?.id;
+      let userRole = 'user';
+      if (userId) {
+        userRole = await getUserRoleName(userId);
+      }
+      if (userRole === 'admin') {
+        console.log(`[MIDDLEWARE] ✅ Email verified and user is admin, redirecting to admin dashboard`);
+        return NextResponse.redirect(new URL('/protected/admin/dashboard', request.url));
+      } else {
+        console.log(`[MIDDLEWARE] ✅ Email verified and user is not admin, redirecting to user dashboard`);
+        return NextResponse.redirect(new URL('/protected/user/dashboard', request.url));
+      }
+    }
     console.log(`[MIDDLEWARE] ✅ Authenticated unverified user accessing verify page`);
     return NextResponse.next();
   }

@@ -5,6 +5,7 @@ import { useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/constants"
+import { getRoleName } from "@/lib/role-utils"
 import { getAppName } from "@/lib/config"
 import type { NavigationItem, NavigationSubItem } from "@/lib/constants" 
 import { Menu, X, ChevronRight, User, Settings, LogOut, Shield } from "lucide-react"
@@ -40,6 +41,8 @@ export function Navigationbar() {
   const isAuthenticated = status === "authenticated" && !!session?.user
   const isEmailVerified = session?.user?.isEmailVerified
   const user = session?.user
+
+  // Helper to get role name from user object (new schema: roleId is UUID, role name may be present)
 
   // Ensure component is mounted on client side
   useEffect(() => {
@@ -114,8 +117,8 @@ export function Navigationbar() {
     if (!mounted || !isAuthenticated) {
       return navItems;
     }
-    const role = (user as { role?: string } | undefined)?.role ?? 'user'
-    const dashboardHref = role === 'admin' ? '/protected/admin/dashboard' : '/protected/user/dashboard'
+    const roleName = getRoleName(user);
+    const dashboardHref = roleName === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
     // Add Dashboard as the first item for authenticated users
     return [{ title: "Dashboard", href: dashboardHref }, ...navItems];
   }, [mounted, isAuthenticated, navItems, user]);
@@ -123,8 +126,8 @@ export function Navigationbar() {
   // After a successful login, redirect users to their role-based dashboard if they landed on a neutral page
   useEffect(() => {
     if (!mounted) return;    if (!isAuthenticated) return;
-    const role = (user as { role?: string } | undefined)?.role ?? 'user'
-    const desired = role === 'admin' ? '/protected/admin/dashboard' : '/protected/user/dashboard'
+    const roleName = getRoleName(user);
+    const desired = roleName === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
     // If current path is auth page, push to desired dashboard
     if (typeof window !== 'undefined') {
       const path = window.location.pathname

@@ -3,6 +3,8 @@
 import { useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { getRoleName } from "@/lib/role-utils"
+import { ROUTES } from "@/routes/routeUtils"
 import LoginForm from "@/components/auth/LoginForm"
 
 export default function LoginPage() {  const router = useRouter()
@@ -10,8 +12,10 @@ export default function LoginPage() {  const router = useRouter()
   const returnTo = searchParams.get('returnTo')
   const message = searchParams.get('message')
   const { isAuthenticated, isEmailVerified, loading, user } = useAuth()
-    // Redirect if already authenticated
-  useEffect(() => {    if (!loading && isAuthenticated) {
+    
+  // Redirect if already authenticated
+  useEffect(() => {    
+      if (!loading && isAuthenticated) {
       // Add a small delay to ensure session data is fully loaded
       const redirectTimer = setTimeout(() => {
         if (isEmailVerified) {
@@ -21,14 +25,15 @@ export default function LoginPage() {  const router = useRouter()
             router.push(redirectPath)
           } else {
             // Determine dashboard based on user role
-            const userRole = (user as { role?: string })?.role || 'user';
+            const userRole = getRoleName(user);
             const dashboardUrl = userRole === 'admin' 
-              ? '/protected/admin/dashboard' 
-              : '/protected/user/dashboard';
+              ? ROUTES.PROTECTED.ADMIN_DASHBOARD 
+              : ROUTES.PROTECTED.USER_DASHBOARD;
             console.log('[LOGIN] Redirecting verified user to role-based dashboard:', dashboardUrl)
             router.push(dashboardUrl)
           }
-        } else {          console.log('[LOGIN] Redirecting unverified user to verify')
+        } else {          
+          console.log('[LOGIN] Redirecting unverified user to verify')
           router.push("/auth/verify")
         }
       }, 100) // Small delay to ensure session is fully updated

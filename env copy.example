@@ -1,0 +1,44 @@
+# Database connection
+#DATABASE_URL="postgresql://postgres:admin@localhost:5432/rsvp"
+DATABASE_URL="postgres://avnadmin:AVNS_-3tt5mwRto2Hyz72xwY@rsvp-rolekit.e.aivencloud.com:11069/defaultdb?sslmode=require"
+db_cert_path="ssl/aiven-ca.pem"
+
+# Application settings
+NODE_ENV="development"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NEXTAUTH_URL="http://localhost:3000"
+NEXT_PUBLIC_APP_NAME="TrueAuth"
+AUTH_SECRET="f+|?T+DM2[wm73(__aE)QDH93!jGEH+vpvT$Csy}]rbh55DNeaf%$O(%6G-cIBA7"
+NEXTAUTH_SECRET="f+|?T+DM2[wm73(__aE)QDH93!jGEH+vpvT$Csy}]rbh55DNeaf%$O(%6G-cIBA7"
+
+# Social login credentials
+# GitHub
+GITHUB_CLIENT_ID="7af944590b4f3ef5c63b"
+GITHUB_CLIENT_SECRET="510a45511d5cbeb6bc716ad88c667224fcbc5675"
+
+# Google
+GOOGLE_CLIENT_ID="413656589233-c3sqj41qc092933ul1t447jbalsjbhtk.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="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"
+
+# Facebook
+FACEBOOK_CLIENT_ID="your-facebook-client-id"
+FACEBOOK_CLIENT_SECRET="your-facebook-client-secret"
+
+# Microsoft Azure AD
+AZURE_AD_CLIENT_ID="your-azure-ad-client-id"
+AZURE_AD_CLIENT_SECRET="your-azure-ad-client-secret"
+
+# Apple
+APPLE_CLIENT_ID="your-apple-client-id"
+APPLE_CLIENT_SECRET="your-apple-client-secret"
+
+# Admin default settings
+ADMIN_EMAIL="admin@example.com"
+ADMIN_DEFAULT_TENANT="admin"
+
+# Email settings
+EMAIL_HOST=mail.byteloom.com.au
+EMAIL_PORT=465
+EMAIL_SECURE=true
+EMAIL_USER=no-reply@byteloom.com.au
+EMAIL_PASS=kJ9+}T{o*%xw

@@ -11,11 +11,6 @@ export default async function AdminPage() {
   }
   // Check if user is admin
   const isAdmin = await PermissionService.isAdmin(session.user.id);
-  
-  if (!isAdmin) {
-    redirect('/protected/user/dashboard');
-  }
-
   return (
     <div className="container mx-auto py-6">
       <div className="mb-6">
@@ -24,7 +19,6 @@ export default async function AdminPage() {
           Manage users, roles, and system settings
         </p>
       </div>
-      
       <AdminUsersPage />
     </div>
   );
