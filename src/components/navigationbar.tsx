@@ -112,16 +112,8 @@ export function Navigationbar() {
     };
   }, [isMenuOpen]);  // Get navigation items from the new configuration
   const navItems = APP_CONFIG.NAVIGATION.MAIN;
-  // Only add Dashboard link for authenticated users after component is mounted
-  const navigationItems: readonly NavigationItem[] = useMemo(() => {
-    if (!mounted || !isAuthenticated) {
-      return navItems;
-    }
-    const roleName = getRoleName(user);
-    const dashboardHref = roleName === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
-    // Add Dashboard as the first item for authenticated users
-    return [{ title: "Dashboard", href: dashboardHref }, ...navItems];
-  }, [mounted, isAuthenticated, navItems, user]);
+  // Use navItems directly, do not add Dashboard link
+  const navigationItems: readonly NavigationItem[] = navItems;
 
   // After a successful login, redirect users to their role-based dashboard if they landed on a neutral page
   useEffect(() => {

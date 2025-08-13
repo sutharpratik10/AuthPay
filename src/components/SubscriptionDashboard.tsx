@@ -13,7 +13,8 @@ export default function SubscriptionDashboard() {
   if (!subscriptionStatus?.hasSubscription) {
     return (
       <div className="space-y-8">
-        {/* Welcome Message */}        <Card className="bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 dark:from-slate-950/50 dark:via-gray-950/50 dark:to-zinc-950/50 border-0 shadow-xl backdrop-blur-sm">
+        {/* Welcome Message */}        
+        <Card className="bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 dark:from-slate-950/50 dark:via-gray-950/50 dark:to-zinc-950/50 border-0 shadow-xl backdrop-blur-sm">
           <CardContent className="p-10 text-center">
             <div className="mb-6">
               <div className="mx-auto mb-6 p-6 rounded-3xl bg-gradient-to-br from-slate-600 to-slate-800 dark:from-slate-500 dark:to-slate-700 shadow-xl w-fit">
