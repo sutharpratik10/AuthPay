@@ -29,7 +29,6 @@ export default function AdminDashboardPage() {
   // demo stats; wire to DB later
   const [stats, setStats] = useState({
     activeUsers: 0,
-    tenants: 0,
     revenue: "$0",
     errors24h: 0,
   })
@@ -43,10 +42,11 @@ export default function AdminDashboardPage() {
 
       ;(async () => {
         try {
-          // Combine admin metrics in a single API endpoint later
-          // Placeholder simulated fetch
-          await new Promise(r => setTimeout(r, 500))
-          setStats({ activeUsers: 128, tenants: 12, revenue: "$12,430", errors24h: 3 })
+          const res = await fetch('/api/admin/dashboard-stats');
+          const data = await res.json();
+          if (data.success) {
+            setStats(data.data);
+          }
         } finally {
           setLoading(false)
         }
@@ -86,7 +86,6 @@ export default function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <StatCard title="Active Users" value={stats.activeUsers} />
-        <StatCard title="Tenants" value={stats.tenants} />
         <StatCard title="Revenue (MTD)" value={stats.revenue} />
         <StatCard title="Errors (24h)" value={stats.errors24h} />
       </div>
