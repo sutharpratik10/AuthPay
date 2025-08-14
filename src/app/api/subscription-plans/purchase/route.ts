@@ -11,6 +11,7 @@ import { eq } from 'drizzle-orm';
 import { calculateSubscriptionExpiryDate } from '@/lib/subscription-utils';
 import { getPaymentProvider } from '@/lib/payments/gateway';
 import '@/lib/payments/providers/razorpay';
+import { emailService } from "@/services/email";
 
 interface PaymentInfo {
   provider: string;
@@ -19,6 +20,7 @@ interface PaymentInfo {
   razorpaySignature?: string;
   [key: string]: unknown;
 }
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,6 +32,13 @@ export async function POST(req: NextRequest) {
     if (!planId) return NextResponse.json({ error: 'Plan ID is required' }, { status: 400 });
 
     const userId = session.user.id;
+
+    // Validate plan
+    const plan = await db.query.subscriptionPlans.findFirst({
+      where: eq(subscriptionPlans.id, planId),
+      columns: { id: true, name: true, billingCycle: true, isActive: true, price: true },
+    });
+    if (!plan || !plan.isActive) return NextResponse.json({ error: 'Subscription plan not found or inactive' }, { status: 404 });
 
     // If payment is present, verify + persist
     if (payment?.provider) {
@@ -75,17 +84,24 @@ export async function POST(req: NextRequest) {
           rawResponse: null,
           receivedAt: new Date(),
         });
+        // Fetch user email and name
+        const userDetails = await db.query.users.findFirst({
+          where: eq(users.id, userId),
+          columns: { email: true, name: true },
+        });
+        if (userDetails?.email) {
+          await emailService.sendSubscriptionPurchaseEmail(
+            userDetails.email,
+            userDetails.name || "",
+            plan.name,
+            Number(plan.price),
+            new Date()
+          );
+        }
       } else {
         return NextResponse.json({ error: `Unsupported payment provider: ${providerName}` }, { status: 400 });
       }
     }
-
-    // Validate plan
-    const plan = await db.query.subscriptionPlans.findFirst({
-      where: eq(subscriptionPlans.id, planId),
-      columns: { id: true, name: true, billingCycle: true, isActive: true, price: true },
-    });
-    if (!plan || !plan.isActive) return NextResponse.json({ error: 'Subscription plan not found or inactive' }, { status: 404 });
 
     // Validate user
     const user = await db.query.users.findFirst({

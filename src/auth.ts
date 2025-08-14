@@ -3,6 +3,7 @@ import { db } from "@/db";
 import authConfig from "./auth.config";
 import type { Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
+import { randomUUID } from "crypto";
 
 export const {
   handlers: { GET, POST },
@@ -74,9 +75,9 @@ export const {
             user.id = existingUser.id;
             return true;
           } else {
+
             // Create new user with email verified
-            const { nanoid } = await import("nanoid");
-            const newUserId = nanoid();
+            const newUserId = randomUUID();
 
             await db.insert(users).values({
               id: newUserId,
@@ -88,7 +89,8 @@ export const {
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
               lastLoginAt: new Date().toISOString(),
-            });            // Create default user preferences
+            });            
+            // Create default user preferences
             const { userPreferences, accounts } = await import("@/db/schema");
             await db.insert(userPreferences).values({
               userId: newUserId,
@@ -100,7 +102,8 @@ export const {
               twoFactorAuth: false,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
-            });            // Create account record for OAuth provider
+            });            
+            // Create account record for OAuth provider
             await db.insert(accounts).values({
               userId: newUserId,
               type: account.type!,
