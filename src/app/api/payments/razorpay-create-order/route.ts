@@ -1,63 +1,128 @@
 // app/api/payments/razorpay-create-order/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import Razorpay from "razorpay";
+import { nanoid } from "nanoid";
+import { auth } from "@/auth";
+import { db } from "@/db";
+import { paymentOrders, paymentTransactions, users, subscriptionPlans } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { getPaymentProvider } from "@/lib/payments/gateway";
+import type { CreateOrderResult } from "@/lib/payments/gateway";
+import "@/lib/payments/providers/razorpay";
 
-export const runtime = "nodejs"; // Razorpay SDK needs Node APIs
+export const runtime = "nodejs";
 
-// Validate env upfront (fail-fast during boot)
-const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
-if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-  throw new Error(
-    "Missing Razorpay credentials. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your environment."
-  );
+interface CreateOrderBody {
+  amount: number;          // major units
+  currency?: string;       // default INR
+  planId?: string | null;  // UUID of plan
 }
-
-const razorpay = new Razorpay({
-  key_id: RAZORPAY_KEY_ID,
-  key_secret: RAZORPAY_KEY_SECRET,
-});
-
-type CreateOrderBody = {
-  amount: number; // amount in INR (not paise)
-  currency?: string; // default 'INR'
-};
 
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as Partial<CreateOrderBody>;
-
-    // Basic input validation
     const rawAmount = Number(body?.amount);
     if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
-      return NextResponse.json(
-        { success: false, error: "Invalid amount" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Invalid amount" }, { status: 400 });
     }
 
     const currency = (body?.currency || "INR").toUpperCase();
+    const planId = body?.planId ?? null;
 
-    // Convert INR to paise & round to integer
-    const amountPaise = Math.round(rawAmount * 100);
+    // (optional) validate plan exists if planId was provided
+    if (planId) {
+      const plan = await db.query.subscriptionPlans.findFirst({
+        where: eq(subscriptionPlans.id, planId),
+        columns: { id: true },
+      });
+      if (!plan) {
+        return NextResponse.json({ success: false, error: "Invalid planId" }, { status: 400 });
+      }
+    }
 
-    const order = await razorpay.orders.create({
-      amount: amountPaise,
+    // --- Resolve userId from session (fallback via email) ---
+    let userId: string | null = null;
+    try {
+      interface SessionUser {
+        id?: string;
+        email?: string;
+      }
+      interface Session {
+        user?: SessionUser;
+      }
+      const session = await auth() as Session | null;
+      const sid = session?.user?.id as string | undefined;
+      if (sid) {
+        userId = sid;
+      } else if (session?.user?.email) {
+        const user = await db.query.users.findFirst({
+          where: eq(users.email, session.user.email),
+          columns: { id: true },
+        });
+        userId = user?.id ?? null;
+      }
+    } catch {
+      // unauthenticated creates an order without userId
+    }
+
+    // internal order ref (our receipt)
+    const internalOrderId = nanoid(16);
+
+    // --- Insert payment_orders with userId + planId (schema-safe) ---
+    const insertValues: typeof paymentOrders.$inferInsert = {
+      userId: userId ?? undefined,
+      planId: planId ?? undefined,
+      orderId: internalOrderId,
+      provider: "razorpay",
+      providerOrderId: null,
+      providerTransactionId: null,
+      amountMinor: Math.round(rawAmount * 100),
       currency,
-      receipt: `rcpt_${Date.now()}`,
-      // optional: notes: { planId: '...' }
+      status: "created",
+      // (add other fields ONLY if they exist in your schema type)
+    };
+
+    const [orderRecord] = await db
+      .insert(paymentOrders)
+      .values(insertValues)
+      .returning({ id: paymentOrders.id });
+
+    const paymentOrderId = orderRecord.id;
+
+    // create external order
+    const provider = getPaymentProvider("razorpay");
+    const providerOrder = await provider.createOrder({
+      receipt: internalOrderId,
+      amount: rawAmount,
+      currency,
+      notes: { planId, userId },
     });
 
-    return NextResponse.json({ success: true, order });
+    // update our payment_orders with provider order id
+    await db
+      .update(paymentOrders)
+      .set({ providerOrderId: providerOrder.id as string })
+      .where(eq(paymentOrders.id, paymentOrderId));
+
+    // log "created" transaction
+    await db.insert(paymentTransactions).values({
+      paymentOrderId,
+      provider: "razorpay",
+      event: "created",
+      status: "initiated",
+      providerOrderId: providerOrder.id as string,
+      providerTransactionId: null,
+      message: "Order created",
+      rawRequest: { amount: rawAmount, currency, planId, internalOrderId },
+      rawResponse: providerOrder as CreateOrderResult,
+      receivedAt: new Date(),
+    });
+
+    return NextResponse.json({ success: true, order: providerOrder });
   } catch (error: unknown) {
-    // Use the error so ESLint is happy and you get debuggable logs
     let message = "Failed to create order";
-    if (typeof error === "object" && error !== null) {
-      // Razorpay error shape often has error.description / error.message
-      const maybeAny = error as Record<string, unknown>;
-      message =
-        (maybeAny?.message as string) ||
-        (maybeAny?.description as string) ||
-        message;
+    if (typeof error === "object" && error) {
+      const m = error as { message?: string; description?: string };
+      message = m?.message || m?.description || message;
     }
     console.error("Razorpay order creation error:", error);
     return NextResponse.json({ success: false, error: message }, { status: 500 });

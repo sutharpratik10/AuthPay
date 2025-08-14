@@ -135,7 +135,7 @@ export default function SubscriptionPlansSelector({
       const orderResp = await fetch("/api/payments/razorpay-create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: plan.priceNumber, currency: "INR" }),
+        body: JSON.stringify({ amount: plan.priceNumber, currency: "INR", planId: plan.id }),
       });
 
       if (!orderResp.ok) {
