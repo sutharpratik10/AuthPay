@@ -63,6 +63,25 @@ const defaultPlans = [
   }
 ];
 
+const defaultStatuses = [
+  {
+    name: 'active',
+    description: 'Subscription is active',
+  },
+  {
+    name: 'inactive',
+    description: 'Subscription is inactive',
+  },
+  {
+    name: 'cancelled',
+    description: 'Subscription has been cancelled',
+  },
+  {
+    name: 'expired',
+    description: 'Subscription has expired',
+  }
+];
+
 async function seed() {
   try {
     console.log('🌱 Seeding roles...');
@@ -95,6 +114,13 @@ async function seed() {
       console.log('ℹ️ Admin user already exists');
     }
 
+    // Insert subscription statuses
+    console.log('🌱 Seeding subscription statuses...');
+    for (const status of defaultStatuses) {
+      await db.insert(subscriptionStatuses).values(status).onConflictDoNothing();
+    }
+    console.log('✅ Subscription statuses seeded');
+    
     // Insert subscription plans
     console.log('🌱 Seeding subscription plans...');
     for (const plan of defaultPlans) {
