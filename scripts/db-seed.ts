@@ -82,6 +82,17 @@ const defaultStatuses = [
   }
 ];
 
+const defaultSubscriptionRenewal = [
+  {
+    name: 'auto',
+    description: 'Renew subscription automatically',
+  },
+  {
+    name: 'manual',
+    description: 'Renew subscription manually',
+  }
+];
+
 async function seed() {
   try {
     console.log('🌱 Seeding roles...');
@@ -113,6 +124,14 @@ async function seed() {
     } else {
       console.log('ℹ️ Admin user already exists');
     }
+
+
+    // Insert subscription renewal options
+    console.log('🌱 Seeding subscription renewal options...');
+    for (const renewal of defaultSubscriptionRenewal) {
+      await db.insert(subscriptionPlans).values(renewal).onConflictDoNothing();
+    }
+    console.log('✅ Subscription renewal options seeded');
 
     // Insert subscription statuses
     console.log('🌱 Seeding subscription statuses...');
