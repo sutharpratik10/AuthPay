@@ -2,16 +2,109 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { userPreferences, sessions, roles, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+
+/**
+ * Validate user exists in database and session is valid
+ */
+async function validateUserAndSession(userId: string, sessionToken?: string): Promise<{
+  userExists: boolean;
+  sessionValid: boolean;
+  user?: DatabaseUser;
+}> {
+  try {
+    // Check if user exists in database
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { 
+        id: true, 
+        email: true, 
+        isEmailVerified: true, 
+        roleId: true,
+        isActive: true // Add this if you have user status
+      }
+    });
+
+    if (!user) {
+      console.log(`[MIDDLEWARE] ❌ User ${userId} not found in database`);
+      return { userExists: false, sessionValid: false };
+    }
+
+    // Check if user is active (if you have this field)
+    if ('isActive' in user && !user.isActive) {
+      console.log(`[MIDDLEWARE] ❌ User ${userId} is deactivated`);
+      return { userExists: false, sessionValid: false };
+    }
+
+    // Validate session token if provided
+    let sessionValid = true;
+    if (sessionToken) {
+      const sessionRecord = await db.query.sessions.findFirst({
+        where: and(
+          eq(sessions.token, sessionToken),
+          eq(sessions.userId, userId)
+        ),
+        columns: { expiresAt: true, userId: true }
+      });
+
+      if (!sessionRecord) {
+        console.log(`[MIDDLEWARE] ❌ Session not found for user ${userId}`);
+        sessionValid = false;
+      } else if (new Date() > new Date(sessionRecord.expiresAt)) {
+        console.log(`[MIDDLEWARE] ❌ Session expired for user ${userId}`);
+        sessionValid = false;
+        
+        // Clean up expired session
+        await db.delete(sessions).where(eq(sessions.token, sessionToken));
+      }
+    }
+
+    return { 
+      userExists: true, 
+      sessionValid, 
+      user 
+    };
+
+  } catch (error) {
+    console.error('[MIDDLEWARE] Error validating user and session:', error);
+    return { userExists: false, sessionValid: false };
+  }
+}
+
+/**
+ * Clear authentication cookies and redirect to login
+ */
+function clearAuthAndRedirect(request: NextRequest, redirectPath: string = '/auth/login') {
+  const response = NextResponse.redirect(new URL(redirectPath, request.url));
+  
+  // Clear all possible auth-related cookies
+  const cookiesToClear = [
+    'next-auth.session-token',
+    'session-token',
+    '__Secure-next-auth.session-token',
+    'next-auth.csrf-token',
+    '__Secure-next-auth.csrf-token'
+  ];
+
+  cookiesToClear.forEach(cookieName => {
+    response.cookies.delete(cookieName);
+    // Also set expired cookie to ensure clearing
+    response.cookies.set(cookieName, '', { 
+      expires: new Date(0),
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production'
+    });
+  });
+
+  return response;
+}
 
 /**
  * Check if user requires 2FA verification for this session
- * Note: This is a simplified check - in a production environment,
- * you would want to check the actual session's 2FA verification status
  */
 async function checkSessionRequires2FA(userId: string): Promise<{ requires2FA: boolean; isVerified: boolean }> {
   try {
-    // Check if user has 2FA enabled
     const preferences = await db.query.userPreferences.findFirst({
       where: eq(userPreferences.userId, userId),
       columns: { twoFactorAuth: true }
@@ -20,17 +113,12 @@ async function checkSessionRequires2FA(userId: string): Promise<{ requires2FA: b
     const has2FA = preferences?.twoFactorAuth === true;
     
     if (!has2FA) {
-      return { requires2FA: false, isVerified: true }; // No 2FA required
+      return { requires2FA: false, isVerified: true };
     }
 
-    // If 2FA is required, for now we assume it's verified if user is authenticated
-    // In a more robust implementation, you would check the session token against
-    // the sessions table to verify the is2faVerified flag
-    
     return { requires2FA: true, isVerified: true };
   } catch (error) {
     console.error('Error checking 2FA requirements:', error);
-    // Fail safe: allow access if we can't determine 2FA status
     return { requires2FA: false, isVerified: true };
   }
 }
@@ -62,7 +150,8 @@ export async function middleware(request: NextRequest) {
     '/auth/signup', 
     '/auth/forgot-password'
   ];
-    const protectedRoutes = [
+  
+  const protectedRoutes = [
     '/protected/profile',
     '/protected/account',
     '/protected/settings',
@@ -78,29 +167,52 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Get session only when needed (not for public routes)
+  // Get session and validate user existence
   const session = await auth();
   const isAuthenticated = !!session?.user;
+  const sessionToken = request.cookies.get('session-token')?.value || 
+                      request.cookies.get('next-auth.session-token')?.value;
+
+  // If we have a session, validate the user exists in database
+  if (isAuthenticated && session?.user?.id) {
+    const { userExists, sessionValid, user } = await validateUserAndSession(
+      session.user.id, 
+      sessionToken
+    );
+
+    // If user doesn't exist or session is invalid, clear auth and redirect
+    if (!userExists || !sessionValid) {
+      console.log(`[MIDDLEWARE] 🚫 User validation failed - clearing auth and redirecting`);
+      return clearAuthAndRedirect(request, '/auth/login');
+    }
+
+    // Update session user data with fresh database data
+    if (user) {
+      // You might want to update the session here or let the client handle it
+      console.log(`[MIDDLEWARE] ✅ User validation successful: ${user.email}`);
+    }
+  }
+
   const isEmailVerified = session?.user?.isEmailVerified === true;
   
   // Helper to get role name from userId
-async function getUserRoleName(userId: string): Promise<string> {
-  try {
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, userId),
-      columns: { roleId: true }
-    });
-    if (!user?.roleId) return "user";
-    const role = await db.query.roles.findFirst({
-      where: eq(roles.id, user.roleId),
-      columns: { name: true }
-    });
-    return role?.name || "user";
-  } catch (e) {
-    console.error("Error fetching user role:", e);
-    return "user";
+  async function getUserRoleName(userId: string): Promise<string> {
+    try {
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { roleId: true }
+      });
+      if (!user?.roleId) return "user";
+      const role = await db.query.roles.findFirst({
+        where: eq(roles.id, user.roleId),
+        columns: { name: true }
+      });
+      return role?.name || "user";
+    } catch (e) {
+      console.error("Error fetching user role:", e);
+      return "user";
+    }
   }
-}
 
   // Handle verification page access
   if (path === verificationRoute) {
@@ -109,7 +221,6 @@ async function getUserRoleName(userId: string): Promise<string> {
       return NextResponse.redirect(new URL('/auth/login', request.url));
     }
     if (isEmailVerified) {
-      // Fetch role from DB using userId and roleId foreign key
       const userId = session?.user?.id;
       let userRole = 'user';
       if (userId) {
@@ -128,10 +239,10 @@ async function getUserRoleName(userId: string): Promise<string> {
   }
   
   // Handle auth pages (login, signup, forgot-password)
-  if (authRoutes.includes(path)) {    if (isAuthenticated) {
+  if (authRoutes.includes(path)) {
+    if (isAuthenticated) {
       if (isEmailVerified) {
         console.log(`[MIDDLEWARE] ✅ Authenticated verified user, redirecting to role-based dashboard`);
-        // Determine dashboard based on user role
         const userRole = (session?.user as { role?: string })?.role || 'user';
         const dashboardUrl = userRole === 'admin' 
           ? '/protected/admin/dashboard' 
@@ -158,23 +269,12 @@ async function getUserRoleName(userId: string): Promise<string> {
       loginUrl.searchParams.set('returnTo', path);
       return NextResponse.redirect(loginUrl);
     }
-    // Server-side session expiry check
-    const sessionToken = request.cookies.get('session-token')?.value || request.cookies.get('next-auth.session-token')?.value;
-    if (session?.user?.id && sessionToken) {
-      const sessionRecord = await db.query.sessions.findFirst({
-        where: eq(sessions.token, sessionToken),
-        columns: { expiresAt: true }
-      });
-      if (!sessionRecord || new Date() > new Date(sessionRecord.expiresAt)) {
-        console.log(`[MIDDLEWARE] 🔒 Session expired for user ${session.user.id}, redirecting to login`);
-        // Optionally: clean up expired session here
-        return NextResponse.redirect(new URL('/auth/login', request.url));
-      }
-    }
+
     if (!isEmailVerified) {
       console.log(`[MIDDLEWARE] ⚠️ Authenticated but unverified user, redirecting to verify page`);
       return NextResponse.redirect(new URL('/auth/verify', request.url));
     }
+
     // Check if session requires 2FA verification
     if (session?.user?.id) {
       const { requires2FA, isVerified } = await checkSessionRequires2FA(session.user.id);
@@ -183,6 +283,7 @@ async function getUserRoleName(userId: string): Promise<string> {
         return NextResponse.redirect(new URL('/auth/2fa-verify', request.url));
       }
     }
+
     console.log(`[MIDDLEWARE] ✅ Authenticated verified user accessing: ${path}`);
     return NextResponse.next();
   }
