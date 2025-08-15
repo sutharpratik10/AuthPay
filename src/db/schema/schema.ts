@@ -44,17 +44,6 @@ export const subscriptionAnalytics = pgTable("subscription_analytics", {
 		}),
 ]);
 
-export const systemHealthLogs = pgTable("system_health_logs", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	cpuUsage: varchar("cpu_usage", { length: 10 }),
-	memoryUsage: varchar("memory_usage", { length: 10 }),
-	databaseConnections: integer("database_connections"),
-	activeUsers: integer("active_users"),
-	responseTime: integer("response_time"),
-	queueLength: integer("queue_length"),
-	loggedAt: timestamp("logged_at", { mode: 'string' }).defaultNow().notNull(),
-});
-
 export const adminDashboardStats = pgTable("admin_dashboard_stats", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	userId: uuid("user_id").references(() => users.id),
@@ -72,23 +61,6 @@ export const adminDashboardStats = pgTable("admin_dashboard_stats", {
 			columns: [table.userId],
 			foreignColumns: [users.id],
 			name: "admin_dashboard_stats_user_id_users_id_fk"
-		}),
-]);
-
-export const featureUsageAnalytics = pgTable("feature_usage_analytics", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	userId: uuid("user_id").references(() => users.id),
-	featureName: varchar("feature_name", { length: 100 }).notNull(),
-	usageCount: integer("usage_count").default(0),
-	uniqueUsers: integer("unique_users").default(0),
-	statDate: timestamp("stat_date", { mode: 'string' }).notNull(),
-	metadata: jsonb(),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "feature_usage_analytics_user_id_users_id_fk"
 		}),
 ]);
 
@@ -151,27 +123,6 @@ export const errorLogs = pgTable("error_logs", {
 		}),
 ]);
 
-export const systemNotifications = pgTable("system_notifications", {
-	id: uuid('id').defaultRandom().primaryKey(),
-	userId: uuid('user_id').references(() => users.id), // Optional, null for system-wide
-	title: varchar('title', { length: 200 }).notNull(),
-	content: text('content').notNull(),
-	type: varchar('type', { length: 20 }).notNull(), // info, warning, error, success
-	startDate: timestamp('start_date').defaultNow().notNull(),
-	endDate: timestamp('end_date'),
-	isActive: boolean('is_active').default(true).notNull(),
-	link: varchar('link', { length: 255 }),
-	createdByUserId: uuid('created_by_user_id').references(() => users.id),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.createdByUserId],
-			foreignColumns: [users.id],
-			name: "system_notifications_created_by_user_id_users_id_fk"
-		}),
-]);
-
 export const userNotifications = pgTable("user_notifications", {
 	id: uuid('id').defaultRandom().primaryKey(),
 	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -218,44 +169,6 @@ export const billings = pgTable("billings", {
 		}),
 ]);
 
-export const userActivityLogs = pgTable("user_activity_logs", {
-	id: uuid('id').defaultRandom().primaryKey(),
-	userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
-	action: varchar('action', { length: 100 }).notNull(),
-	resourceType: varchar('resource_type', { length: 50 }),
-	resourceId: varchar('resource_id', { length: 50 }),
-	metadata: text('metadata'), // JSON stringified metadata
-	ipAddress: varchar('ip_address', { length: 45 }),
-	userAgent: varchar('user_agent', { length: 255 }),
-	performedAt: timestamp('performed_at').defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "user_activity_logs_user_id_users_id_fk"
-		}).onDelete("set null"),
-]);
-
-export const customUserPermissions = pgTable("custom_user_permissions", {
-	id: uuid('id').defaultRandom().primaryKey(),
-	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-	permissionId: uuid('permission_id').notNull().references(() => permissions.id, { onDelete: 'cascade' }),
-	granted: boolean('granted').notNull().default(true),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "custom_user_permissions_user_id_users_id_fk"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.permissionId],
-			foreignColumns: [permissions.id],
-			name: "custom_user_permissions_permission_id_permissions_id_fk"
-		}).onDelete("cascade"),
-]);
-
 export const permissions = pgTable("permissions", {
 	id: uuid('id').defaultRandom().primaryKey(),
 	name: varchar('name', { length: 100 }).notNull().unique(),
@@ -266,32 +179,6 @@ export const permissions = pgTable("permissions", {
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
-
-export const permissionGroups = pgTable("permission_groups", {
-  id: uuid('id').defaultRandom().primaryKey(),
-  name: varchar('name', { length: 100 }).notNull(),
-  description: varchar('description', { length: 500 }),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
-
-export const permissionGroupItems = pgTable("permission_group_items", {
-  id: uuid('id').defaultRandom().primaryKey(),
-  groupId: uuid('group_id').notNull().references(() => permissionGroups.id, { onDelete: 'cascade' }),
-  permissionId: uuid('permission_id').notNull().references(() => permissions.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.groupId],
-			foreignColumns: [permissionGroups.id],
-			name: "permission_group_items_group_id_permission_groups_id_fk"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.permissionId],
-			foreignColumns: [permissions.id],
-			name: "permission_group_items_permission_id_permissions_id_fk"
-		}).onDelete("cascade"),
-]);
 
 export const roles = pgTable("roles", {
 	id: uuid('id').defaultRandom().primaryKey(),
@@ -319,116 +206,6 @@ export const rolePermissions = pgTable("role_permissions", {
 			foreignColumns: [permissions.id],
 			name: "role_permissions_permission_id_permissions_id_fk"
 		}).onDelete("cascade"),
-]);
-
-export const resources = pgTable("resources", {
-	id: uuid('id').defaultRandom().primaryKey(),
-	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-	name: varchar('name', { length: 100 }).notNull(),
-	type: varchar('type', { length: 50 }).notNull(), // document, project, report, etc.
-	path: varchar('path', { length: 255 }),
-	metadata: jsonb('metadata'),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "resources_user_id_users_id_fk"
-		}).onDelete("cascade"),
-]);
-
-export const resourceAccessControls = pgTable("resource_access_controls", {
-  id: uuid('id').defaultRandom().primaryKey(),
-  resourceId: uuid('resource_id').notNull().references(() => resources.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').references(() => users.id),
-  roleId: uuid('role_id'), // Optional role ID for role-based permissions
-  accessType: varchar('access_type', { length: 20 }).notNull(), // read, write, admin
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  createdByUserId: uuid('created_by_user_id').references(() => users.id),
-}, (table) => [
-	foreignKey({
-			columns: [table.resourceId],
-			foreignColumns: [resources.id],
-			name: "resource_access_controls_resource_id_resources_id_fk"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "resource_access_controls_user_id_users_id_fk"
-		}),
-	foreignKey({
-			columns: [table.createdByUserId],
-			foreignColumns: [users.id],
-			name: "resource_access_controls_created_by_user_id_users_id_fk"
-		}),
-]);
-
-export const resourceComments = pgTable("resource_comments", {
-	id: uuid('id').defaultRandom().primaryKey(),
-	resourceId: uuid('resource_id').notNull().references(() => resources.id, { onDelete: 'cascade' }),
-	userId: uuid('user_id').notNull().references(() => users.id),
-	content: text('content').notNull(),
-	replyToCommentId: uuid('reply_to_comment_id'),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	updatedAt: timestamp('updated_at').defaultNow().notNull(),
-	isEdited: boolean('is_edited').default(false),
-	isDeleted: boolean('is_deleted').default(false),
-}, (table) => [
-	foreignKey({
-			columns: [table.resourceId],
-			foreignColumns: [resources.id],
-			name: "resource_comments_resource_id_resources_id_fk"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "resource_comments_user_id_users_id_fk"
-		}),
-]);
-
-export const resourceShares = pgTable("resource_shares", {
-	id: uuid('id').defaultRandom().primaryKey(),
-	resourceId: uuid('resource_id').notNull().references(() => resources.id, { onDelete: 'cascade' }),
-	userId: uuid('user_id').references(() => users.id), // Who created the share
-	email: varchar('email', { length: 255 }), // Recipient email if shared externally
-	accessToken: varchar('access_token', { length: 255 }).notNull(),
-	accessType: varchar('access_type', { length: 20 }).notNull(), // read, write, comment
-	expiresAt: timestamp('expires_at'),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	lastAccessedAt: timestamp('last_accessed_at'),
-}, (table) => [
-	foreignKey({
-			columns: [table.resourceId],
-			foreignColumns: [resources.id],
-			name: "resource_shares_resource_id_resources_id_fk"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "resource_shares_user_id_users_id_fk"
-		}),
-]);
-
-export const resourceVersions = pgTable("resource_versions", {
-	id: uuid('id').defaultRandom().primaryKey(),
-	resourceId: uuid('resource_id').notNull().references(() => resources.id, { onDelete: 'cascade' }),
-	version: varchar('version', { length: 20 }).notNull(),
-	data: jsonb('data'),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-	createdByUserId: uuid('created_by_user_id').references(() => users.id),
-}, (table) => [
-	foreignKey({
-			columns: [table.resourceId],
-			foreignColumns: [resources.id],
-			name: "resource_versions_resource_id_resources_id_fk"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.createdByUserId],
-			foreignColumns: [users.id],
-			name: "resource_versions_created_by_user_id_users_id_fk"
-		}),
 ]);
 
 export const otpCodes = pgTable("otp_codes", {

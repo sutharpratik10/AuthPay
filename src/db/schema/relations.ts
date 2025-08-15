@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { subscriptionPlans, adminDashboardStats, featureUsageAnalytics, userUsageMetrics, users, auditLogs, errorLogs, systemNotifications, userNotifications, billings, userActivityLogs, customUserPermissions, permissions, permissionGroups, permissionGroupItems, roles, rolePermissions, resources, resourceAccessControls, resourceComments, otpCodes, userPreferences } from "./schema";
+import { subscriptionPlans, adminDashboardStats, userUsageMetrics, users, auditLogs, errorLogs, userNotifications, billings, permissions, roles, rolePermissions, otpCodes, userPreferences } from "./schema";
 
 export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({
   billings: many(billings),
@@ -8,13 +8,6 @@ export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }
 export const adminDashboardStatsRelations = relations(adminDashboardStats, ({ one }) => ({
   user: one(users, {
     fields: [adminDashboardStats.userId],
-    references: [users.id],
-  }),
-}));
-
-export const featureUsageAnalyticsRelations = relations(featureUsageAnalytics, ({ one }) => ({
-  user: one(users, {
-    fields: [featureUsageAnalytics.userId],
     references: [users.id],
   }),
 }));
@@ -45,19 +38,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   userUsageMetrics: many(userUsageMetrics),
   auditLogs: many(auditLogs),
   errorLogs: many(errorLogs),
-  systemNotifications: many(systemNotifications),
   userNotifications: many(userNotifications),
-  userActivityLogs: many(userActivityLogs),
-  customUserPermissions: many(customUserPermissions),
   billings: many(billings),
-  resources: many(resources),
-  resourceAccessControls_userId: many(resourceAccessControls, {
-    relationName: "resourceAccessControls_userId_users_id",
-  }),
-  resourceAccessControls_createdByUserId: many(resourceAccessControls, {
-    relationName: "resourceAccessControls_createdByUserId_users_id",
-  }),
-  resourceComments: many(resourceComments),
 }));
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
@@ -70,13 +52,6 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
 export const errorLogsRelations = relations(errorLogs, ({ one }) => ({
   user: one(users, {
     fields: [errorLogs.userId],
-    references: [users.id],
-  }),
-}));
-
-export const systemNotificationsRelations = relations(systemNotifications, ({ one }) => ({
-  user: one(users, {
-    fields: [systemNotifications.createdByUserId],
     references: [users.id],
   }),
 }));
@@ -99,44 +74,6 @@ export const billingsRelations = relations(billings, ({ one }) => ({
   }),
 }));
 
-export const userActivityLogsRelations = relations(userActivityLogs, ({ one }) => ({
-  user: one(users, {
-    fields: [userActivityLogs.userId],
-    references: [users.id],
-  }),
-}));
-
-export const customUserPermissionsRelations = relations(customUserPermissions, ({ one }) => ({
-  user: one(users, {
-    fields: [customUserPermissions.userId],
-    references: [users.id],
-  }),
-  permission: one(permissions, {
-    fields: [customUserPermissions.permissionId],
-    references: [permissions.id],
-  }),
-}));
-
-export const permissionsRelations = relations(permissions, ({ many }) => ({
-  rolePermissions: many(rolePermissions),
-  groupItems: many(permissionGroupItems),
-}));
-
-export const permissionGroupsRelations = relations(permissionGroups, ({ many }) => ({
-  groupItems: many(permissionGroupItems),
-}));
-
-export const permissionGroupItemsRelations = relations(permissionGroupItems, ({ one }) => ({
-  group: one(permissionGroups, {
-    fields: [permissionGroupItems.groupId],
-    references: [permissionGroups.id],
-  }),
-  permission: one(permissions, {
-    fields: [permissionGroupItems.permissionId],
-    references: [permissions.id],
-  }),
-}));
-
 export const rolesRelations = relations(roles, ({ many }) => ({
   rolePermissions: many(rolePermissions),
 }));
@@ -151,51 +88,6 @@ export const rolePermissionsRelations = relations(rolePermissions, ({ one }) => 
     references: [permissions.id],
   }),
 }));
-
-export const resourcesRelations = relations(resources, ({ one, many }) => ({
-  user: one(users, {
-    fields: [resources.userId],
-    references: [users.id],
-  }),
-  accessControls: many(resourceAccessControls),
-  comments: many(resourceComments),
-}));
-
-export const resourceAccessControlsRelations = relations(resourceAccessControls, ({ one }) => ({
-  resource: one(resources, {
-    fields: [resourceAccessControls.resourceId],
-    references: [resources.id],
-  }),
-  user: one(users, {
-    fields: [resourceAccessControls.userId],
-    references: [users.id],
-  }),
-  createdBy: one(users, {
-    fields: [resourceAccessControls.createdByUserId],
-    references: [users.id],
-  }),
-}));
-
-export const resourceCommentsRelations = relations(resourceComments, ({ one, many }) => {
-  const baseRelations = {
-    resource: one(resources, {
-      fields: [resourceComments.resourceId],
-      references: [resources.id],
-    }),
-    user: one(users, {
-      fields: [resourceComments.userId],
-      references: [users.id],
-    }),
-  };
-  return {
-    ...baseRelations,
-    replyTo: one(resourceComments, {
-      fields: [resourceComments.replyToCommentId],
-      references: [resourceComments.id],
-    }),
-    replies: many(resourceComments, { relationName: "comment_replies" }),
-  };
-});
 
 export const otpCodesRelations = relations(otpCodes, ({ one }) => ({
   user: one(users, {
