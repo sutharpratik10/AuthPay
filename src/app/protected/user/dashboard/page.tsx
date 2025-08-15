@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react"
 import { redirect } from "next/navigation"
 import SubscriptionDashboard from "@/components/SubscriptionDashboard"
 import { Button } from "@/components/ui/button"
+import SearchPanel from "@/components/JobSearch/SearchPanel";
 
 interface UserSubscriptionStatus {
   hasSubscription: boolean;
@@ -88,34 +89,7 @@ export default function UserDashboardPage() {
       )}
 
       {isActiveSub && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-            <h3 className="text-lg font-semibold">Quick Start</h3>
-            <p className="text-sm text-muted-foreground mt-2">Jump back into your recent activity.</p>
-            <div className="mt-4 flex gap-2">
-              <Button size="sm" variant="outline">My Resources</Button>
-              <Button size="sm" variant="outline">Notifications</Button>
-            </div>
-          </div>
-
-          <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-            <h3 className="text-lg font-semibold">Account</h3>
-            <p className="text-sm text-muted-foreground mt-2">Manage profile and security.</p>
-            <div className="mt-4 flex gap-2">
-              <Button size="sm" variant="outline">Profile</Button>
-              <Button size="sm" variant="outline">Security</Button>
-            </div>
-          </div>
-
-          <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-            <h3 className="text-lg font-semibold">Subscription</h3>
-            <p className="text-sm text-muted-foreground mt-2">Plan: {subscriptionStatus?.planName ?? '—'}</p>
-            <div className="mt-4 flex gap-2">
-              <Button size="sm" variant="outline">Manage</Button>
-              <Button size="sm" variant="outline">Invoices</Button>
-            </div>
-          </div>
-        </div>
+        <SearchPanel />
       )}
     </div>
   )
