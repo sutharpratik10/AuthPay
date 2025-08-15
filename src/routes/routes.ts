@@ -31,7 +31,8 @@ class RegistrationRouteHandler extends AuthRouteHandler {
   async handle(req: NextRequest): Promise<NextResponse> {
     try {
       const body = await req.json();
-      const { email, password, name } = body;      // Validate input
+      const { email, password, name } = body;      
+      // Validate input
       const validation = this.validateAuthInput(email, password);
       if (!validation.isValid) {
         return this.createErrorResponse(validation.error || 'Invalid input', 400);
@@ -314,7 +315,8 @@ class RouteFactory {
     this.registerRoute('register', new RegistrationRouteHandler());
     this.registerRoute('verify', new VerifyEmailRouteHandler());
     this.registerRoute('resendVerification', new ResendVerificationEmailRouteHandler());
-      // Password reset routes
+      
+    // Password reset routes
     this.registerRoute('initiatePasswordReset', new InitiatePasswordResetRouteHandler());
     this.registerRoute('resetPassword', new PasswordResetRouteHandler());
     

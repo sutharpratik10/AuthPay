@@ -38,7 +38,8 @@ const databaseUrl = new URL(process.env.DATABASE_URL);
 // Drizzle configuration
 export default {
   schema: './src/db/schema/*',
-  out: './src/db/migrations',
+  out: './drizzle', 
+  //out: './src/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
     host: databaseUrl.hostname,

@@ -16,36 +16,36 @@ async function createDatabase() {
       idle_timeout: 10
     });
     
-    // Check if the rsvp database already exists
+    // Check if the trueauth database already exists
     const existingDb = await sql`
-      SELECT 1 FROM pg_database WHERE datname = 'rsvp'
+      SELECT 1 FROM pg_database WHERE datname = 'trueauth'
     `;
     
     if (existingDb.length > 0) {
-      console.log('Database "rsvp" already exists.');
+      console.log('Database "trueauth" already exists.');
     } else {
-      // Create the rsvp database
+      // Create the trueauth database
       // We need to use text mode because CREATE DATABASE can't be parameterized
-      await sql.unsafe('CREATE DATABASE rsvp');
-      console.log('Database "rsvp" created successfully!');
+      await sql.unsafe('CREATE DATABASE trueauth');
+      console.log('Database "trueauth" created successfully!');
     }
     
     // Close the connection
     await sql.end();
     
     // Now test connection to the new database
-    console.log('\nTesting connection to the rsvp database...');
-    const rsvpConnectionString = "postgresql://postgres:admin@localhost:5432/rsvp";
-    const rsvpSql = postgres(rsvpConnectionString, {
+    console.log('\nTesting connection to the trueauth database...');
+    const trueauthConnectionString = "postgresql://postgres:admin@localhost:5432/trueauth";
+    const trueauthSql = postgres(trueauthConnectionString, {
       max: 1,
       idle_timeout: 10
     });
-    
-    const result = await rsvpSql`SELECT version()`;
-    console.log('✅ Connection to "rsvp" database successful!');
+
+    const result = await trueauthSql`SELECT version()`;;
+    console.log('✅ Connection to "trueauth" database successful!');
     console.log('PostgreSQL version:', result[0].version);
-    
-    await rsvpSql.end();
+
+    await trueauthSql.end();
     return true;
   } catch (error) {
     console.error('❌ Operation failed:', error instanceof Error ? error.message : String(error));

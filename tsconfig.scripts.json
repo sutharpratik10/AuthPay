@@ -9,6 +9,7 @@
     }
   },
   "ts-node": {
+    "require": ["dotenv/config"],
     "compilerOptions": {
       "module": "commonjs"
     }
