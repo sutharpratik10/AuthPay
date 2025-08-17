@@ -27,7 +27,7 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
         
         {/* Main Content */}
         <main className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 container max-w-7xl mx-auto w-full px-4 py-6 lg:px-8">
+          <div className="flex-1 mx-auto w-full px-4 py-6 lg:px-8">
             <div className="h-full">
               {children}
             </div>

@@ -4,8 +4,8 @@ import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { redirect } from "next/navigation"
 import SubscriptionDashboard from "@/components/SubscriptionDashboard"
-import { Button } from "@/components/ui/button"
 import SearchPanel from "@/components/JobSearch/SearchPanel"
+import JobList from "@/components/JobSearch/JobList"
 
 interface UserSubscriptionStatus {
   hasSubscription: boolean;
@@ -73,13 +73,6 @@ export default function UserDashboardPage() {
               : 'Manage your subscription and explore our features.'}
           </p>
         </div>
-        {isActiveSub ? (
-          <SearchPanel />
-        ) : (
-          <Button variant="default" onClick={() => window.scrollTo({ top: 400, behavior: 'smooth' })}>
-            View Plans
-          </Button>
-        )}
       </div>
 
       {!isActiveSub && (
@@ -87,9 +80,10 @@ export default function UserDashboardPage() {
       )}
 
       {isActiveSub && (
-        <div>
-          <p> Place Paywall Content</p>
-        </div>
+        <>
+          <SearchPanel />
+          <JobList />
+        </>
       )}
     </div>
   )
