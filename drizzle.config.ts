@@ -1,56 +1,56 @@
-import type { Config } from 'drizzle-kit';
-import * as dotenv from 'dotenv';
-import * as fs from 'fs';
+// drizzle.config.ts
+import type { Config } from "drizzle-kit";
+import * as dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
 
-// Load environment variables early
 dotenv.config();
 
-// Decide SSL strictly based on env and cert availability
-let ssl: boolean | { ca: string; rejectUnauthorized: boolean } = false;
+type DrizzleSsl = boolean | { ca: string; rejectUnauthorized: boolean };
 
-const useCustomCa = process.env.DB_USE_CA === 'true';
-const dbCertPath = process.env.DB_CERT_PATH || process.env.db_cert_path;
-const requireSsl =
-  process.env.DB_REQUIRE_SSL === 'true' ||
-  /[?&]sslmode=require\b/i.test(process.env.DATABASE_URL || '');
+function drizzleSsl(): DrizzleSsl | undefined {
+  const useCustomCa =
+    (process.env.DB_USE_CA ?? process.env.db_use_ca) === "true";
+  const raw = process.env.DB_CERT_PATH ?? process.env.db_cert_path;
+  const url = process.env.DATABASE_URL || "";
 
-if (useCustomCa && dbCertPath && fs.existsSync(dbCertPath)) {
-  // Use custom CA bundle when provided
-  ssl = {
-    ca: fs.readFileSync(dbCertPath, 'utf8'),
-    // Set to true if your CA is trusted and you want strict verification
-    rejectUnauthorized: false,
-  };
-} else if (requireSsl) {
-  // Provider requires SSL but no custom CA provided
-  ssl = true;
-} else {
-  // Default: no SSL (e.g., local dev)
-  ssl = false;
+  if (useCustomCa && raw) {
+    const caPath = path.resolve(raw);
+    if (fs.existsSync(caPath)) {
+      return {
+        ca: fs.readFileSync(caPath, "utf8"),
+        // flip to true only when your CA chain is correct; shown here as true already
+        rejectUnauthorized: true,
+      };
+    }
+  }
+
+  const requireSsl =
+    process.env.DB_REQUIRE_SSL === "true" ||
+    /(?:^|[?&])sslmode=(?:require|enabled|verify-ca|verify-full)\b/i.test(url);
+
+  return requireSsl ? true : undefined;
 }
 
-// Parse DATABASE_URL for credentials
 if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is not set.');
+  throw new Error("DATABASE_URL environment variable is not set.");
 }
-const databaseUrl = new URL(process.env.DATABASE_URL);
+const u = new URL(process.env.DATABASE_URL);
 
-// Drizzle configuration
+const ssl = drizzleSsl();
+
 export default {
-  schema: './src/db/schema/*',
-  out: './drizzle', 
-  //out: './src/db/migrations',
-  dialect: 'postgresql',
+  schema: "./src/db/schema/*",
+  out: "./drizzle",
+  dialect: "postgresql",
   dbCredentials: {
-    host: databaseUrl.hostname,
-    port: Number(databaseUrl.port) || 5432,
-    user: databaseUrl.username,
-    password: databaseUrl.password,
-    database: databaseUrl.pathname.substring(1), // Remove leading '/'
-    ssl,
+    host: u.hostname,
+    port: Number(u.port) || 5432,
+    user: u.username,
+    password: u.password,
+    database: u.pathname.slice(1),
+    ...(ssl !== undefined ? { ssl } : {}), // ✅ no `as any`
   },
-  // Use a verbose flag for debugging
   verbose: true,
-  // Use strict mode to enforce schema validation
   strict: true,
 } satisfies Config;

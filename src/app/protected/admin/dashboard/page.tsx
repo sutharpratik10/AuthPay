@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { redirect } from "next/navigation"
-import { getRoleName } from "@/lib/role-utils"
 import { ROUTES } from "@/routes/routeUtils"
 import { Button } from "@/components/ui/button"
 

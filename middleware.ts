@@ -7,6 +7,14 @@ import { eq, and } from "drizzle-orm";
 /**
  * Validate user exists in database and session is valid
  */
+type DatabaseUser = {
+  id: string;
+  email: string;
+  isEmailVerified: boolean;
+  roleId: string;
+  isActive?: boolean;
+};
+
 async function validateUserAndSession(userId: string, sessionToken?: string): Promise<{
   userExists: boolean;
   sessionValid: boolean;
@@ -62,7 +70,15 @@ async function validateUserAndSession(userId: string, sessionToken?: string): Pr
     return { 
       userExists: true, 
       sessionValid, 
-      user 
+      user: user
+        ? {
+            id: user.id,
+            email: user.email,
+            isEmailVerified: user.isEmailVerified ?? false,
+            roleId: user.roleId ?? "",
+            isActive: user.isActive ?? true
+          }
+        : undefined
     };
 
   } catch (error) {

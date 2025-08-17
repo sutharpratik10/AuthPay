@@ -1,7 +1,7 @@
 "use client"
 import * as React from "react"
 import Link from "next/link"
-import { useEffect, useMemo } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/constants"
@@ -117,8 +117,9 @@ export function Navigationbar() {
 
   // After a successful login, redirect users to their role-based dashboard if they landed on a neutral page
   useEffect(() => {
-    if (!mounted) return;    if (!isAuthenticated) return;
-    const roleName = getRoleName(user);
+    if (!mounted) return;    
+    if (!isAuthenticated) return;
+    const roleName = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
     const desired = roleName === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
     // If current path is auth page, push to desired dashboard
     if (typeof window !== 'undefined') {
@@ -141,7 +142,8 @@ export function Navigationbar() {
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border">
       <div className="flex items-center justify-between h-16 px-4">
-        {/* Logo on the left */}        <div className="flex items-center">
+        {/* Logo on the left */}        
+        <div className="flex items-center">
           <Link href={ROUTES.PUBLIC.HOME}>
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 rounded-lg flex items-center justify-center">
@@ -170,7 +172,7 @@ export function Navigationbar() {
                 <NavigationMenuItem key={index}>
                   <NavigationMenuTrigger>{item.title}</NavigationMenuTrigger>
                   <NavigationMenuContent>
-                    <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] bg-primary dark:bg-neutral-700 rounded-md shadow-lg">
+                    <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] bg-white dark:bg-neutral-700 rounded-md shadow-lg">
                       {hasItems(item) && item.items.map((subItem: NavigationSubItem, subIndex: number) => (
                         <ListItem
                           key={subIndex}
@@ -186,8 +188,10 @@ export function Navigationbar() {
               )
             ))}
           </NavigationMenuList>
-        </NavigationMenu>        {/* Right side with theme toggle and mobile menu button */}
-        <div className="flex items-center gap-2">          {/* Auth links on desktop - always show buttons first to prevent layout shift */}
+        </NavigationMenu>        
+        {/* Right side with theme toggle and mobile menu button */}
+        <div className="flex items-center gap-2">          
+          {/* Auth links on desktop - always show buttons first to prevent layout shift */}
           <div className="hidden md:block">
             {mounted && isAuthenticated ? (
               <UserProfileDropdown />

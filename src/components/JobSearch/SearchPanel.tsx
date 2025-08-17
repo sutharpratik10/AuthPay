@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Button } from "../ui/button";
 
 const jobTypes = [
   { label: "Remote", value: "remote" },
@@ -33,7 +34,7 @@ export function SearchPanel({ onSearch }: { onSearch?: (filters: SearchFilters) 
 
   return (
     <form
-      className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 flex flex-col gap-4 mx-auto"
+      className="bg-white dark:bg-neutral-900 rounded-lg shadow p-6 flex flex-col gap-4 mx-auto"
       onSubmit={handleSubmit}
     >
       <div className="flex flex-col md:flex-row gap-4">
@@ -87,12 +88,12 @@ export function SearchPanel({ onSearch }: { onSearch?: (filters: SearchFilters) 
         </div>
       </div>
       <div className="flex justify-end">
-        <button
+        <Button
           type="submit"
-          className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition"
+          className=""
         >
           Search Jobs
-        </button>
+        </Button>
       </div>
     </form>
   );

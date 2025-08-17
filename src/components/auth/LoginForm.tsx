@@ -9,15 +9,16 @@ import { AlertCircle, Mail, Facebook, CreditCard, Github } from "lucide-react"
 
 export default function LoginForm() {
   const { login, socialLogin, loading } = useAuth()
-  
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   })
-  
+
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
@@ -25,35 +26,52 @@ export default function LoginForm() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
-    
+
     if (!formData.email || !formData.password) {
-      return setError("Email and password are required")
+      setError("Please enter both your email and password.")
+      return
     }
-    
+
     try {
       setIsSubmitting(true)
       const result = await login(formData.email, formData.password)
-          if (result.error) {
-        setError(result.error)
+      if (result.error) {
+        // Map backend errors to user-friendly messages
+        switch (result.error) {
+          case "Invalid credentials":
+            setError("The password you entered is incorrect.")
+            break
+          case "Email not verified":
+            setError("Your email address is not verified. Please check your inbox for a verification link.")
+            break
+          case "Account disabled":
+            setError("Your account has been disabled. Please contact support for assistance.")
+            break
+          case "Account does not exist":
+            setError(`Account with email ${formData.email} doesn't exist`)
+            break
+          default:
+            setError("Unable to sign in. Please try again or reset your password.")
+        }
       }
       // Let the LoginPage handle redirection based on auth state
     } catch (err) {
-      setError("An error occurred during login")
+      setError("A network error occurred. Please check your connection and try again.")
       console.error(err)
     } finally {
       setIsSubmitting(false)
     }
   }
-  
+
   const handleSocialLogin = async (provider: string) => {
     try {
       await socialLogin(provider)
     } catch (err) {
-      setError("Failed to login with social provider")
+      setError("Failed to login with social provider. Please try again.")
       console.error(err)
     }
   }
-  
+
   return (
     <div className="w-full max-w-md p-8 bg-white border-1 border-black dark:bg-neutral-900 dark:border-white rounded-xl shadow-sm">
       {/* Header with Lightning Icon */}
@@ -66,7 +84,7 @@ export default function LoginForm() {
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Login</h1>
         <p className="text-sm text-gray-500 dark:text-gray-300">Enter your details to login.</p>
       </div>
-      
+
       {/* Error Message */}
       {error && (
         <div className="mb-4 p-3 flex items-center gap-2 text-sm text-red-700 bg-red-50 rounded-md border border-red-200">
@@ -74,7 +92,7 @@ export default function LoginForm() {
           <p>{error}</p>
         </div>
       )}
-      
+
       {/* Login Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
@@ -92,14 +110,14 @@ export default function LoginForm() {
             required
           />
         </div>
-        
+
         <div className="space-y-2">
           <div className="flex justify-between">
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Password
             </label>
-            <Link 
-              href="/auth/forgot-password" 
+            <Link
+              href="/auth/forgot-password"
               className="text-xs text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
             >
               Forgot password?
@@ -116,7 +134,7 @@ export default function LoginForm() {
             required
           />
         </div>
-        
+
         <Button
           type="submit"
           className="w-full bg-white text-black border-1 border-black hover:bg-gray-100 dark:bg-neutral-800 dark:text-white dark:border-white dark:hover:bg-neutral-700 transition-colors"
@@ -125,7 +143,7 @@ export default function LoginForm() {
           {isSubmitting ? "Signing in..." : "Log In"}
         </Button>
       </form>
-      
+
       {/* Divider */}
       <div className="relative my-6">
         <div className="absolute inset-0 flex items-center">
@@ -137,9 +155,9 @@ export default function LoginForm() {
           </span>
         </div>
       </div>
-      
+
       {/* Social Login Options */}
-      <div className="space-y-3">        
+      <div className="space-y-3">
         <Button
           type="button"
           variant="outline"
@@ -149,7 +167,7 @@ export default function LoginForm() {
           <Mail className="h-5 w-5" />
           Continue with Google
         </Button>
-        
+
         <Button
           type="button"
           variant="outline"
@@ -159,7 +177,7 @@ export default function LoginForm() {
           <Github className="h-5 w-5" />
           Continue with GitHub
         </Button>
-        
+
         <Button
           type="button"
           variant="outline"
@@ -169,7 +187,7 @@ export default function LoginForm() {
           <Facebook className="h-5 w-5" />
           Continue with Facebook
         </Button>
-        
+
         <Button
           type="button"
           variant="outline"
@@ -180,7 +198,7 @@ export default function LoginForm() {
           Continue with Microsoft
         </Button>
       </div>
-      
+
       {/* Sign Up Link */}
       <p className="mt-6 text-center text-sm text-gray-900 dark:text-gray-300">
         Don&apos;t have an account yet?{" "}

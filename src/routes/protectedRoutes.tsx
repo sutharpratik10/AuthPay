@@ -44,7 +44,7 @@ async function validateUserInDatabase(userId: string): Promise<{ exists: boolean
 export function ProtectedRoute({ 
   children
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isEmailVerified, loading, user, signOut } = useAuth()
+  const { isAuthenticated, isEmailVerified, loading, user, logout } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const [userValidated, setUserValidated] = useState<boolean | null>(null)
@@ -76,9 +76,9 @@ export function ProtectedRoute({
             setValidationError('Your account was not found. Please sign in again.');
             setUserValidated(false);
             
-            if (shouldSignOut && signOut) {
+            if (shouldSignOut && logout) {
               try {
-                await signOut();
+                await logout();
               } catch (error) {
                 console.error('[PROTECTED_ROUTE] Error signing out:', error);
               }
@@ -115,7 +115,7 @@ export function ProtectedRoute({
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [authState.isAuthenticated, authState.user?.id, authState.loading, signOut]);
+  }, [authState.isAuthenticated, authState.user?.id, authState.loading, logout]);
 
   useEffect(() => {
     // Only process redirects when loading is complete and user is validated

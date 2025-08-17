@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react"
 import { redirect } from "next/navigation"
 import SubscriptionDashboard from "@/components/SubscriptionDashboard"
 import { Button } from "@/components/ui/button"
-import SearchPanel from "@/components/JobSearch/SearchPanel";
+import SearchPanel from "@/components/JobSearch/SearchPanel"
 
 interface UserSubscriptionStatus {
   hasSubscription: boolean;
@@ -66,7 +66,7 @@ export default function UserDashboardPage() {
     <div className="w-full max-w-full px-2 sm:px-4 py-6 mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">User Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground text-sm sm:text-base">
             Welcome back, {userName}! {isActiveSub
               ? `You have an active ${subscriptionStatus?.planName ?? ''} subscription.`
@@ -74,9 +74,7 @@ export default function UserDashboardPage() {
           </p>
         </div>
         {isActiveSub ? (
-          <span className="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
-            Active Subscription
-          </span>
+          <SearchPanel />
         ) : (
           <Button variant="default" onClick={() => window.scrollTo({ top: 400, behavior: 'smooth' })}>
             View Plans
@@ -89,7 +87,9 @@ export default function UserDashboardPage() {
       )}
 
       {isActiveSub && (
-        <SearchPanel />
+        <div>
+          <p> Place Paywall Content</p>
+        </div>
       )}
     </div>
   )

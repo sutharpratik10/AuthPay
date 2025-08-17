@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import { config } from 'dotenv';
 
+
 // project root (one level up from /scripts)
 const root = path.resolve(__dirname, '../');
 
@@ -11,6 +12,7 @@ const envDefault = path.join(root, '.env');
 // load .env.local if present, else .env
 const chosenEnv = fs.existsSync(envLocal) ? envLocal : envDefault;
 
+
 config({ path: chosenEnv, override: true });
 
 console.log('cwd:', process.cwd());
@@ -18,7 +20,7 @@ console.log('.env path:', chosenEnv, 'exists:', fs.existsSync(chosenEnv));
 console.log('DATABASE_URL:', process.env.DATABASE_URL);
 
 import { db } from '../src/db/index';
-import { roles, users, subscriptionPlans } from '../src/db/schema';
+import { roles, users, subscriptionPlans, subscriptionStatuses, subscriptionRenewalTypes } from '../src/db/schema';
 import bcrypt from 'bcryptjs';
 
 const defaultRoles = [
@@ -125,11 +127,10 @@ async function seed() {
       console.log('ℹ️ Admin user already exists');
     }
 
-
     // Insert subscription renewal options
     console.log('🌱 Seeding subscription renewal options...');
     for (const renewal of defaultSubscriptionRenewal) {
-      await db.insert(subscriptionPlans).values(renewal).onConflictDoNothing();
+      await db.insert(subscriptionRenewalTypes).values(renewal).onConflictDoNothing();
     }
     console.log('✅ Subscription renewal options seeded');
 

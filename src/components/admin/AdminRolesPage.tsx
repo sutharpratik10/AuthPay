@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -11,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Plus, Edit, Trash2, Shield, Users, Settings, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Shield, Users, CheckCircle, AlertTriangle } from 'lucide-react';
 
 interface Role {
   id: string;
