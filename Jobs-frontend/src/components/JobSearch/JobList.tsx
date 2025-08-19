@@ -1,71 +1,147 @@
-import React, { useState } from "react";
+import jobsData from "../../../jobs_data/scrapped/jobs.json";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 
 type Job = {
-  id: number;
+  id: string | number;
   company: string;
   title: string;
-  location: string;
-  bookmarked: boolean;
+  location?: string;
+  level?: string;
+  description?: string;
+  url?: string;
+  postedDate?: string;
 };
 
-const initialJobs: Job[] = [
-  { id: 1, company: "Acme Corp", title: "Frontend Developer", location: "Remote", bookmarked: false },
-  { id: 2, company: "Globex Inc", title: "Backend Engineer", location: "New York, NY", bookmarked: false },
-  { id: 3, company: "Initech", title: "Full Stack Developer", location: "San Francisco, CA", bookmarked: false },
-];
+const JobCard: React.FC<{ job: Job }> = ({ job }) => (
+  <div className="bg-white dark:bg-zinc-900 rounded-xl shadow p-6 flex flex-col justify-between min-h-[220px] transition-colors">
+    <div>
+      <div className="text-sm text-gray-500 dark:text-gray-300 font-semibold mb-1">{job.company}</div>
+      <div className="inline-block bg-green-100 dark:bg-green-900 dark:text-green-200 text-green-700 text-xs font-bold px-2 py-1 rounded mb-2">TODAY</div>
+      <div className="text-xl font-bold mb-1 dark:text-white">{job.title}</div>
+      {job.level && <div className="text-gray-500 dark:text-gray-400 text-sm mb-2">{job.level}</div>}
+      {job.description && <div className="text-gray-600 dark:text-gray-300 text-sm mb-2 line-clamp-2">{job.description}</div>}
+    </div>
+    <div>
+      <a
+        href={job.url || "#"}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-primary dark:text-blue-400 font-semibold hover:underline flex items-center mt-2"
+      >
+        Explore Opportunity
+        <span className="ml-1">→</span>
+      </a>
+    </div>
+  </div>
+);
+
+
+
+// Types for parsing jobs.json
+type JobsJsonOffer = {
+  id?: string | number;
+  title?: string;
+  name?: string;
+  sharing_title?: string;
+  location?: string;
+  city?: string;
+  country?: string;
+  level?: string;
+  seniority?: string;
+  experience?: string;
+  description?: string;
+  short_description?: string;
+  snippet?: string;
+  translations?: { en?: { description?: string } };
+  url?: string;
+  careers_url?: string;
+  apply_url?: string;
+  link?: string;
+  posted_at?: string;
+  date?: string;
+  created_at?: string;
+};
+type JobsJsonObj = { jobs?: { offers?: JobsJsonOffer[] } };
+type JobsJson = Record<string, JobsJsonObj[]>;
+
+const parseJobs = (data: unknown): Job[] => {
+  const allJobs: Job[] = [];
+  if (typeof data !== 'object' || data === null) return allJobs;
+  Object.entries(data as JobsJson).forEach(([company, jobsArr]) => {
+    if (Array.isArray(jobsArr)) {
+      jobsArr.forEach((jobObj, idx) => {
+        if (
+          jobObj &&
+          typeof jobObj === "object" &&
+          'jobs' in jobObj &&
+          jobObj.jobs &&
+          typeof jobObj.jobs === "object" &&
+          Array.isArray(jobObj.jobs.offers) &&
+          jobObj.jobs.offers.length > 0
+        ) {
+          jobObj.jobs.offers.forEach((j, jidx) => {
+            allJobs.push({
+              id: j.id || `${company}-${idx}-${jidx}`,
+              company: company,
+              title: j.title || j.name || j.sharing_title || "Untitled",
+              location: j.location || j.city || j.country || "",
+              level: j.level || j.seniority || j.experience || "",
+              description: (j.translations && j.translations.en && j.translations.en.description) || j.description || j.short_description || j.snippet || "",
+              url: j.careers_url || j.url || j.apply_url || j.link || "#",
+              postedDate: j.posted_at || j.date || j.created_at || ""
+            });
+          });
+        }
+      });
+    }
+  });
+  return allJobs;
+};
+
+const jobs = parseJobs(jobsData);
+
+const PAGE_SIZE = 20;
 
 const JobList: React.FC = () => {
-  const [jobs, setJobs] = useState(initialJobs);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const loaderRef = useRef<HTMLDivElement | null>(null);
 
-  const toggleBookmark = (id: number) => {
-    setJobs(jobs =>
-      jobs.map(job =>
-        job.id === id ? { ...job, bookmarked: !job.bookmarked } : job
-      )
-    );
-  };
+  const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
+    const target = entries[0];
+    if (target.isIntersecting) {
+      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, jobs.length));
+    }
+  }, []);
+
+  useEffect(() => {
+    const option = {
+      root: null,
+      rootMargin: "0px",
+      threshold: 0.1
+    };
+    const observer = new window.IntersectionObserver(handleObserver, option);
+    if (loaderRef.current) observer.observe(loaderRef.current);
+    return () => {
+      if (loaderRef.current) observer.unobserve(loaderRef.current);
+    };
+  }, [handleObserver]);
+
+  const visibleJobs = jobs.slice(0, visibleCount);
 
   return (
-    <div className="mx-auto mt-8">
-      <h2 className="text-2xl font-bold mb-4">Job Listings</h2>
-      <div className="bg-accent shadow rounded-lg overflow-hidden">
-        <table className="min-w-full">
-          <thead>
-            <tr className="">
-              <th className="px-4 py-2 text-left">Company</th>
-              <th className="px-4 py-2 text-left">Job Title</th>
-              <th className="px-4 py-2 text-left">Location</th>
-              <th className="px-4 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {jobs.map(job => (
-              <tr key={job.id} className="border-t">
-                <td className="px-4 py-2">{job.company}</td>
-                <td className="px-4 py-2">{job.title}</td>
-                <td className="px-4 py-2">{job.location}</td>
-                <td className="px-4 py-2 text-center">
-                  <button
-                    onClick={() => toggleBookmark(job.id)}
-                    className="focus:outline-none"
-                    aria-label={job.bookmarked ? "Remove bookmark" : "Bookmark"}
-                  >
-                    {job.bookmarked ? (
-                      <svg className="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M5 3a2 2 0 00-2 2v12l7-4 7 4V5a2 2 0 00-2-2H5z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 20 20">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3a2 2 0 00-2 2v12l7-4 7 4V5a2 2 0 00-2-2H5z" />
-                      </svg>
-                    )}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="mx-auto mt-8 px-4">
+      <div className="grid grid-cols-1 gap-6">
+        {visibleJobs.length === 0 ? (
+          <div className="col-span-full text-center text-gray-500 dark:text-gray-300">No jobs found.</div>
+        ) : (
+          visibleJobs.map((job) => <JobCard key={job.id} job={job} />)
+        )}
       </div>
+      {visibleCount < jobs.length && (
+        <div ref={loaderRef} className="w-full flex justify-center py-8">
+          <span className="text-gray-400 dark:text-gray-500">Loading more jobs...</span>
+        </div>
+      )}
     </div>
   );
 };
