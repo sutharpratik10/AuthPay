@@ -16,7 +16,10 @@ async function updateSubscriptionPlan(req: NextRequest, context?: unknown) {
       price,
       billingCycle,
       features,
-      isActive
+      isActive,
+      razorpay_subscription_id,
+      razorpay_subscription_plan_id,
+      razorpay_subscription_link
     } = body;
 
     // Validate required fields
@@ -74,6 +77,9 @@ async function updateSubscriptionPlan(req: NextRequest, context?: unknown) {
         billingCycle,
         features: featuresJson,
         isActive: Boolean(isActive),
+        razorpaySubscriptionId: razorpay_subscription_id || null,
+        razorpaySubscriptionPlanId: razorpay_subscription_plan_id || null,
+        razorpaySubscriptionLink: razorpay_subscription_link || null,
         updatedAt: new Date()
       })
       .where(eq(subscriptionPlans.id, planId))

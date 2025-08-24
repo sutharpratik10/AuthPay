@@ -80,10 +80,12 @@ export default function UserDashboardPage() {
       )}
 
       {isActiveSub && (
-        <>
-          <SearchPanel />
-          <JobList />
-        </>
+        <div>
+          <>
+            <SearchPanel />
+            <JobList />
+          </>
+        </div>
       )}
     </div>
   )

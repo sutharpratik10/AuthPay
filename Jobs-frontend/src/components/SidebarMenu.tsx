@@ -259,7 +259,7 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
           <footer className="shrink-0 border-t bg-muted/30 px-4 py-3 lg:px-8">
             <div className="container max-w-7xl mx-auto">
               <p className="text-center text-xs text-muted-foreground">
-                © {new Date().getFullYear()} {process.env.NEXT_PUBLIC_APP_NAME || "RoleKit"}. All rights reserved.
+                © {new Date().getFullYear()} {process.env.NEXT_PUBLIC_APP_NAME}. All rights reserved.
               </p>
             </div>
           </footer>

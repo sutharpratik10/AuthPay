@@ -33,31 +33,112 @@ export const {
           const { eq } = await import("drizzle-orm");
 
           // Check if user already exists
-          const existingUser = await db.query.users.findFirst({
-            where: eq(users.email, user.email!),
-          });          if (existingUser) {
+          let existingUser = null;
+          try {
+            existingUser = await db.query.users.findFirst({
+              where: eq(users.email, user.email!),
+            });
+          } catch (dbErr) {
+            console.error("Database error during OAuth user lookup:", dbErr);
+            // Return a user-friendly error to Auth.js
+            return "/auth/error?error=DatabaseUnavailable";
+          }
+          if (existingUser) {
             // User exists, update their information and mark email as verified
-            await db.update(users)
-              .set({
-                name: user.name || existingUser.name,
-                image: user.image || existingUser.image,
-                isEmailVerified: true, // OAuth users don't need email verification
-                lastLoginAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              })
-              .where(eq(users.id, existingUser.id));
+            try {
+              await db.update(users)
+                .set({
+                  name: user.name || existingUser.name,
+                  image: user.image || existingUser.image,
+                  isEmailVerified: true, // OAuth users don't need email verification
+                  lastLoginAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                })
+                .where(eq(users.id, existingUser.id));
+            } catch (dbErr) {
+              console.error("Database error during OAuth user update:", dbErr);
+              return "/auth/error?error=DatabaseUnavailable";
+            }
 
             // Check if account record exists for this provider
             const { accounts } = await import("@/db/schema");
-            const existingAccount = await db.query.accounts.findFirst({
-              where: (accountsTable, { and }) => and(
-                eq(accountsTable.userId, existingUser.id),
-                eq(accountsTable.provider, account.provider!)
-              ),
-            });            if (!existingAccount) {
-              // Create account record for this OAuth provider
+            let existingAccount = null;
+            try {
+              existingAccount = await db.query.accounts.findFirst({
+                where: (accountsTable, { and }) => and(
+                  eq(accountsTable.userId, existingUser.id),
+                  eq(accountsTable.provider, account.provider!)
+                ),
+              });
+            } catch (dbErr) {
+              console.error("Database error during OAuth account lookup:", dbErr);
+              return "/auth/error?error=DatabaseUnavailable";
+            }
+            if (!existingAccount) {
+              try {
+                await db.insert(accounts).values({
+                  userId: existingUser.id,
+                  type: account.type!,
+                  provider: account.provider!,
+                  providerAccountId: account.providerAccountId!,
+                  refresh_token: account.refresh_token ? String(account.refresh_token) : null,
+                  access_token: account.access_token ? String(account.access_token) : null,
+                  expires_at: account.expires_at ? Number(account.expires_at) : null,
+                  token_type: account.token_type ? String(account.token_type) : null,
+                  scope: account.scope ? String(account.scope) : null,
+                  id_token: account.id_token ? String(account.id_token) : null,
+                  session_state: account.session_state ? String(account.session_state) : null,
+                });
+              } catch (dbErr) {
+                console.error("Database error during OAuth account insert:", dbErr);
+                return "/auth/error?error=DatabaseUnavailable";
+              }
+            }
+
+            // Update the user object for the session
+            user.id = existingUser.id;
+            return true;
+          } else {
+            // Create new user with email verified
+            const newUserId = randomUUID();
+            try {
+              await db.insert(users).values({
+                id: newUserId,
+                email: user.email!,
+                name: user.name || "",
+                image: user.image || null,
+                isEmailVerified: true, // OAuth users don't need email verification
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                lastLoginAt: new Date().toISOString(),
+              });
+            } catch (dbErr) {
+              console.error("Database error during OAuth user insert:", dbErr);
+              return "/auth/error?error=DatabaseUnavailable";
+            }
+            // Create default user preferences
+            const { userPreferences, accounts } = await import("@/db/schema");
+            try {
+              await db.insert(userPreferences).values({
+                userId: newUserId,
+                emailNotifications: true,
+                securityAlerts: true,
+                productUpdates: false,
+                profileVisibility: true,
+                theme: 'system',
+                twoFactorAuth: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+            } catch (dbErr) {
+              console.error("Database error during OAuth userPreferences insert:", dbErr);
+              return "/auth/error?error=DatabaseUnavailable";
+            }
+            // Create account record for OAuth provider
+            try {
               await db.insert(accounts).values({
-                userId: existingUser.id,
+                userId: newUserId,
                 type: account.type!,
                 provider: account.provider!,
                 providerAccountId: account.providerAccountId!,
@@ -69,65 +150,20 @@ export const {
                 id_token: account.id_token ? String(account.id_token) : null,
                 session_state: account.session_state ? String(account.session_state) : null,
               });
+            } catch (dbErr) {
+              console.error("Database error during OAuth account insert (new user):", dbErr);
+              return "/auth/error?error=DatabaseUnavailable";
             }
-
-            // Update the user object for the session
-            user.id = existingUser.id;
-            return true;
-          } else {
-
-            // Create new user with email verified
-            const newUserId = randomUUID();
-
-            await db.insert(users).values({
-              id: newUserId,
-              email: user.email!,
-              name: user.name || "",
-              image: user.image || null,
-              isEmailVerified: true, // OAuth users don't need email verification
-              isActive: true,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              lastLoginAt: new Date().toISOString(),
-            });            
-            // Create default user preferences
-            const { userPreferences, accounts } = await import("@/db/schema");
-            await db.insert(userPreferences).values({
-              userId: newUserId,
-              emailNotifications: true,
-              securityAlerts: true,
-              productUpdates: false,
-              profileVisibility: true,
-              theme: 'system',
-              twoFactorAuth: false,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            });            
-            // Create account record for OAuth provider
-            await db.insert(accounts).values({
-              userId: newUserId,
-              type: account.type!,
-              provider: account.provider!,
-              providerAccountId: account.providerAccountId!,
-              refresh_token: account.refresh_token ? String(account.refresh_token) : null,
-              access_token: account.access_token ? String(account.access_token) : null,
-              expires_at: account.expires_at ? Number(account.expires_at) : null,
-              token_type: account.token_type ? String(account.token_type) : null,
-              scope: account.scope ? String(account.scope) : null,
-              id_token: account.id_token ? String(account.id_token) : null,
-              session_state: account.session_state ? String(account.session_state) : null,
-            });
-
             // Update the user object for the session
             user.id = newUserId;
             return true;
           }
         } catch (error) {
           console.error("Error handling OAuth sign in:", error);
-          return false;
+          return "/auth/error?error=UnknownOAuthError";
         }
       }
-      
+
       return true;
     },    async session({ session, token }: { session: Session; token: JWT }) {
       if (token.sub && session.user) {

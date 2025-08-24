@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Button } from "../ui/button";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../ui/dropdown-menu";
 
 const jobTypes = [
   { label: "Remote", value: "remote" },
@@ -72,50 +71,20 @@ export function SearchPanel({ onSearch }: { onSearch?: (filters: SearchFilters) 
           />
         </div>
         <div className="flex-1">
-          <label className="block text-sm font-medium mb-1">Job Type</label>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="w-full border rounded px-3 py-2 text-left bg-white dark:bg-neutral-900"
-                id="job-type-dropdown-trigger"
-              >
-                {jobTypes.find(t => t.value === jobType)?.label || "Select Type"}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              style={{ width: 'var(--dropdown-trigger-width)' }}
-              className="!p-0"
-            >
-              <div
-                ref={el => {
-                  if (el) {
-                    const trigger = document.getElementById('job-type-dropdown-trigger');
-                    if (trigger) {
-                      el.style.width = `${trigger.offsetWidth}px`;
-                    }
-                  }
-                }}
-              >
-                <DropdownMenuItem
-                  onSelect={() => setJobType("")}
-                  className={jobType === "" ? "font-semibold" : ""}
-                >
-                  Select Type
-                </DropdownMenuItem>
-                {jobTypes.map(type => (
-                  <DropdownMenuItem
-                    key={type.value}
-                    onSelect={() => setJobType(type.value)}
-                    className={jobType === type.value ? "font-semibold" : ""}
-                  >
-                    {type.label}
-                  </DropdownMenuItem>
-                ))}
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <label htmlFor="job-type-select" className="block text-sm font-medium mb-1">Job Type</label>
+          <select
+            id="job-type-select"
+            className="w-full border rounded px-3 py-2"
+            value={jobType}
+            onChange={e => setJobType(e.target.value)}
+          >
+            <option value="">Select Type</option>
+            {jobTypes.map(type => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       <div className="flex justify-end">

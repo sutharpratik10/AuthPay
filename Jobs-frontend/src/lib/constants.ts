@@ -165,7 +165,7 @@ export const APP_CONFIG = {
           },
           {
             title: "Team",
-            description: "Meet the people behind RoleKit",
+            description: "Meet the people behind " + process.env.NEXT_PUBLIC_APP_NAME,
             href: "/about/team"
           },
           {

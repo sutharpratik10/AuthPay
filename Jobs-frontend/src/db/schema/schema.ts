@@ -8,6 +8,10 @@ export const subscriptionPlans = pgTable("subscription_plans", {
 	billingCycle: varchar('billing_cycle', { length: 20 }).notNull(), // monthly, yearly, etc.
 	features: varchar('features', { length: 1000 }), // JSON stringified list of features
 	isActive: boolean('is_active').default(true).notNull(),
+	// Razorpay integration fields (all nullable)
+	razorpaySubscriptionId: varchar('razorpay_subscription_id', { length: 100 }),
+	razorpaySubscriptionPlanId: varchar('razorpay_subscription_plan_id', { length: 100 }),
+	razorpaySubscriptionLink: varchar('razorpay_subscription_link', { length: 255 }),
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -430,12 +434,12 @@ export const paymentOrders = pgTable("payment_orders", {
 	provider: varchar('provider', { length: 50 }).notNull().default('internal'),
 	providerOrderId: varchar('provider_order_id', { length: 150 }),
 	providerTransactionId: varchar('provider_transaction_id', { length: 150 }),
-	// Amounts
-	amountMinor: integer('amount_minor').notNull(), // in paise
+	amountMinor: integer('amount_minor').notNull(), // in paisa
 	currency: varchar('currency', { length: 3 }).notNull().default('INR'),
-	purpose: varchar('purpose', { length: 50 }).notNull().default('subscription'),    status: varchar('status', { length: 20 }).notNull().default('created'), // created, pending, success, failed, expired
-	// Payment provider redirect/callback urls and data
-	redirectUrl: varchar('redirect_url', { length: 500 }),
+	purpose: varchar('purpose', { length: 50 }).notNull().default('subscription'),
+	status: varchar('status', { length: 20 }).notNull().default('created'), // created, pending, success, failed, expired
+	razorpaySubscriptionId: varchar('razorpay_subscription_id', { length: 100 }), // Razorpay subscription id (nullable)
+	redirectUrl: varchar('redirect_url', { length: 500 }), 	// Payment provider redirect/callback urls and data
 	callbackUrl: varchar('callback_url', { length: 500 }),
 	// Integrity fields
 	saltIndex: varchar('salt_index', { length: 10 }),

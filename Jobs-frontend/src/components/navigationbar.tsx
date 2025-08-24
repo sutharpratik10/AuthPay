@@ -36,11 +36,19 @@ export function Navigationbar() {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
   const sidebarRef = React.useRef<HTMLDivElement>(null)
-  
+  const [pathname, setPathname] = React.useState<string>("");
+
   // Check if user is authenticated and email is verified
   const isAuthenticated = status === "authenticated" && !!session?.user
   const isEmailVerified = session?.user?.isEmailVerified
   const user = session?.user
+
+  // Track current pathname for Home page check
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setPathname(window.location.pathname);
+    }
+  }, []);
 
   // Helper to get role name from user object (new schema: roleId is UUID, role name may be present)
 
@@ -121,10 +129,10 @@ export function Navigationbar() {
     if (!isAuthenticated) return;
     const roleName = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
     const desired = roleName === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
-    // If current path is auth page, push to desired dashboard
+    // If current path is an auth page (but NOT home), push to desired dashboard
     if (typeof window !== 'undefined') {
       const path = window.location.pathname
-      const isAuthPage = path.startsWith('/auth/') || path === '/'
+      const isAuthPage = path.startsWith('/auth/')
       if (isAuthPage) {
         router.replace(desired)
       }
@@ -157,6 +165,19 @@ export function Navigationbar() {
         {/* Desktop Navigation in the middle - hidden on mobile */}
         <NavigationMenu className="mx-auto hidden md:flex">
           <NavigationMenuList>
+            {/* User Dashboard link only for authenticated users and only on Home page */}
+            {isAuthenticated && pathname === "/" && (
+              <NavigationMenuItem>
+                <NavigationMenuLink className={navigationMenuTriggerStyle()} asChild>
+                  <Link href={(() => {
+                    const roleName = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
+                    return roleName === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
+                  })()}>
+                    Dashboard
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+            )}
             {navigationItems.map((item, index) => (
               hasHref(item) ? (
                 // Direct link, no dropdown

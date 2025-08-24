@@ -7,7 +7,7 @@ import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { User, Mail, Key, Trash2, Eye, EyeOff, X, Shield, CheckCircle } from "lucide-react"
+import { User, Mail, Key, Trash2, Upload, Eye, EyeOff, X, Shield, CheckCircle } from "lucide-react"
 import { DeleteAccountModal } from "@/components/DeleteAccountModal"
 import { calculatePasswordStrength, getPasswordStrengthWidth, type PasswordStrength } from "@/lib/password-strength"
 
@@ -646,7 +646,15 @@ export default function AccountPage() {
                 size="lg"
                 className="h-16 w-16"
               />
-              
+              <div>
+                <Button type="button" variant="outline" size="sm" className="flex items-center gap-2">
+                  <Upload className="w-4 h-4" />
+                  Change Avatar
+                </Button>
+                <p className="text-xs text-muted-foreground mt-1">
+                  JPG, GIF or PNG. 1MB max.
+                </p>
+              </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

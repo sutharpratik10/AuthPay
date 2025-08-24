@@ -20,12 +20,21 @@ export async function POST(request: NextRequest) {
       debug: clientInfo.debugInfo
     });
 
-    // Create session record
+    // Create or get session record
     const sessionRecord = await SessionService.createSession({
       userId: session.user.id,
       userAgent: clientInfo.userAgent,
       ipAddress: clientInfo.ipAddress,
     });
+
+    // If the session is expired, delete it and return error
+    if (new Date(sessionRecord.expiresAt) <= new Date()) {
+      await SessionService.invalidateSession(sessionRecord.token);
+      return NextResponse.json({
+        success: false,
+        message: 'Session has been expired. Please login again.'
+      }, { status: 401 });
+    }
 
     return NextResponse.json({
       success: true,

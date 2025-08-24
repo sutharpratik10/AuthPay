@@ -15,6 +15,27 @@
       "when": 1755279940685,
       "tag": "0001_odd_hawkeye",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1755891054097,
+      "tag": "0002_sloppy_vulcan",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1755924980506,
+      "tag": "0003_broken_piledriver",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1755925341218,
+      "tag": "0004_numerous_sauron",
+      "breakpoints": true
     }
   ]
 }

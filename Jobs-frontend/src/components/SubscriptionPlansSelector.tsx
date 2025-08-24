@@ -13,10 +13,7 @@ import {
   Zap,
   Star,
   ArrowRight,
-  CheckCircle,
   Sparkles,
-  Shield,
-  Users,
   Building,
 } from "lucide-react";
 
@@ -78,7 +75,7 @@ export default function SubscriptionPlansSelector({
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [selectedBillingCycle, setSelectedBillingCycle] =
-    useState<"monthly" | "yearly">("monthly");
+    useState<"monthly" | "yearly">("yearly");
   const { toast } = useToast();
 
   const isRazorpayLoaded = () =>
@@ -205,7 +202,7 @@ export default function SubscriptionPlansSelector({
 
             toast({
               title: "Payment successful",
-              description: `Your ${plan.name} subscription has been activated.`,
+              description: `Your ₹{plan.name} subscription has been activated.`,
             });
 
             onPlanSelected?.(plan.id);
@@ -290,7 +287,7 @@ export default function SubscriptionPlansSelector({
   }
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative ₹{className}`}>
       {/* Load Razorpay script lazily */}
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
@@ -302,23 +299,6 @@ export default function SubscriptionPlansSelector({
             <h2 className="text-3xl md:text-4xl font-bold text-foreground">
               Choose Your Plan
             </h2>
-            <p className="text-base text-muted-foreground">
-              Upgrade or downgrade at any time. No hidden fees.
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-muted-foreground mt-2">
-              <div className="flex items-center gap-1">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                14-day free trial
-              </div>
-              <div className="flex items-center gap-1">
-                <Shield className="h-4 w-4 text-blue-500" />
-                Cancel anytime
-              </div>
-              <div className="flex items-center gap-1">
-                <Users className="h-4 w-4 text-purple-500" />
-                24/7 support
-              </div>
-            </div>
           </div>
         )}
 
@@ -397,15 +377,20 @@ export default function SubscriptionPlansSelector({
                       <div className="space-y-1">
                         <div className="flex items-baseline justify-center gap-1">
                           <span className="text-3xl font-bold text-foreground">
-                            ${plan.priceNumber}
+                            ₹{monthlyEquivalent.toFixed(2)}/Mo
+                          </span>
+                        </div>
+                         <span className="text-sm text-muted-foreground">
+                           {isYearly ? "billed annually" : ""}
+                          </span>
+                        {isYearly && (
+                          <div className="text-xs text-green-600 dark:text-green-400">
+                            <span className=" font-bold text-foreground">
+                            ₹{plan.priceNumber}
                           </span>
                           <span className="text-base text-muted-foreground font-medium">
                             /{isYearly ? "year" : "month"}
                           </span>
-                        </div>
-                        {isYearly && (
-                          <div className="text-xs text-green-600 dark:text-green-400">
-                            ${monthlyEquivalent.toFixed(2)}/mo billed annually
                           </div>
                         )}
                       </div>

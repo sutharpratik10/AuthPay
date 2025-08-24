@@ -42,6 +42,9 @@ interface SubscriptionPlan {
   createdAt: string;
   updatedAt: string;
   userCountActive?: number;
+  razorpay_subscription_id?: string;
+  razorpay_subscription_plan_id?: string;
+  razorpay_subscription_link?: string;
 }
 
 interface CreatePlanData {
@@ -51,6 +54,9 @@ interface CreatePlanData {
   billingCycle: string;
   features: string[];
   isActive: boolean;
+  razorpay_subscription_id?: string;
+  razorpay_subscription_plan_id?: string;
+  razorpay_subscription_link?: string;
 }
 
 export default function AdminSubscriptionPlansPage() {
@@ -71,7 +77,10 @@ export default function AdminSubscriptionPlansPage() {
     price: '',
     billingCycle: 'monthly',
     features: [],
-    isActive: true
+    isActive: true,
+    razorpay_subscription_id: '',
+    razorpay_subscription_plan_id: '',
+    razorpay_subscription_link: '',
   });
 
   const [newFeature, setNewFeature] = useState('');
@@ -125,7 +134,10 @@ export default function AdminSubscriptionPlansPage() {
       price: '',
       billingCycle: 'monthly',
       features: [],
-      isActive: true
+      isActive: true,
+      razorpay_subscription_id: '',
+      razorpay_subscription_plan_id: '',
+      razorpay_subscription_link: '',
     });
     setNewFeature('');
   };
@@ -257,7 +269,10 @@ export default function AdminSubscriptionPlansPage() {
       price: plan.price,
       billingCycle: plan.billingCycle,
       features: features,
-      isActive: plan.isActive
+      isActive: plan.isActive,
+      razorpay_subscription_id: plan.razorpay_subscription_id || '',
+      razorpay_subscription_plan_id: plan.razorpay_subscription_plan_id || '',
+      razorpay_subscription_link: plan.razorpay_subscription_link || '',
     });
     setEditDialogOpen(true);
   };
@@ -356,6 +371,37 @@ export default function AdminSubscriptionPlansPage() {
                       onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
                       placeholder="e.g., $9.99, $29.99"
                       required
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="razorpay_subscription_id">Razorpay Subscription ID</Label>
+                    <Input
+                      id="razorpay_subscription_id"
+                      value={formData.razorpay_subscription_id}
+                      onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_id: e.target.value }))}
+                      placeholder="Enter Razorpay Subscription ID"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="razorpay_subscription_plan_id">Razorpay Subscription Plan ID</Label>
+                    <Input
+                      id="razorpay_subscription_plan_id"
+                      value={formData.razorpay_subscription_plan_id}
+                      onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_plan_id: e.target.value }))}
+                      placeholder="Enter Razorpay Subscription Plan ID"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="razorpay_subscription_link">Razorpay Subscription Link</Label>
+                    <Input
+                      id="razorpay_subscription_link"
+                      value={formData.razorpay_subscription_link}
+                      onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_link: e.target.value }))}
+                      placeholder="Enter Razorpay Subscription Link"
                     />
                   </div>
                 </div>
@@ -657,6 +703,37 @@ export default function AdminSubscriptionPlansPage() {
                     onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
                     placeholder="e.g., $9.99, $29.99"
                     required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-razorpay_subscription_id">Razorpay Subscription ID</Label>
+                  <Input
+                    id="edit-razorpay_subscription_id"
+                    value={formData.razorpay_subscription_id}
+                    onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_id: e.target.value }))}
+                    placeholder="Enter Razorpay Subscription ID"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-razorpay_subscription_plan_id">Razorpay Subscription Plan ID</Label>
+                  <Input
+                    id="edit-razorpay_subscription_plan_id"
+                    value={formData.razorpay_subscription_plan_id}
+                    onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_plan_id: e.target.value }))}
+                    placeholder="Enter Razorpay Subscription Plan ID"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-razorpay_subscription_link">Razorpay Subscription Link</Label>
+                  <Input
+                    id="edit-razorpay_subscription_link"
+                    value={formData.razorpay_subscription_link}
+                    onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_link: e.target.value }))}
+                    placeholder="Enter Razorpay Subscription Link"
                   />
                 </div>
               </div>
