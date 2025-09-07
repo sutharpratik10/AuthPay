@@ -192,7 +192,9 @@ export const roles = pgTable("roles", {
 	isSystemManaged: boolean('is_system_managed').default(false),
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+	unique("roles_name_key").on(t.name)
+]);
 
 export const rolePermissions = pgTable("role_permissions", {
   id: uuid('id').defaultRandom().primaryKey(),

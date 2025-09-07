@@ -60,16 +60,22 @@ export function ProtectedRoute({
 
   // Validate user exists in database when authenticated
   useEffect(() => {
-    let isMounted = true; // Prevent state updates if component unmounts
+    let isMounted = true;
     
     async function checkUserInDatabase() {
-      if (authState.isAuthenticated && authState.user?.id && !authState.loading) {
+      // Only validate once per session, not on every render
+      if (
+        authState.isAuthenticated && 
+        authState.user?.id && 
+        !authState.loading &&
+        userValidated === null // Only run if we haven't validated yet
+      ) {
         console.log('[PROTECTED_ROUTE] Validating user in database...');
         
         try {
           const { exists, shouldSignOut } = await validateUserInDatabase(authState.user.id);
           
-          if (!isMounted) return; // Component unmounted, don't update state
+          if (!isMounted) return;
           
           if (!exists) {
             console.log('[PROTECTED_ROUTE] User not found in database, clearing auth');
@@ -84,7 +90,6 @@ export function ProtectedRoute({
               }
             }
             
-            // Force reload to clear any cached state
             if (typeof window !== 'undefined') {
               window.location.href = '/auth/login';
             }
@@ -96,7 +101,6 @@ export function ProtectedRoute({
           console.log('[PROTECTED_ROUTE] User validation successful');
         } catch (error) {
           if (!isMounted) return;
-          
           console.error('[PROTECTED_ROUTE] User validation failed:', error);
           setValidationError('Unable to verify your account. Please try again.');
           setUserValidated(false);
@@ -115,7 +119,7 @@ export function ProtectedRoute({
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [authState.isAuthenticated, authState.user?.id, authState.loading, logout]);
+  }, [authState.isAuthenticated, authState.user?.id, authState.loading, logout, userValidated]);
 
   useEffect(() => {
     // Only process redirects when loading is complete and user is validated

@@ -1,6 +1,6 @@
 import { db } from '@/db';
 import { users, subscriptionPlans } from '@/db/schema';
-import { eq, count, sum } from 'drizzle-orm';
+import { eq, count, sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
@@ -9,12 +9,16 @@ export async function GET() {
     const activeUsersResult = await db.select({ count: count() }).from(users).where(eq(users.isActive, true));
     const activeUsers = Number(activeUsersResult[0]?.count ?? 0);
 
-    // Revenue: sum of all active subscription plans' price (fake, for demo)
+    // Revenue: sum of all active subscription plans' price (convert VARCHAR to numeric)
     const revenueResult = await db
-      .select({ total: sum(subscriptionPlans.price) })
+      .select({ 
+        total: sql<string>`COALESCE(SUM(CAST(REGEXP_REPLACE(${subscriptionPlans.price}, '[^0-9.]', '', 'g') AS DECIMAL)), 0)` 
+      })
       .from(subscriptionPlans)
       .where(eq(subscriptionPlans.isActive, true));
-    const revenue = revenueResult[0]?.total ? `$${revenueResult[0].total}` : '$0';
+    
+    const revenueValue = Number(revenueResult[0]?.total ?? 0);
+    const revenue = `$${revenueValue.toFixed(2)}`;
 
     // Errors: not implemented, return 0
     const errors24h = 0;

@@ -154,6 +154,7 @@ export const {
               console.error("Database error during OAuth account insert (new user):", dbErr);
               return "/auth/error?error=DatabaseUnavailable";
             }
+
             // Update the user object for the session
             user.id = newUserId;
             return true;

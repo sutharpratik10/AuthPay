@@ -103,12 +103,19 @@ async function seed() {
       await db.insert(roles).values(role).onConflictDoNothing();
     }
 
+
     // Get admin role id
     const adminRole = await db.query.roles.findFirst({ where: (roles, { eq }) => eq(roles.name, 'admin') });
     if (!adminRole) throw new Error('Admin role not found after insert!');
 
+    // Get user role id
+    const userRole = await db.query.roles.findFirst({ where: (roles, { eq }) => eq(roles.name, 'user') });
+    if (!userRole) throw new Error('User role not found after insert!');
+
     // Hash admin password
-    const hashedPassword = await bcrypt.hash('admin', 10);
+    const hashedAdminPassword = await bcrypt.hash('admin', 10);
+    // Hash user password
+    const hashedUserPassword = await bcrypt.hash('user', 10);
 
     // Insert admin user if not exist
     const adminEmail = 'admin@example.com';
@@ -116,7 +123,7 @@ async function seed() {
     if (!existingAdmin) {
       await db.insert(users).values({
         email: adminEmail,
-        password: hashedPassword,
+        password: hashedAdminPassword,
         name: 'Admin',
         isEmailVerified: true,
         isActive: true,
@@ -125,6 +132,23 @@ async function seed() {
       console.log('✅ Admin user created');
     } else {
       console.log('ℹ️ Admin user already exists');
+    }
+
+    // Insert regular user if not exist
+    const userEmail = 'user@example.com';
+    const existingUser = await db.query.users.findFirst({ where: (users, { eq }) => eq(users.email, userEmail) });
+    if (!existingUser) {
+      await db.insert(users).values({
+        email: userEmail,
+        password: hashedUserPassword,
+        name: 'User',
+        isEmailVerified: true,
+        isActive: true,
+        roleId: userRole.id,
+      });
+      console.log('✅ User user@example.com created');
+    } else {
+      console.log('ℹ️ User user@example.com already exists');
     }
 
     // Insert subscription renewal options

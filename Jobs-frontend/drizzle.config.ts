@@ -1,7 +1,6 @@
 import type { Config } from "drizzle-kit";
 import * as dotenv from "dotenv";
-import fs from "fs";
-import path from "path";
+import { getDrizzleSSLConfig } from "./src/db/ssl-config";
 
 dotenv.config();
 
@@ -10,18 +9,14 @@ if (!process.env.DATABASE_URL) {
 }
 const u = new URL(process.env.DATABASE_URL);
 
-let ssl: boolean | { ca: string; rejectUnauthorized: boolean } = false;
+// Get SSL configuration using shared utility
+const ssl = getDrizzleSSLConfig();
 
-if (process.env.DB_USE_CA === "true" && process.env.DB_CERT_PATH) {
-  const caPath = path.resolve(process.env.DB_CERT_PATH);
-  if (fs.existsSync(caPath)) {
-    ssl = {
-      ca: fs.readFileSync(caPath, "utf8"),
-      rejectUnauthorized: true,
-    };
-  }
-} else if (process.env.DB_REQUIRE_SSL === "true") {
-  ssl = true;
+// Debug logging for SSL configuration (only in development)
+if (process.env.NODE_ENV === "development" || process.env.DEBUG_DB === "true") {
+  const sslMode = u.searchParams.get("sslmode") || process.env.DB_SSLMODE || "prefer";
+  console.log(`[Drizzle Config] SSL Mode: ${sslMode}`);
+  console.log(`[Drizzle Config] SSL Config:`, typeof ssl === "boolean" ? ssl : { ...ssl, ca: ssl.ca ? "[CERTIFICATE LOADED]" : undefined });
 }
 
 export default {

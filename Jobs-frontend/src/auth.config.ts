@@ -9,6 +9,7 @@ import bcrypt from "bcryptjs";
 
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
+import { SessionService } from "@/services/session";
 
 const authConfig: NextAuthConfig = {
   providers: [
@@ -67,13 +68,27 @@ const authConfig: NextAuthConfig = {
 
             if (!isPasswordValid) {
               return null;
-            }            // Check if user has 2FA enabled
+            }
+
+            // Check if user has 2FA enabled
             const has2FA = user.userPreferences?.twoFactorAuth === true;
             if (has2FA) {
               // Return null to indicate failed authentication (2FA required)
               // The frontend will handle checking 2FA status and redirecting
               return null;
             }
+          }
+
+          // Create a session record for tracking
+          try {
+            await SessionService.createSession({
+              userId: user.id,
+              userAgent: "NextAuth Session", // You could pass actual user agent here
+              ipAddress: undefined, // You could pass actual IP here
+            });
+          } catch (sessionError) {
+            console.error("Failed to create session record:", sessionError);
+            // Don't fail authentication just because session creation failed
           }
 
           return {

@@ -7,6 +7,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { SessionProvider, useSession } from "next-auth/react";
 import { Footer } from "@/components/footer"; // Import the Footer component
 import { Toaster } from "@/components/ui/toaster";
+import { useOAuthSessionTracking } from "@/hooks/use-oauth-session-tracking";
 
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -20,6 +21,9 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
 function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
+  
+  // Track OAuth sessions on the client-side for proper IP/User-Agent capture
+  useOAuthSessionTracking();
 
   // Global error handler for unhandled promise rejections
   useEffect(() => {

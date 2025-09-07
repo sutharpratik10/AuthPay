@@ -60,7 +60,7 @@ export class AuthService {
           id: newUser.id,
           email: newUser.email,
           name: newUser.name,
-          isEmailVerified: newUser.isEmailVerified,
+          isEmailVerified: newUser.isEmailVerified ?? false,
         },
       };
     } catch (error: unknown) {

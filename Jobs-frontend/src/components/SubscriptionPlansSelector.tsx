@@ -202,7 +202,7 @@ export default function SubscriptionPlansSelector({
 
             toast({
               title: "Payment successful",
-              description: `Your ₹{plan.name} subscription has been activated.`,
+              description: `Your ${plan.name} subscription has been activated.`,
             });
 
             onPlanSelected?.(plan.id);
@@ -412,14 +412,21 @@ export default function SubscriptionPlansSelector({
                       </ul>
                       <Button
                         className={`w-full py-3 text-base font-medium rounded-lg mt-2 transition-all duration-200 ${
-                          colorScheme.popular
+                          plan.priceNumber === 0
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 cursor-not-allowed"
+                            : colorScheme.popular
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted text-foreground hover:bg-muted/80"
                         } ${isPurchasing ? "opacity-70" : ""}`}
                         onClick={() => handlePurchasePlan(plan.id)}
-                        disabled={isPurchasing}
+                        disabled={isPurchasing || plan.priceNumber === 0}
                       >
-                        {isPurchasing ? (
+                        {plan.priceNumber === 0 ? (
+                          <>
+                            <Check className="h-4 w-4 mr-1" />
+                            Current Plan
+                          </>
+                        ) : isPurchasing ? (
                           <>
                             <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white mr-2" />
                             Activating...

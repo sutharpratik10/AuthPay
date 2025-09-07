@@ -4,8 +4,7 @@ import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { redirect } from "next/navigation"
 import SubscriptionDashboard from "@/components/SubscriptionDashboard"
-import SearchPanel from "@/components/JobSearch/SearchPanel"
-import JobList from "@/components/JobSearch/JobList"
+import JobSearchContainer from "@/components/JobSearch/JobSearchContainer"
 
 interface UserSubscriptionStatus {
   hasSubscription: boolean;
@@ -81,10 +80,7 @@ export default function UserDashboardPage() {
 
       {isActiveSub && (
         <div>
-          <>
-            <SearchPanel />
-            <JobList />
-          </>
+          <JobSearchContainer />
         </div>
       )}
     </div>

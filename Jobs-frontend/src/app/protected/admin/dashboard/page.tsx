@@ -25,18 +25,36 @@ export default function AdminDashboardPage() {
   const [adminName, setAdminName] = useState("admin")
   const [loading, setLoading] = useState(true)
 
-  // demo stats; wire to DB later
   const [stats, setStats] = useState({
     activeUsers: 0,
     revenue: "$0",
     errors24h: 0,
   })
 
+  // Add state to track if stats were already fetched
+  const [statsFetched, setStatsFetched] = useState(false)
+
+  // Function to refresh stats manually
+  const refreshStats = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/dashboard-stats');
+      const data = await res.json();
+      if (data.success) {
+        setStats(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to refresh dashboard stats:', error);
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       redirect(ROUTES.AUTH.LOGIN)
     }
-    if (status === 'authenticated') {
+    if (status === 'authenticated' && !statsFetched) {
       setAdminName(session?.user?.name || 'admin')
 
       ;(async () => {
@@ -45,13 +63,16 @@ export default function AdminDashboardPage() {
           const data = await res.json();
           if (data.success) {
             setStats(data.data);
+            setStatsFetched(true); // Mark as fetched to prevent re-fetching
           }
+        } catch (error) {
+          console.error('Failed to fetch dashboard stats:', error);
         } finally {
           setLoading(false)
         }
       })()
     }
-  }, [status, session])
+  }, [status, session, statsFetched])
 
   if (loading) {
     return (
@@ -78,7 +99,9 @@ export default function AdminDashboardPage() {
           <p className="text-muted-foreground text-sm sm:text-base">Welcome back, {adminName}. Here is the system overview.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">Refresh</Button>
+          <Button variant="outline" onClick={refreshStats} disabled={loading}>
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </Button>
           <Button>New Announcement</Button>
         </div>
       </div>

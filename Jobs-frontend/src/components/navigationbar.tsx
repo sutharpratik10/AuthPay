@@ -2,13 +2,13 @@
 import * as React from "react"
 import Link from "next/link"
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/constants"
 import { getRoleName } from "@/lib/role-utils"
 import { getAppName } from "@/lib/config"
 import type { NavigationItem, NavigationSubItem } from "@/lib/constants" 
-import { Menu, X, ChevronRight, User, Settings, LogOut, Shield } from "lucide-react"
+import { Menu, X, ChevronRight, User, Settings, LogOut, Shield, LayoutDashboard } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { signOut } from "next-auth/react"
 import { ROUTES } from "@/routes/routeUtils"
@@ -33,22 +33,15 @@ import { UserProfileDropdown } from "@/components/UserProfileDropdown"
 export function Navigationbar() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
   const sidebarRef = React.useRef<HTMLDivElement>(null)
-  const [pathname, setPathname] = React.useState<string>("");
 
   // Check if user is authenticated and email is verified
   const isAuthenticated = status === "authenticated" && !!session?.user
   const isEmailVerified = session?.user?.isEmailVerified
   const user = session?.user
-
-  // Track current pathname for Home page check
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setPathname(window.location.pathname);
-    }
-  }, []);
 
   // Helper to get role name from user object (new schema: roleId is UUID, role name may be present)
 
@@ -365,7 +358,25 @@ export function Navigationbar() {
             {/* Authentication and user actions - always show auth buttons first */}
             <div className="px-3 mt-6 pt-4 border-t border-border/20">
               {mounted && isAuthenticated ? (
-                <div className="space-y-2">                  <Link 
+                <div className="space-y-2">
+                  {/* Dashboard link for authenticated users - only on home page */}
+                  {pathname === "/" && (
+                    <Link 
+                      href={(() => {
+                        const roleName = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
+                        return roleName === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
+                      })()} 
+                      onClick={closeMenu}
+                      className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-muted/60 dark:hover:bg-slate-800/60 transition-all duration-200 group text-foreground"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <LayoutDashboard className="w-4 h-4 text-muted-foreground" />
+                        <span>Dashboard</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-muted-foreground" />
+                    </Link>
+                  )}
+                  <Link 
                     href="/profile" 
                     onClick={closeMenu}
                     className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-muted/60 dark:hover:bg-slate-800/60 transition-all duration-200 group text-foreground"

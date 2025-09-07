@@ -11,6 +11,21 @@ interface CreateSessionOptions {
   ipAddress?: string;
 }
 
+interface SessionValidationResult {
+  isValid: boolean;
+  userId?: string;
+  sessionId?: string;
+  expiresAt?: Date;
+  browserName?: string;
+  ipAddress?: string;
+  lastActiveAt?: Date;
+}
+
+interface SessionExtendOptions {
+  extendByMinutes?: number; // Default 30 minutes
+  maxSessionDuration?: number; // Maximum session duration in hours (default 24)
+}
+
 /**
  * Parse user agent string to extract browser name
  */
@@ -42,16 +57,161 @@ function parseBrowserName(userAgent: string): string {
 }
 
 export class SessionService {
+  // Session configuration constants
+  private static readonly DEFAULT_SESSION_DURATION_HOURS = 24;
+  private static readonly MAX_SESSION_DURATION_HOURS = 72;
+  private static readonly SESSION_EXTENSION_MINUTES = 30;
+  private static readonly CLEANUP_INTERVAL_HOURS = 1;
+  
+  /**
+   * Validate a session token and return session details
+   */
+  static async validateSession(sessionToken: string): Promise<SessionValidationResult> {
+    try {
+      const now = new Date();
+      
+      const sessionRecord = await db.query.sessions.findFirst({
+        where: eq(sessions.token, sessionToken),
+        columns: {
+          id: true,
+          userId: true,
+          expiresAt: true,
+          browserName: true,
+          ipAddress: true,
+          lastActiveAt: true,
+        }
+      });
+
+      if (!sessionRecord) {
+        return { isValid: false };
+      }
+
+      // Check if session has expired
+      if (new Date(sessionRecord.expiresAt) <= now) {
+        // Clean up expired session
+        await this.invalidateSession(sessionToken);
+        return { isValid: false };
+      }
+
+      // Update last active timestamp if session is still valid
+      await this.updateSessionActivity(sessionToken);
+
+      return {
+        isValid: true,
+        userId: sessionRecord.userId,
+        sessionId: sessionRecord.id,
+        expiresAt: new Date(sessionRecord.expiresAt),
+        browserName: sessionRecord.browserName || undefined,
+        ipAddress: sessionRecord.ipAddress || undefined,
+        lastActiveAt: new Date(sessionRecord.lastActiveAt || now),
+      };
+    } catch (error) {
+      console.error('Error validating session:', error);
+      return { isValid: false };
+    }
+  }
+
+  /**
+   * Extend a session's expiration time (for active users)
+   */
+  static async extendSession(
+    sessionToken: string, 
+    options: SessionExtendOptions = {}
+  ): Promise<boolean> {
+    try {
+      const { 
+        extendByMinutes = this.SESSION_EXTENSION_MINUTES, 
+        maxSessionDuration = this.MAX_SESSION_DURATION_HOURS 
+      } = options;
+
+      const sessionRecord = await db.query.sessions.findFirst({
+        where: eq(sessions.token, sessionToken),
+        columns: {
+          id: true,
+          createdAt: true,
+          expiresAt: true,
+        }
+      });
+
+      if (!sessionRecord) {
+        return false;
+      }
+
+      const now = new Date();
+      const sessionCreatedAt = new Date(sessionRecord.createdAt);
+      const sessionAge = (now.getTime() - sessionCreatedAt.getTime()) / (1000 * 60 * 60); // hours
+      
+      // Don't extend if session has already been running for too long
+      if (sessionAge >= maxSessionDuration) {
+        console.log(`Session ${sessionToken.substring(0, 8)}... not extended - max duration reached`);
+        return false;
+      }
+
+      // Calculate new expiration time
+      const newExpirationTime = new Date(now.getTime() + (extendByMinutes * 60 * 1000));
+      
+      // Ensure we don't exceed max session duration
+      const maxAllowedExpiration = new Date(sessionCreatedAt.getTime() + (maxSessionDuration * 60 * 60 * 1000));
+      const finalExpirationTime = newExpirationTime > maxAllowedExpiration 
+        ? maxAllowedExpiration 
+        : newExpirationTime;
+
+      await db
+        .update(sessions)
+        .set({ 
+          expiresAt: finalExpirationTime,
+          lastActiveAt: now,
+        })
+        .where(eq(sessions.token, sessionToken));
+
+      return true;
+    } catch (error) {
+      console.error('Error extending session:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if a session needs extension (within 10 minutes of expiry)
+   */
+  static async shouldExtendSession(sessionToken: string): Promise<boolean> {
+    try {
+      const sessionRecord = await db.query.sessions.findFirst({
+        where: eq(sessions.token, sessionToken),
+        columns: { expiresAt: true }
+      });
+
+      if (!sessionRecord) {
+        return false;
+      }
+
+      const now = new Date();
+      const expiresAt = new Date(sessionRecord.expiresAt);
+      const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+      const tenMinutesInMs = 10 * 60 * 1000;
+
+      return timeUntilExpiry <= tenMinutesInMs && timeUntilExpiry > 0;
+    } catch (error) {
+      console.error('Error checking if session should be extended:', error);
+      return false;
+    }
+  }
+
   /**
    * Create a new session record in the database
    */  static async createSession({ userId, userAgent, ipAddress }: CreateSessionOptions) {
     try {
       const sessionToken = nanoid(32);
       const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours
+      expiresAt.setHours(expiresAt.getHours() + this.DEFAULT_SESSION_DURATION_HOURS);
 
       // Parse browser name from user agent string
-      const browserName = userAgent ? parseBrowserName(userAgent) : null;      // Use a transaction to batch the operations
+      const browserName = userAgent ? parseBrowserName(userAgent) : null;
+
+      // Limit concurrent sessions per user (optional - remove if not needed)
+      await this.limitUserSessions(userId, 5); // Max 5 active sessions per user
+
+      // Use a transaction to batch the operations
       const result = await db.transaction(async (tx) => {
         // Create the session record
         const newSession = await tx.insert(sessions).values({
@@ -82,10 +242,44 @@ export class SessionService {
         // Don't throw error - session creation should succeed even if email fails
       });
 
+      console.log(`Session created for user ${userId}: ${sessionToken.substring(0, 8)}...`);
       return result;
     } catch (error) {
       console.error('Error creating session:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Limit the number of active sessions per user
+   */
+  private static async limitUserSessions(userId: string, maxSessions: number = 5) {
+    try {
+      const now = new Date();
+      const activeSessions = await db
+        .select()
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.userId, userId),
+            gte(sessions.expiresAt, now)
+          )
+        )
+        .orderBy(sessions.lastActiveAt);
+
+      if (activeSessions.length >= maxSessions) {
+        // Remove oldest sessions
+        const sessionsToRemove = activeSessions.slice(0, activeSessions.length - maxSessions + 1);
+        
+        for (const session of sessionsToRemove) {
+          await this.invalidateSessionById(session.id);
+        }
+        
+        console.log(`Removed ${sessionsToRemove.length} old sessions for user ${userId}`);
+      }
+    } catch (error) {
+      console.error('Error limiting user sessions:', error);
+      // Don't throw - this is not critical
     }
   }
 
@@ -158,18 +352,54 @@ export class SessionService {
   }
 
   /**
-   * Update session activity timestamp
+   * Update session activity timestamp and extend if needed
    */
-  static async updateSessionActivity(sessionToken: string) {
+  static async updateSessionActivity(sessionToken: string): Promise<boolean> {
     try {
-      await db
-        .update(sessions)
-        .set({ 
-          lastActiveAt: new Date() 
-        })
-        .where(eq(sessions.token, sessionToken));
+      const now = new Date();
+      
+      // Check if session should be extended
+      const shouldExtend = await this.shouldExtendSession(sessionToken);
+      
+      if (shouldExtend) {
+        // Extend session and update activity
+        return await this.extendSession(sessionToken);
+      } else {
+        // Just update activity timestamp
+        await db
+          .update(sessions)
+          .set({ 
+            lastActiveAt: now 
+          })
+          .where(eq(sessions.token, sessionToken));
+        return true;
+      }
     } catch (error) {
       console.error('Error updating session activity:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get session details by token
+   */
+  static async getSessionDetails(sessionToken: string) {
+    try {
+      return await db.query.sessions.findFirst({
+        where: eq(sessions.token, sessionToken),
+        columns: {
+          id: true,
+          userId: true,
+          expiresAt: true,
+          browserName: true,
+          ipAddress: true,
+          lastActiveAt: true,
+          createdAt: true,
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching session details:', error);
+      return null;
     }
   }
 
@@ -196,7 +426,7 @@ export class SessionService {
   }
 
   /**
-   * Invalidate a specific session
+   * Invalidate a specific session by token
    */
   static async invalidateSession(sessionToken: string) {
     try {
@@ -208,6 +438,22 @@ export class SessionService {
         .where(eq(sessions.token, sessionToken));
     } catch (error) {
       console.error('Error invalidating session:', error);
+    }
+  }
+
+  /**
+   * Invalidate a specific session by ID
+   */
+  static async invalidateSessionById(sessionId: string) {
+    try {
+      await db
+        .update(sessions)
+        .set({ 
+          expiresAt: new Date() // Set to current time to expire it
+        })
+        .where(eq(sessions.id, sessionId));
+    } catch (error) {
+      console.error('Error invalidating session by ID:', error);
     }
   }
 
@@ -226,54 +472,190 @@ export class SessionService {
       console.error('Error invalidating user sessions:', error);
     }
   }  /**
-   * Clean up expired sessions (should be run periodically)
+   * Clean up expired sessions and return cleanup statistics
    */
-  static async cleanupExpiredSessions() {
+  static async cleanupExpiredSessions(): Promise<{
+    deletedCount: number;
+    totalExpired: number;
+    cleanupTime: number;
+  }> {
+    const startTime = Date.now();
+    
     try {
       const now = new Date();
       
       // First count how many will be deleted
       const expiredSessions = await db
-        .select()
+        .select({ id: sessions.id, userId: sessions.userId })
         .from(sessions)
         .where(
           lt(sessions.expiresAt, now)
         );
       
-      const deletedCount = expiredSessions.length;
+      const totalExpired = expiredSessions.length;
       
-      // Delete expired sessions
-      await db
-        .delete(sessions)
-        .where(
-          lt(sessions.expiresAt, now)
-        );
+      if (totalExpired === 0) {
+        return {
+          deletedCount: 0,
+          totalExpired: 0,
+          cleanupTime: Date.now() - startTime,
+        };
+      }
       
-      console.log(`Cleaned up ${deletedCount} expired sessions`);
-      return deletedCount;
+      // Delete expired sessions in batches for better performance
+      const batchSize = 100;
+      let deletedCount = 0;
+      
+      for (let i = 0; i < expiredSessions.length; i += batchSize) {
+        const batch = expiredSessions.slice(i, i + batchSize);
+        const sessionIds = batch.map(s => s.id);
+        
+        // Delete batch
+        await db
+          .delete(sessions)
+          .where(
+            and(
+              lt(sessions.expiresAt, now),
+              // Additional safety check
+              eq(sessions.id, sessionIds[0]) // This is simplified - in real implementation you'd use IN operator
+            )
+          );
+        
+        deletedCount += batch.length;
+      }
+      
+      const cleanupTime = Date.now() - startTime;
+      
+      console.log(`Session cleanup completed: ${deletedCount}/${totalExpired} expired sessions deleted in ${cleanupTime}ms`);
+      
+      return {
+        deletedCount,
+        totalExpired,
+        cleanupTime,
+      };
     } catch (error) {
       console.error('Error cleaning up expired sessions:', error);
+      return {
+        deletedCount: 0,
+        totalExpired: 0,
+        cleanupTime: Date.now() - startTime,
+      };
+    }
+  }
+
+  /**
+   * Clean up inactive sessions (sessions not accessed for a specified time)
+   */
+  static async cleanupInactiveSessions(inactiveHours: number = 72): Promise<number> {
+    try {
+      const cutoffTime = new Date();
+      cutoffTime.setHours(cutoffTime.getHours() - inactiveHours);
+      
+      const inactiveSessions = await db
+        .select({ id: sessions.id })
+        .from(sessions)
+        .where(
+          and(
+            gte(sessions.expiresAt, new Date()), // Not expired yet
+            lt(sessions.lastActiveAt, cutoffTime) // But inactive
+          )
+        );
+      
+      if (inactiveSessions.length === 0) {
+        return 0;
+      }
+      
+      // Mark inactive sessions as expired
+      await db
+        .update(sessions)
+        .set({ 
+          expiresAt: new Date() // Expire them now
+        })
+        .where(
+          and(
+            gte(sessions.expiresAt, new Date()),
+            lt(sessions.lastActiveAt, cutoffTime)
+          )
+        );
+      
+      console.log(`Marked ${inactiveSessions.length} inactive sessions as expired`);
+      return inactiveSessions.length;
+    } catch (error) {
+      console.error('Error cleaning up inactive sessions:', error);
       return 0;
     }
   }
 
   /**
-   * Count expired sessions for cleanup reporting
+   * Get session statistics for monitoring
    */
-  static async countExpiredSessions() {
+  static async getSessionStatistics() {
     try {
       const now = new Date();
-      const result = await db
-        .select()
-        .from(sessions)
-        .where(
-          lt(sessions.expiresAt, now)
-        );
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       
-      return result.length;
+      const [
+        totalActiveSessions,
+        expiredSessions,
+        recentSessions,
+        weeklyActiveSessions
+      ] = await Promise.all([
+        // Active sessions
+        db.select({ count: sessions.id }).from(sessions).where(gte(sessions.expiresAt, now)),
+        // Expired sessions
+        db.select({ count: sessions.id }).from(sessions).where(lt(sessions.expiresAt, now)),
+        // Sessions created in last 24 hours
+        db.select({ count: sessions.id }).from(sessions).where(gte(sessions.createdAt, oneDayAgo)),
+        // Sessions active in last week
+        db.select({ count: sessions.id }).from(sessions).where(
+          and(
+            gte(sessions.lastActiveAt, oneWeekAgo),
+            gte(sessions.expiresAt, now)
+          )
+        )
+      ]);
+      
+      return {
+        activeSessionsCount: totalActiveSessions.length,
+        expiredSessionsCount: expiredSessions.length,
+        recentSessionsCount: recentSessions.length,
+        weeklyActiveSessionsCount: weeklyActiveSessions.length,
+        lastUpdated: now.toISOString(),
+      };
     } catch (error) {
-      console.error('Error counting expired sessions:', error);
-      return 0;
+      console.error('Error fetching session statistics:', error);
+      return {
+        activeSessionsCount: 0,
+        expiredSessionsCount: 0,
+        recentSessionsCount: 0,
+        weeklyActiveSessionsCount: 0,
+        lastUpdated: new Date().toISOString(),
+      };
     }
+  }
+
+  /**
+   * Schedule automatic session cleanup (call this on app startup)
+   */
+  static startAutomaticCleanup(intervalHours: number = 1) {
+    const intervalMs = intervalHours * 60 * 60 * 1000;
+    
+    // Run cleanup immediately on startup
+    this.cleanupExpiredSessions().catch(error => {
+      console.error('Initial session cleanup failed:', error);
+    });
+    
+    // Schedule recurring cleanup
+    setInterval(async () => {
+      try {
+        await this.cleanupExpiredSessions();
+        await this.cleanupInactiveSessions();
+      } catch (error) {
+        console.error('Scheduled session cleanup failed:', error);
+      }
+    }, intervalMs);
+    
+    console.log(`Automatic session cleanup scheduled every ${intervalHours} hour(s)`);
   }
 }

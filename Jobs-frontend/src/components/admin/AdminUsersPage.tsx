@@ -343,6 +343,17 @@ export default function AdminUsersPage() {
   const deleteUser = async () => {
     if (!selectedUser) return;
 
+    // Additional check to prevent self-deletion
+    if (selectedUser.id === currentUserId) {
+      toast({
+        title: 'Action not allowed',
+        description: 'You cannot delete your own account',
+        variant: 'destructive',
+      });
+      setIsDeleteDialogOpen(false);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
         method: 'DELETE',
@@ -420,6 +431,15 @@ export default function AdminUsersPage() {
 
   // Open delete dialog
   const openDeleteDialog = (user: User) => {
+    // Prevent opening delete dialog for current user
+    if (user.id === currentUserId) {
+      toast({
+        title: 'Action not allowed',
+        description: 'You cannot delete your own account',
+        variant: 'destructive',
+      });
+      return;
+    }
     setSelectedUser(user);
     setIsDeleteDialogOpen(true);
   };
@@ -714,6 +734,9 @@ export default function AdminUsersPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => openDeleteDialog(user)}
+                            disabled={user.id === currentUserId}
+                            title={user.id === currentUserId ? "You cannot delete your own account" : "Delete user"}
+                            className={user.id === currentUserId ? "cursor-not-allowed" : "cursor-not-allowed"}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -845,7 +868,10 @@ export default function AdminUsersPage() {
           <DialogHeader>
             <DialogTitle>Delete User</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this user? This action cannot be undone.
+              {selectedUser?.id === currentUserId 
+                ? "You cannot delete your own account."
+                : "Are you sure you want to delete this user? This action cannot be undone."
+              }
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
@@ -854,6 +880,12 @@ export default function AdminUsersPage() {
                 <div className="font-medium">{selectedUser.name || 'No name'}</div>
                 <div className="text-sm text-gray-500">{selectedUser.email}</div>
                 <div className="text-sm text-gray-500">Role: {selectedUser.role}</div>
+                {selectedUser.id === currentUserId && (
+                  <div className="mt-2 p-2 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-sm rounded flex items-center">
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    This is your current account
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -861,7 +893,11 @@ export default function AdminUsersPage() {
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={deleteUser}>
+            <Button 
+              variant="destructive" 
+              onClick={deleteUser}
+              disabled={selectedUser?.id === currentUserId}
+            >
               Delete User
             </Button>
           </DialogFooter>
