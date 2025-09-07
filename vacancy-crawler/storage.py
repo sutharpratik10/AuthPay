@@ -145,9 +145,15 @@ if _motor_available and STORAGE_BACKEND == "mongo":
         store.backend = "mongo"
         store.jobs = _MongoCollection(_mongo_db.jobs)
         store.tenants = _MongoCollection(_mongo_db.tenants)
-    except NameError:
+        store.api = _MongoCollection(_mongo_db.api)
+    except Exception:
         _mongo_client = None
         _mongo_db = None
+        store = Store()
+        store.backend = "memory"
+        store.jobs = _InMemoryCollection("jobs")
+        store.tenants = _InMemoryCollection("tenants")
+        store.api = _InMemoryCollection("api")
         store = Store()
         store.backend = "memory"
         store.jobs = _InMemoryCollection("jobs")
@@ -159,6 +165,7 @@ else:
     store.backend = "memory"
     store.jobs = _InMemoryCollection("jobs")
     store.tenants = _InMemoryCollection("tenants")
+    store.api = _InMemoryCollection("api")
 
 # --- Helpers exposed to other modules ---
 
@@ -176,3 +183,7 @@ def ensure_api_collection_on_store():
     else:
         if not hasattr(store, "api"):
             store.api = _InMemoryCollection("api")  # type: ignore[attr-defined]
+
+
+# Call ensure API collection on startup
+ensure_api_collection_on_store()
