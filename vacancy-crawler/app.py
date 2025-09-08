@@ -11,7 +11,7 @@ from models import Tenant, NormalizedJob
 from fetchers import VENDORS
 from storage import store
 from jobs_service import upsert_job, close_stale_jobs, purge_closed_older_than
-from catalog_simple import router as catalog_router
+from catalog import router as catalog_router
 from selftest import run_self_tests
 from utils import can_bind_uvicorn, run_coro_safely
 
@@ -121,7 +121,7 @@ async def list_jobs(
 async def get_job(job_uid: str):
     doc = await store.jobs.find_one({"job_uid": job_uid}, {"_id": 0})
     if not doc: 
-        raise HTTPException(404, detail="job not found")
+        raise HTTPException(404, detail="Job not found")
     return doc
 
 

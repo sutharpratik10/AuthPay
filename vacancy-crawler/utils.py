@@ -42,7 +42,7 @@ def normalize_ts(value: Any) -> Optional[datetime]:
 _GetClient = Callable[[], httpx.AsyncClient]
 
 
-def make_client(transport: Optional[httpx.BaseTransport] = None) -> httpx.AsyncClient:
+def make_client(transport: Optional[httpx.AsyncBaseTransport] = None) -> httpx.AsyncClient:
     return httpx.AsyncClient(
         timeout=DEFAULT_TIMEOUT,
         headers={"User-Agent": USER_AGENT},
