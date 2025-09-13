@@ -1,5 +1,4 @@
-"use client"
-
+"use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,13 +22,29 @@ import {
   Edit, 
   Trash2, 
   Search,
-  DollarSign,
   Calendar,
   CheckCircle,
   XCircle,
   Package,
   Users
 } from 'lucide-react';
+
+// Razorpay Plan Types
+interface RazorpayPlan {
+  id: string;
+  period: string;
+  interval: number;
+  item: {
+    id: string;
+    name: string;
+    description: string | null;
+    amount: number;
+    currency: string;
+    active: boolean;
+  };
+  notes?: Record<string, string>;
+  created_at: number;
+}
 
 interface SubscriptionPlan {
   id: string;
@@ -60,6 +75,34 @@ interface CreatePlanData {
 }
 
 export default function AdminSubscriptionPlansPage() {
+  // Razorpay plans state
+  const [razorpayPlans, setRazorpayPlans] = useState<RazorpayPlan[]>([]);
+  const [razorpayLoading, setRazorpayLoading] = useState(false);
+  const [razorpayError, setRazorpayError] = useState<string | null>(null);
+
+  // Fetch Razorpay plans
+  const loadRazorpayPlans = useCallback(async () => {
+    setRazorpayLoading(true);
+    setRazorpayError(null);
+    try {
+      const response = await fetch('/api/payments/razorpay-plans?count=100');
+      const data = await response.json();
+      if (data.success && Array.isArray(data.items)) {
+        setRazorpayPlans(data.items);
+      } else {
+        setRazorpayError(data.error || 'Failed to fetch Razorpay plans');
+      }
+    } catch (err) {
+      setRazorpayError((err as Error).message || 'Failed to fetch Razorpay plans');
+    } finally {
+      setRazorpayLoading(false);
+    }
+  }, []);
+
+  // Load Razorpay plans on mount
+  useEffect(() => {
+    loadRazorpayPlans();
+  }, [loadRazorpayPlans]);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
@@ -555,10 +598,10 @@ export default function AdminSubscriptionPlansPage() {
         </CardContent>
       </Card>
 
-      {/* Plans Table */}
+      {/* One manual Time Payment Plans Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Subscription Plans ({filteredPlans.length})</CardTitle>
+          <CardTitle>Manual Payment Plans ({filteredPlans.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -599,7 +642,7 @@ export default function AdminSubscriptionPlansPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center">
-                          <DollarSign className="h-4 w-4 text-green-600 mr-1" />
+                          <span className="text-green-600 font-bold mr-1">₹</span>
                           <span className="font-medium">{plan.price}</span>
                         </div>
                       </TableCell>
@@ -674,7 +717,83 @@ export default function AdminSubscriptionPlansPage() {
             </Table>
           </div>
         </CardContent>
-      </Card>      
+      </Card>
+
+      {/*Razor Auto Pay Auto Subscription Plan*/}
+      <Card>
+        <CardHeader>
+          <CardTitle>Razor Auto Pay Auto Subscription Plans</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {razorpayLoading ? (
+            <div className="flex items-center justify-center min-h-32">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+              <span className="text-muted-foreground ml-2">Loading Razorpay plans...</span>
+            </div>
+          ) : razorpayError ? (
+            <div className="text-red-600">{razorpayError}</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Plan Name</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Currency</TableHead>
+                    <TableHead>Interval</TableHead>
+                    <TableHead>Period</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Description</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {razorpayPlans.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        No Razorpay plans found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    razorpayPlans.map((plan) => (
+                      <TableRow key={plan.id}>
+                        <TableCell>{plan.item.name}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <span className="text-green-600 font-bold mr-1">₹</span>
+                            <span className="font-medium">{(plan.item.amount / 100).toFixed(2)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{plan.item.currency}</TableCell>
+                        <TableCell>{plan.interval}</TableCell>
+                        <TableCell>{plan.period}</TableCell>
+                        <TableCell>
+                          {plan.item.active ? (
+                            <Badge className="bg-green-100 text-green-800">Active</Badge>
+                          ) : (
+                            <Badge variant="secondary">Inactive</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm text-muted-foreground">
+                            {new Date(plan.created_at * 1000).toLocaleDateString()}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-xs text-muted-foreground">
+                            {plan.item.description || <span className="italic">No description</span>}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col bg-accent text-primary">
