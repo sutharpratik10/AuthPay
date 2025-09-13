@@ -1,4 +1,5 @@
-"use client";
+"use client"
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,29 +23,13 @@ import {
   Edit, 
   Trash2, 
   Search,
+  DollarSign,
   Calendar,
   CheckCircle,
   XCircle,
   Package,
   Users
 } from 'lucide-react';
-
-// Razorpay Plan Types
-interface RazorpayPlan {
-  id: string;
-  period: string;
-  interval: number;
-  item: {
-    id: string;
-    name: string;
-    description: string | null;
-    amount: number;
-    currency: string;
-    active: boolean;
-  };
-  notes?: Record<string, string>;
-  created_at: number;
-}
 
 interface SubscriptionPlan {
   id: string;
@@ -74,35 +59,24 @@ interface CreatePlanData {
   razorpay_subscription_link?: string;
 }
 
+// Razorpay Subscription Interface
+interface RazorpaySubscription {
+  id: string;
+  entity: string;
+  plan_id: string;
+  customer_id?: string;
+  status: string;
+  current_start?: number;
+  current_end?: number;
+  ended_at?: number;
+  charge_at?: number;
+  created_at: number;
+  short_url?: string;
+  notes?: Record<string, string>;
+  quantity?: number;
+}
+
 export default function AdminSubscriptionPlansPage() {
-  // Razorpay plans state
-  const [razorpayPlans, setRazorpayPlans] = useState<RazorpayPlan[]>([]);
-  const [razorpayLoading, setRazorpayLoading] = useState(false);
-  const [razorpayError, setRazorpayError] = useState<string | null>(null);
-
-  // Fetch Razorpay plans
-  const loadRazorpayPlans = useCallback(async () => {
-    setRazorpayLoading(true);
-    setRazorpayError(null);
-    try {
-      const response = await fetch('/api/payments/razorpay-plans?count=100');
-      const data = await response.json();
-      if (data.success && Array.isArray(data.items)) {
-        setRazorpayPlans(data.items);
-      } else {
-        setRazorpayError(data.error || 'Failed to fetch Razorpay plans');
-      }
-    } catch (err) {
-      setRazorpayError((err as Error).message || 'Failed to fetch Razorpay plans');
-    } finally {
-      setRazorpayLoading(false);
-    }
-  }, []);
-
-  // Load Razorpay plans on mount
-  useEffect(() => {
-    loadRazorpayPlans();
-  }, [loadRazorpayPlans]);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
@@ -110,6 +84,14 @@ export default function AdminSubscriptionPlansPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  
+  // Razorpay Subscriptions State
+  const [razorpaySubscriptions, setRazorpaySubscriptions] = useState<RazorpaySubscription[]>([]);
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
+  const [subscriptionsError, setSubscriptionsError] = useState<string | null>(null);
+  const [subscriptionsPage, setSubscriptionsPage] = useState(1);
+  const [subscriptionsTotal, setSubscriptionsTotal] = useState(0);
+  const subscriptionsPageSize = 10;
   
   const { toast } = useToast();
 
@@ -165,9 +147,44 @@ export default function AdminSubscriptionPlansPage() {
     }
   }, [toast]);
   
+  // Load Razorpay subscriptions
+  const loadRazorpaySubscriptions = useCallback(async (page: number = 1) => {
+    setSubscriptionsLoading(true);
+    setSubscriptionsError(null);
+    try {
+      const skip = (page - 1) * subscriptionsPageSize;
+      const response = await fetch(`/api/payments/razorpay-subscriptions?count=${subscriptionsPageSize}&skip=${skip}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setRazorpaySubscriptions(data.subscriptions || []);
+        setSubscriptionsTotal(data.count || 0);
+      } else {
+        setSubscriptionsError(data.error || "Failed to load subscriptions");
+        toast({
+          title: "Error",
+          description: data.error || "Failed to load Razorpay subscriptions",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error loading subscriptions:', error);
+      const errorMessage = "Failed to load Razorpay subscriptions";
+      setSubscriptionsError(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setSubscriptionsLoading(false);
+    }
+  }, [subscriptionsPageSize, toast]);
+  
   useEffect(() => {
     loadPlans();
-  }, [loadPlans]);
+    loadRazorpaySubscriptions(subscriptionsPage);
+  }, [loadPlans, loadRazorpaySubscriptions, subscriptionsPage]);
 
   // Reset form
   const resetForm = () => {
@@ -598,10 +615,10 @@ export default function AdminSubscriptionPlansPage() {
         </CardContent>
       </Card>
 
-      {/* One manual Time Payment Plans Table */}
+      {/* Plans Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Manual Payment Plans ({filteredPlans.length})</CardTitle>
+          <CardTitle>Subscription Plans ({filteredPlans.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -642,7 +659,7 @@ export default function AdminSubscriptionPlansPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center">
-                          <span className="text-green-600 font-bold mr-1">₹</span>
+                          <DollarSign className="h-4 w-4 text-green-600 mr-1" />
                           <span className="font-medium">{plan.price}</span>
                         </div>
                       </TableCell>
@@ -719,81 +736,160 @@ export default function AdminSubscriptionPlansPage() {
         </CardContent>
       </Card>
 
-      {/*Razor Auto Pay Auto Subscription Plan*/}
+      {/* Razorpay Subscriptions Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Razor Auto Pay Auto Subscription Plans</CardTitle>
+          <CardTitle>Razorpay Subscriptions</CardTitle>
         </CardHeader>
-        <CardContent>
-          {razorpayLoading ? (
-            <div className="flex items-center justify-center min-h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-              <span className="text-muted-foreground ml-2">Loading Razorpay plans...</span>
+        <CardContent className="overflow-x-auto p-0">
+          {subscriptionsLoading ? (
+            <div className="flex flex-col items-center justify-center min-h-32 py-8 w-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+              <span className="text-muted-foreground text-center">Loading subscriptions...</span>
             </div>
-          ) : razorpayError ? (
-            <div className="text-red-600">{razorpayError}</div>
+          ) : subscriptionsError ? (
+            <div className="text-red-600 p-4">{subscriptionsError}</div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="w-full">
+              <Table className="min-w-[900px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Plan Name</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Currency</TableHead>
-                    <TableHead>Interval</TableHead>
-                    <TableHead>Period</TableHead>
+                    <TableHead>Subscription Id</TableHead>
+                    <TableHead>Plan Id</TableHead>
+                    <TableHead>Subscription Link</TableHead>
+                    <TableHead>Customer Id</TableHead>
+                    <TableHead>Next Due on</TableHead>
+                    <TableHead>Created At</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Description</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {razorpayPlans.length === 0 ? (
+                  {razorpaySubscriptions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        No Razorpay plans found.
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        No subscriptions found.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    razorpayPlans.map((plan) => (
-                      <TableRow key={plan.id}>
-                        <TableCell>{plan.item.name}</TableCell>
+                    razorpaySubscriptions.map((subscription) => (
+                      <TableRow key={subscription.id} >
                         <TableCell>
-                          <div className="flex items-center">
-                            <span className="text-green-600 font-bold mr-1">₹</span>
-                            <span className="font-medium">{(plan.item.amount / 100).toFixed(2)}</span>
-                          </div>
+                          <a 
+                            href={`https://dashboard.razorpay.com/app/subscriptions/${subscription.id}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            {subscription.id}
+                          </a>
                         </TableCell>
-                        <TableCell>{plan.item.currency}</TableCell>
-                        <TableCell>{plan.interval}</TableCell>
-                        <TableCell>{plan.period}</TableCell>
                         <TableCell>
-                          {plan.item.active ? (
-                            <Badge className="bg-green-100 text-green-800">Active</Badge>
+                          <a 
+                            href={`https://dashboard.razorpay.com/app/plans/${subscription.plan_id}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            {subscription.plan_id}
+                          </a>
+                        </TableCell>
+                        <TableCell>
+                          {subscription.short_url ? (
+                            <a 
+                              href={subscription.short_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                            >
+                              {subscription.short_url}
+                            </a>
                           ) : (
-                            <Badge variant="secondary">Inactive</Badge>
+                            <span className="text-muted-foreground">--</span>
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm text-muted-foreground">
-                            {new Date(plan.created_at * 1000).toLocaleDateString()}
-                          </div>
+                          {subscription.customer_id || <span className="text-muted-foreground">--</span>}
                         </TableCell>
                         <TableCell>
-                          <span className="text-xs text-muted-foreground">
-                            {plan.item.description || <span className="italic">No description</span>}
+                          {subscription.current_end ? (
+                            <span className="text-sm">
+                              {new Date(subscription.current_end * 1000).toLocaleDateString('en-IN', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric'
+                              })}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">--</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">
+                            {new Date(subscription.created_at * 1000).toLocaleString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true
+                            })}
                           </span>
+                        </TableCell>
+                        <TableCell>
+                          {subscription.status === 'active' ? (
+                            <Badge className="bg-green-100 text-green-700 border-green-200">
+                              Active
+                            </Badge>
+                          ) : subscription.status === 'created' ? (
+                            <Badge className="bg-gray-100 text-gray-700 border-gray-200">
+                              Created
+                            </Badge>
+                          ) : subscription.status === 'cancelled' ? (
+                            <Badge className="bg-red-100 text-red-700 border-red-200">
+                              Cancelled
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">
+                              {subscription.status}
+                            </Badge>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))
                   )}
                 </TableBody>
               </Table>
+              
+              {/* Pagination */}
+              {subscriptionsTotal > subscriptionsPageSize && (
+                <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t bg-slate-50 dark:bg-slate-900">
+                  <div className="text-xs text-muted-foreground">
+                    Page {subscriptionsPage} of {Math.ceil(subscriptionsTotal / subscriptionsPageSize)} 
+                    ({subscriptionsTotal} total subscriptions)
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      disabled={subscriptionsPage === 1} 
+                      onClick={() => setSubscriptionsPage(p => Math.max(1, p - 1))}
+                    >
+                      Prev
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      disabled={subscriptionsPage === Math.ceil(subscriptionsTotal / subscriptionsPageSize)} 
+                      onClick={() => setSubscriptionsPage(p => Math.min(Math.ceil(subscriptionsTotal / subscriptionsPageSize), p + 1))}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
-
+      
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col bg-accent text-primary">
