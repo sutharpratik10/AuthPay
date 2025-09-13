@@ -1,8 +1,4 @@
 
-import React, { useState, useMemo } from "react";
-import { Button } from "../ui/button";
-import { Badge } from "../ui/badge";
-
 interface Job {
   id: number;
   company: string;
@@ -19,13 +15,21 @@ interface Job {
   companyLogo?: string;
 }
 
+import React, { useState, useMemo } from "react";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import type { SearchFilters } from "./types";
+
+
+
+
 const jobs: Job[] = [
   {
     id: 1,
-    company: "DEVTEST",
-    title: "🚁 Copter pilot",
-    level: "Mid level",
-    description: "Are you ready to take flight with Devtest Corporation as our newest Copter Pilot Extraordinaire? Join our high-flying IT department!",
+    company: "Aviation Co.",
+    title: "IT Support Specialist",
+    level: "Entry level",
+    description: "Provide IT support for aviation systems.",
     url: "#",
     location: "Remote",
     jobType: "remote",
@@ -125,20 +129,10 @@ const jobs: Job[] = [
     jobType: "hybrid",
     skills: ["Product Strategy", "Data Analysis", "Fintech", "API Design"],
     salary: "$180,000 - $250,000",
-    postedDate: "2024-09-04",
-    featured: true
+
+  postedDate: "2024-09-04"
   }
 ];
-
-interface SearchFilters {
-  jobTitle: string;
-  skills: string[];
-  location: string;
-  jobType: string;
-  experienceLevel: string;
-  salaryRange: string;
-  company: string;
-}
 
 interface JobListProps {
   searchFilters?: SearchFilters;

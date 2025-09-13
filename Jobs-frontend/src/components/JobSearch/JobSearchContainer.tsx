@@ -1,8 +1,9 @@
+"use client";
+
 import React, { useState } from "react";
 import SearchPanel from "./SearchPanel";
 import JobList from "./JobList";
-import { SearchFilters } from "./types";
-
+import type { SearchFilters } from "./types";
 const JobSearchContainer: React.FC = () => {
   const [searchFilters, setSearchFilters] = useState<SearchFilters | undefined>(undefined);
 

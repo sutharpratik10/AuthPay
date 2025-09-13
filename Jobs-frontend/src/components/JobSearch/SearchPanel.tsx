@@ -7,12 +7,7 @@ const jobTypes = [
   { label: "Hybrid", value: "hybrid" },
 ];
 
-interface SearchFilters {
-  jobTitle: string;
-  skills: string[];
-  location: string;
-  jobType: string;
-}
+import type { SearchFilters } from "./types";
 
 export function SearchPanel({ onSearch }: { onSearch?: (filters: SearchFilters) => void }) {
   const [jobTitle, setJobTitle] = useState("");
