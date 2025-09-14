@@ -89,11 +89,20 @@ export async function middleware(request: NextRequest) {
     });
   }
 
+
   // Helper to get role name from user data
   function getUserRole(): string {
     if (!user?.roleId) return "user";
     // You might want to fetch role name from roleId here if needed
     return "user"; // Simplified for now
+  }
+
+  // Helper to get dashboard URL based on user role
+  function getDashboardUrl(): string {
+    const userRole = getUserRole();
+    return userRole === 'admin'
+      ? '/protected/admin/dashboard'
+      : '/protected/user/dashboard';
   }
 
   // Handle verification page access
@@ -103,10 +112,7 @@ export async function middleware(request: NextRequest) {
       return createUnauthorizedResponse(request, 'Authentication required', '/auth/login');
     }
     if (isEmailVerified) {
-      const userRole = getUserRole();
-      const dashboardUrl = userRole === 'admin' 
-        ? '/protected/admin/dashboard' 
-        : '/protected/user/dashboard';
+      const dashboardUrl = getDashboardUrl();
       console.log(`[MIDDLEWARE] ✅ Email verified, redirecting to dashboard`);
       return NextResponse.redirect(new URL(dashboardUrl, request.url));
     }
@@ -119,10 +125,7 @@ export async function middleware(request: NextRequest) {
     if (isAuthenticated) {
       if (isEmailVerified) {
         console.log(`[MIDDLEWARE] ✅ Authenticated verified user, redirecting to dashboard`);
-        const userRole = getUserRole();
-        const dashboardUrl = userRole === 'admin' 
-          ? '/protected/admin/dashboard' 
-          : '/protected/user/dashboard';
+        const dashboardUrl = getDashboardUrl();
         return NextResponse.redirect(new URL(dashboardUrl, request.url));
       } else {
         console.log(`[MIDDLEWARE] ⚠️ Authenticated unverified user, redirecting to verify`);
@@ -146,7 +149,12 @@ export async function middleware(request: NextRequest) {
 
     if (!isEmailVerified) {
       console.log(`[MIDDLEWARE] ⚠️ Unverified email accessing protected route: ${path}`);
-      return NextResponse.redirect(new URL('/auth/verify', request.url));
+      // Only redirect to verify if we're not already in a verification flow
+      if (!request.headers.get('referer')?.includes('/auth/verify')) {
+        return NextResponse.redirect(new URL('/auth/verify', request.url));
+      }
+      // If coming from verify page, allow access (user might be in verification process)
+      console.log(`[MIDDLEWARE] ⚠️ User coming from verify page, allowing temporary access`);
     }
 
     // Check if session requires 2FA verification
