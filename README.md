@@ -1,13 +1,17 @@
-# AccessLayer – Next.js Authentication & Multi‑Tenant API Layer
+# AuthPay – Next.js Authentication, Payments & Multi‑Tenant API Layer
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Next.js](https://img.shields.io/badge/Next.js-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![NextAuth.js](https://img.shields.io/badge/NextAuth.js-blue?style=flat-square&logo=nextauth)](https://next-auth.js.org/)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/sutharpratik10/AccessLayer/graphs/commit-activity)
 
-AccessLayer is a modular authentication and API layer built on **Next.js** and **NextAuth.js**. It offers comprehensive authentication solutions, including email/password login, multiple OAuth providers (Google, GitHub, Facebook, Microsoft Azure AD, Apple), and robust security features like 2FA, email verification, and password reset. The session management uses JWT for enhanced security and scalability.
+AuthPay is a modular authentication, payment, and API layer built on **Next.js** and **NextAuth.js**. It offers comprehensive authentication solutions, including email/password login, multiple OAuth providers (Google, GitHub, Facebook, Microsoft Azure AD, Apple), and robust security features like 2FA, email verification, and password reset. The session management uses JWT for enhanced security and scalability.
 
-Built with a scalable **multi-tenant architecture**, this solution is ideal for SaaS applications needing isolated tenant data and granular access control. Each tenant can have its own configuration and data, ensuring a secure and customizable environment.
+With a scalable **multi-tenant architecture**, AuthPay is ideal for SaaS applications needing isolated tenant data and granular access control. Each tenant can have its own configuration and data, ensuring a secure and customizable environment.
+
+**New in AuthPay:**
+- **Integrated Payment Gateway:** Seamlessly connect to payment providers (Stripe, Razorpay, etc.) for subscription management, one-time payments, and invoicing. Payment APIs are protected and tenant-aware, supporting multi-tenant billing and role-based access to payment features.
+- **Protected Paths:** Easily secure API routes and UI pages using middleware and RBAC. Define which roles can access specific endpoints or UI components. Unauthorized users are redirected or receive appropriate error responses.
+- **Role-Based Access Control (RBAC):** Fine-grained, tenant-aware RBAC system. Assign roles (admin, user, manager, etc.) per tenant, and control access to resources, payment actions, and admin features. RBAC is enforced at both API and UI levels.
 
 ---
 
@@ -36,17 +40,15 @@ Built with a scalable **multi-tenant architecture**, this solution is ideal for 
 
 ## 🔑 Features
 
-- ✅ **Email/Password Login**: Secure authentication using email and password with bcrypt hashing for secure password storage.  This prevents storage of plain-text passwords and protects against common attacks.
-- 🔐 **Two-Factor Authentication (2FA)**: Enhanced security using Time-based One-Time Password (TOTP) to protect user accounts. This adds an extra layer of protection beyond just a password.
-- 💌 **Email Verification & Password Reset**: Automated email verification during signup and password reset functionality to maintain account security and accessibility. Ensures that users have valid email addresses and can recover their accounts easily.
+- ✅ **Email/Password Login**: Secure authentication using email and password with bcrypt hashing for secure password storage. Prevents storage of plain-text passwords and protects against common attacks.
+- 🔐 **Two-Factor Authentication (2FA)**: Enhanced security using Time-based One-Time Password (TOTP) to protect user accounts. Adds an extra layer of protection beyond just a password.
+- 💌 **Email Verification & Password Reset**: Automated email verification during signup and password reset functionality to maintain account security and accessibility. Ensures users have valid email addresses and can recover their accounts easily.
 - 🌐 **OAuth Support**: Seamless integration with popular OAuth providers for simplified user onboarding.
-    - Google: Allows users to sign up/in using their Google accounts.
-    - GitHub: Enables authentication via GitHub accounts.
-    - Facebook: Supports login/signup with Facebook credentials.
-    - Microsoft Azure AD: Integrates with Azure Active Directory for enterprise authentication, suitable for organizations.
-    - Apple: Enables "Sign in with Apple" for iOS and macOS users, providing a consistent experience for Apple users.
+    - Google, GitHub, Facebook, Microsoft Azure AD, Apple
 - 👥 **Multi-Tenant Architecture**: Supports multiple tenants with isolated data for SaaS applications. Route-level tenant resolution ensures data privacy and security. Each tenant's data is stored separately, preventing data leakage and unauthorized access.
-- 🏷️ **Role-Based Access Control (RBAC)**: Fine-grained control over user permissions and access levels within each tenant. Admins can assign roles to users, limiting their access to specific resources.
+- � **Integrated Payment Gateway**: Connect to Stripe, Razorpay, or other providers for subscription billing, one-time payments, and invoicing. Payment APIs are protected and tenant-aware.
+- 🔒 **Protected Paths**: Secure API routes and UI pages using middleware and RBAC. Easily define which roles can access specific endpoints or UI components.
+- 🏷️ **Role-Based Access Control (RBAC)**: Fine-grained, tenant-aware RBAC system. Assign roles (admin, user, manager, etc.) per tenant, and control access to resources, payment actions, and admin features. RBAC is enforced at both API and UI levels.
 - 🌙 **User Preferences**: Customizable user settings, including theme preferences and session information display. Allows users to personalize their experience.
 - 🔁 **Session Management**: Uses JWT (JSON Web Tokens) for session management, including expiration and refresh support for persistent sessions. JWTs are stateless and can be easily scaled across multiple servers.
 - 🔧 **Modular Route Management**: Organized route definitions as outlined in `ROUTES-ARCHITECTURE.md` for maintainability and scalability.
@@ -65,7 +67,23 @@ DATABASE_URL=postgresql://user:password@localhost:5432/database_name
 NEXTAUTH_SECRET=your_random_secret
 NEXTAUTH_URL=http://localhost:3000
 
-# OAuth Provider credentials
+## OAuth Provider credentials
+
+## Payment Gateway Configuration
+
+To enable payment features, configure your payment provider credentials in your `.env.local` and `.env.production` files. Example for Stripe:
+
+```
+STRIPE_SECRET_KEY=your_stripe_secret_key
+STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
+
+# Razorpay example
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+NEXT_PUBLIC_RAZORPAY_KEY_ID=your_razorpay_key_id
+```
+
+Refer to the payment provider documentation for setup instructions. Payment APIs are protected and require appropriate roles (see RBAC section).
 GITHUB_ID=your_github_id
 GITHUB_SECRET=your_github_secret
 GOOGLE_ID=your_google_id
@@ -218,6 +236,29 @@ server {
 3.  Enter the 6-digit OTP provided by the authenticator app to verify and enable 2FA.
 
 ---
+
+
+## 🔒 Protected Paths
+
+AuthPay uses middleware to protect sensitive API routes and UI pages. You can define protected paths in `middleware.ts` and specify which roles are required for access. Unauthorized users are redirected to the login page or receive a 403 error for API requests.
+
+**Example:**
+
+- `/api/payment/*` – Only accessible to users with the `admin` or `billing` role.
+- `/admin/*` – Only accessible to tenant admins.
+
+See `ROUTES-ARCHITECTURE.md` for more details.
+
+## 🏷️ Role-Based Access Control (RBAC)
+
+AuthPay implements a robust, tenant-aware RBAC system. Roles are assigned per tenant, and permissions are enforced at both the API and UI levels. You can define custom roles and permissions in the database and use helper utilities in `src/lib/role-utils.ts` to check access.
+
+**Example roles:**
+- `admin`: Full access to all tenant resources, billing, and user management.
+- `user`: Standard access to application features.
+- `billing`: Access to payment and subscription management.
+
+RBAC is enforced in middleware, API handlers, and UI components. See `RBAC-IMPLEMENTATION.md` for implementation details.
 
 ## ✨ Authentication Flow
 
