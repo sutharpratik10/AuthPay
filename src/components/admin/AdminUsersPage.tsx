@@ -837,7 +837,7 @@ export default function AdminUsersPage() {
               <Checkbox
                 id="edit-active"
                 checked={formData.isActive}
-                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: !!checked }))}
+                onCheckedChange={(checked: boolean | "indeterminate") => setFormData(prev => ({ ...prev, isActive: !!checked }))}
                 disabled={selectedUser?.id === currentUserId}
               />
               <Label htmlFor="edit-active">Active</Label>
@@ -846,7 +846,7 @@ export default function AdminUsersPage() {
               <Checkbox
                 id="edit-verified"
                 checked={formData.isEmailVerified}
-                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isEmailVerified: !!checked }))}
+                onCheckedChange={(checked: boolean | "indeterminate") => setFormData(prev => ({ ...prev, isEmailVerified: !!checked }))}
               />
               <Label htmlFor="edit-verified">Email Verified</Label>
             </div>
@@ -904,5 +904,5 @@ export default function AdminUsersPage() {
         </DialogContent>
       </Dialog>
     </div>
-  );
+);
 }

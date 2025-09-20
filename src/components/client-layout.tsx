@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Navigationbar } from "@/components/navigationbar";
 import { AuthProvider } from "@/lib/auth-context";
@@ -18,13 +18,16 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Component wrapper for OAuth session tracking to handle Suspense boundary
+function OAuthSessionTracker() {
+  useOAuthSessionTracking();
+  return null;
+}
+
 function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
   
-  // Track OAuth sessions on the client-side for proper IP/User-Agent capture
-  useOAuthSessionTracking();
-
   // Global error handler for unhandled promise rejections
   useEffect(() => {
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
@@ -53,6 +56,10 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
     >
       <AuthProvider>
+        {/* Track OAuth sessions with Suspense boundary for useSearchParams */}
+        <Suspense fallback={null}>
+          <OAuthSessionTracker />
+        </Suspense>
         <Navigationbar />
         <div className="h-16"></div>
         <main className="min-h-[calc(100vh-148px)]">

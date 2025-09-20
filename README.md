@@ -74,10 +74,7 @@ NEXTAUTH_URL=http://localhost:3000
 To enable payment features, configure your payment provider credentials in your `.env.local` and `.env.production` files. Example for Stripe:
 
 ```
-STRIPE_SECRET_KEY=your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
-
-# Razorpay example
+# Razorpay Payment Gateway
 RAZORPAY_KEY_ID=your_razorpay_key_id
 RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 NEXT_PUBLIC_RAZORPAY_KEY_ID=your_razorpay_key_id
