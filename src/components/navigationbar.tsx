@@ -256,7 +256,9 @@ export function Navigationbar() {
           }`}
           onClick={closeMenu}
           aria-hidden="true"
-        />        {/* Mobile menu sidebar */}        <div 
+        />        
+        {/* Mobile menu sidebar */}        
+        <div 
           ref={sidebarRef}
           className={`fixed inset-y-0 right-0 z-[60] w-80 bg-sidebar backdrop-blur-md shadow-2xl md:hidden h-screen flex flex-col overflow-hidden transition-all duration-300 ease-out border-l border-sidebar-border ${
             isMenuOpen ? 'translate-x-0' : 'translate-x-full'
