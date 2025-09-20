@@ -4,10 +4,19 @@ import * as dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
+// Function to get the application name
+function getAppName(): string {
+  return process.env.APP_NAME || 'AuthPay';
+}
+
 async function createDatabase() {
+  // Get the database name from the first character of app name
+  const dbName = (getAppName() ?? "").charAt(0).toLowerCase() || 'j';
+  
   // Connect to the default postgres database
   const connectionString = "postgresql://postgres:admin@localhost:5432/postgres";
   console.log('Connecting to PostgreSQL to create database...');
+  console.log(`Target database name: "${dbName}"`);
   
   try {
     // Create a connection
@@ -16,36 +25,36 @@ async function createDatabase() {
       idle_timeout: 10
     });
     
-    // Check if the trueauth database already exists
+    // Check if the database already exists
     const existingDb = await sql`
-      SELECT 1 FROM pg_database WHERE datname = 'trueauth'
+      SELECT 1 FROM pg_database WHERE datname = ${dbName}
     `;
     
     if (existingDb.length > 0) {
-      console.log('Database "trueauth" already exists.');
+      console.log(`Database "${dbName}" already exists.`);
     } else {
-      // Create the trueauth database
+      // Create the database
       // We need to use text mode because CREATE DATABASE can't be parameterized
-      await sql.unsafe('CREATE DATABASE trueauth');
-      console.log('Database "trueauth" created successfully!');
+      await sql.unsafe(`CREATE DATABASE ${dbName}`);
+      console.log(`Database "${dbName}" created successfully!`);
     }
     
     // Close the connection
     await sql.end();
     
     // Now test connection to the new database
-    console.log('\nTesting connection to the trueauth database...');
-    const trueauthConnectionString = "postgresql://postgres:admin@localhost:5432/trueauth";
-    const trueauthSql = postgres(trueauthConnectionString, {
+    console.log(`\nTesting connection to the ${dbName} database...`);
+    const targetConnectionString = `postgresql://postgres:admin@localhost:5432/${dbName}`;
+    const targetSql = postgres(targetConnectionString, {
       max: 1,
       idle_timeout: 10
     });
 
-    const result = await trueauthSql`SELECT version()`;;
-    console.log('✅ Connection to "trueauth" database successful!');
+    const result = await targetSql`SELECT version()`;
+    console.log(`✅ Connection to "${dbName}" database successful!`);
     console.log('PostgreSQL version:', result[0].version);
 
-    await trueauthSql.end();
+    await targetSql.end();
     return true;
   } catch (error) {
     console.error('❌ Operation failed:', error instanceof Error ? error.message : String(error));
