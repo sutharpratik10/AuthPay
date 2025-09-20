@@ -126,9 +126,9 @@ export default function HomePage() {
                   </div>
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Authenticator App</h4>
                   <div className="grid grid-cols-3 gap-1 max-w-32 mx-auto">
-                    {Array.from({length: 6}).map((_, i) => (
+                    {[7, 3, 8, 2, 9, 1].map((digit, i) => (
                       <div key={i} className="h-8 bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center text-lg font-mono">
-                        {Math.floor(Math.random() * 10)}
+                        {digit}
                       </div>
                     ))}
                   </div>

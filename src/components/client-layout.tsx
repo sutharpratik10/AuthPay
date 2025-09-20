@@ -8,6 +8,7 @@ import { SessionProvider, useSession } from "next-auth/react";
 import { Footer } from "@/components/footer"; // Import the Footer component
 import { Toaster } from "@/components/ui/toaster";
 import { useOAuthSessionTracking } from "@/hooks/use-oauth-session-tracking";
+import CookieBanner from "@/components/CookieBanner";
 
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -66,6 +67,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
           {children}
         </main>
         {!isAuthenticated && <Footer />}
+        <CookieBanner />
         <Toaster />
       </AuthProvider>
     </ThemeProvider>
