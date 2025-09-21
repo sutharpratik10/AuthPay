@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Shield, Lock, Users, Zap, Globe, CheckCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function HomePage() {
   const oauthProviders = [
@@ -13,10 +14,10 @@ export default function HomePage() {
   ];
 
   return (
-    <main className="min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300">
+    <main className="min-h-screen bg-white dark:bg-neutral-950 transition-colors duration-300">
       {/* Hero Section */}
       <section className="relative overflow-hidden px-6 py-20 lg:py-32">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-purple-50/50 dark:from-neutral-800/20 dark:to-neutral-950/20" />
         
         <div className="relative max-w-6xl mx-auto text-center">
           {/* Badge */}
@@ -26,7 +27,7 @@ export default function HomePage() {
           </div>
 
           {/* Main Title */}
-          <h1 className="text-5xl lg:text-7xl font-bold mb-8 bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 dark:from-white dark:via-blue-200 dark:to-purple-200 bg-clip-text text-transparent leading-tight">
+          <h1 className="text-7xl lg:text-8xl font-bold mb-8 bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 dark:from-white dark:via-blue-200 dark:to-purple-200 bg-clip-text text-transparent leading-tight">
             AuthPay
           </h1>
           
@@ -58,7 +59,7 @@ export default function HomePage() {
       </section>
 
       {/* Email/Password Authentication Section */}
-      <section className="px-6 py-20 bg-gray-50/50 dark:bg-gray-900/50">
+      <section className="px-6 py-20 bg-neutral-50/50 dark:bg-neutral-900/50">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
@@ -180,7 +181,7 @@ export default function HomePage() {
       </section>
 
       {/* OAuth Integration Section */}
-      <section className="px-6 py-20 bg-gray-50/50 dark:bg-gray-900/50">
+      <section className="px-6 py-20 bg-neutral-50/50 dark:bg-neutral-900/50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <div className="flex items-center justify-center gap-3 mb-6">
@@ -253,7 +254,7 @@ export default function HomePage() {
       </section>
 
       {/* Payment Integration Section */}
-      <section className="px-6 py-20 bg-gray-50/50 dark:bg-gray-900/50">
+      <section className="px-6 py-20 ">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="order-2 lg:order-1">
@@ -332,7 +333,7 @@ export default function HomePage() {
       </section>
 
       {/* JWT Session Management Section */}
-      <section className="px-6 py-20">
+      <section className="px-6 py-20 bg-neutral-50/50 dark:bg-neutral-900/50">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
@@ -402,7 +403,7 @@ export default function HomePage() {
       </section>
 
       {/* Architecture Highlights */}
-      <section className="px-6 py-20 bg-gray-50/50 dark:bg-gray-900/50">
+      <section className="px-6 py-20">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
@@ -482,14 +483,14 @@ export default function HomePage() {
       </section>
 
       {/* Getting Started */}
-      <section className="px-6 py-20">
+      <section className="px-6 py-20 bg-neutral-50/50 dark:bg-neutral-900/50">
         <div className="max-w-4xl mx-auto text-center">
           <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
             Ready to Get Started?
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
+            <div className="p-6 bg-gray-100 dark:bg-gray-900 rounded-xl">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">1</div>
               <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Clone & Install</h4>
               <p className="text-gray-600 dark:text-gray-300 text-sm">
@@ -497,7 +498,7 @@ export default function HomePage() {
               </p>
             </div>
             
-            <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
+            <div className="p-6 bg-gray-100 dark:bg-gray-900 rounded-xl">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">2</div>
               <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Configure</h4>
               <p className="text-gray-600 dark:text-gray-300 text-sm">
@@ -505,7 +506,7 @@ export default function HomePage() {
               </p>
             </div>
             
-            <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
+            <div className="p-6 bg-gray-100 dark:bg-gray-900 rounded-xl">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-2">3</div>
               <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Deploy</h4>
               <p className="text-gray-600 dark:text-gray-300 text-sm">
@@ -515,15 +516,12 @@ export default function HomePage() {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200">
-              View Documentation
-            </button>
-            <button className="px-8 py-3 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900 font-medium rounded-lg transition-colors duration-200">
-              GitHub Repository
-            </button>
+            <Button className="px-8 py-5 text-white font-medium rounded-lg transition-colors duration-200">
+              Buy Now
+            </Button>
           </div>
         </div>
-      </section>
+      </section> 
     </main>
   );
 }

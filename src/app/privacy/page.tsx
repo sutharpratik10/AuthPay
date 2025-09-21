@@ -7,9 +7,9 @@ import { APP_CONFIG } from '@/lib/constants';
 
 export default function PrivacyPolicyPage() {
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300">
+    <div className="min-h-screen bg-white dark:bg-neutral-900 transition-colors duration-300">
       {/* Header */}
-      <header className="border-b border-gray-200 dark:border-gray-800">
+      <header className="border-b border-gray-200 dark:border-neutral-800">
         <div className="max-w-4xl mx-auto px-6 py-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg">
@@ -46,12 +46,12 @@ export default function PrivacyPolicyPage() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Information We Collect</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
+            <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
               <div className="flex items-center gap-3 mb-4">
                 <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 <h3 className="font-semibold text-gray-900 dark:text-white">Personal Information</h3>
               </div>
-              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+              <ul className="space-y-2 text-sm text-gray-600 dark:text-neutral-50">
                 <li>• Email address</li>
                 <li>• Name and profile information</li>
                 <li>• Authentication credentials</li>
@@ -60,12 +60,12 @@ export default function PrivacyPolicyPage() {
               </ul>
             </div>
             
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
+            <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
               <div className="flex items-center gap-3 mb-4">
                 <Eye className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                 <h3 className="font-semibold text-gray-900 dark:text-white">Usage Information</h3>
               </div>
-              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+              <ul className="space-y-2 text-sm text-gray-600 dark:text-neutral-50">
                 <li>• Login timestamps and IP addresses</li>
                 <li>• Device and browser information</li>
                 <li>• Session data and preferences</li>
@@ -121,32 +121,32 @@ export default function PrivacyPolicyPage() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">How We Protect Your Data</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
+            <div className="text-center p-6 bg-gray-50 dark:bg-neutral-800 rounded-xl">
               <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <Lock className="w-8 h-8 text-green-600 dark:text-green-400" />
               </div>
               <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Encryption</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-gray-600 dark:text-gray-100">
                 All data is encrypted in transit and at rest using industry-standard AES-256 encryption.
               </p>
             </div>
             
-            <div className="text-center p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
+            <div className="text-center p-6 bg-gray-50 dark:bg-neutral-800 rounded-xl">
               <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <Shield className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
               <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Access Control</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-gray-600 dark:text-gray-100">
                 Strict access controls ensure only authorized personnel can access your data.
               </p>
             </div>
             
-            <div className="text-center p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
+            <div className="text-center p-6 bg-gray-50 dark:bg-neutral-800 rounded-xl">
               <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <Eye className="w-8 h-8 text-purple-600 dark:text-purple-400" />
               </div>
               <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Monitoring</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-gray-600 dark:text-gray-100">
                 Continuous monitoring and logging to detect and respond to security incidents.
               </p>
             </div>
@@ -178,9 +178,9 @@ export default function PrivacyPolicyPage() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Your Privacy Rights</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
+            <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Access & Control</h3>
-              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-100">
                 <li>• Access your personal data</li>
                 <li>• Correct inaccurate information</li>
                 <li>• Delete your account and data</li>
@@ -189,9 +189,9 @@ export default function PrivacyPolicyPage() {
               </ul>
             </div>
             
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
+            <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">GDPR Rights (EU Users)</h3>
-              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-100">
                 <li>• Right to rectification</li>
                 <li>• Right to erasure (&ldquo;right to be forgotten&rdquo;)</li>
                 <li>• Right to restrict processing</li>

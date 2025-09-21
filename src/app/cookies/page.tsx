@@ -5,6 +5,7 @@ import { Shield, Cookie, Settings, CheckCircle, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { APP_CONFIG } from '@/lib/constants';
+import {Button} from '@/components/ui/button';
 
 interface CookieSettings {
   essential: boolean;
@@ -225,7 +226,7 @@ export default function CookiePolicyPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300">
+    <div className="min-h-screen bg-white dark:bg-neutral-900 transition-colors duration-300">
       {/* Header */}
       <header className="border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-4xl mx-auto px-6 py-6">
@@ -244,8 +245,8 @@ export default function CookiePolicyPage() {
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Introduction */}
         <section className="mb-12">
-            <div className="bg-blue-50 dark:bg-blue-950/20 p-6 rounded-xl border border-blue-200 dark:border-blue-800">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            <div className="bg-blue-50 dark:bg-neutral-800 p-6 rounded-xl border border-blue-200 dark:border-neutral-800">
+                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-4">
                 About Our Cookie Usage
                 </h2>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">
@@ -277,7 +278,7 @@ export default function CookiePolicyPage() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Cookie Categories</h2>
           <div className="space-y-6">
             {cookieTypes.map((cookie) => (
-              <div key={cookie.id} className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+              <div key={cookie.id} className="bg-white dark:bg-neutral-800 p-6 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -325,12 +326,12 @@ export default function CookiePolicyPage() {
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">How We Use Cookies</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gray-50 dark:bg-gray-900 p-6 rounded-xl">
+            <div className="bg-neutral-50 dark:bg-neutral-800 p-6 rounded-xl">
               <div className="flex items-center gap-3 mb-4">
                 <Shield className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 <h3 className="font-semibold text-gray-900 dark:text-white">Authentication & Security</h3>
               </div>
-              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-200">
                 <li>• Maintain your login session</li>
                 <li>• Verify your identity</li>
                 <li>• Prevent unauthorized access</li>
@@ -338,12 +339,12 @@ export default function CookiePolicyPage() {
               </ul>
             </div>
             
-            <div className="bg-gray-50 dark:bg-gray-900 p-6 rounded-xl">
+            <div className="bg-neutral-50 dark:bg-neutral-800 p-6 rounded-xl">
               <div className="flex items-center gap-3 mb-4">
                 <Settings className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                 <h3 className="font-semibold text-gray-900 dark:text-white">Personalization</h3>
               </div>
-              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-200">
                 <li>• Remember your preferences</li>
                 <li>• Store theme settings</li>
                 <li>• Maintain language choices</li>
@@ -376,11 +377,11 @@ export default function CookiePolicyPage() {
         {/* Contact Information */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Contact Us</h2>
-          <div className="bg-gray-50 dark:bg-gray-900 p-6 rounded-xl">
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
+          <div className="bg-gray-50 dark:bg-neutral-800 p-6 rounded-xl">
+            <p className="text-gray-600 dark:text-gray-100 mb-4">
               If you have any questions about our cookie policy or how we handle your data, please contact us:
             </p>
-            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-200">
               <p><strong>Email:</strong> privacy@authpay.dev</p>
               <p><strong>Last Updated:</strong> September 20, 2025</p>
             </div>
@@ -388,7 +389,7 @@ export default function CookiePolicyPage() {
         </section>
 
         {/* Action Buttons */}
-        <div className="sticky bottom-0 bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 p-6 -mx-6">
+        <div className="sticky bottom-0 bg-white dark:bg-neutral-900 border-t border-gray-200 dark:border-gray-800 p-6 -mx-6">
           {hasChanges && (
             <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
               <p className="text-sm text-yellow-700 dark:text-yellow-400 text-center">
@@ -398,29 +399,29 @@ export default function CookiePolicyPage() {
           )}
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
+            <Button
               onClick={handleAcceptAll}
               className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
             >
               <CheckCircle className="w-5 h-5" />
               Accept All Cookies
-            </button>
+            </Button>
             
-            <button
+            <Button
               onClick={handleAcceptSelected}
               className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
             >
               <Settings className="w-5 h-5" />
               Save & Continue
-            </button>
+            </Button>
             
-            <button
+            <Button
               onClick={handleRejectAll}
-              className="px-8 py-3 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900 font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+              className="px-8 py-3 border  text-gray-700 border-gray-300 dark:border-gray-700 dark:text-gray-300 dark:bg-red-500 hover:bg-red-600 dark:hover:bg-red-600 font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
             >
               <X className="w-5 h-5" />
               Reject All
-            </button>
+            </Button>
           </div>
           
           <div className="text-center mt-4">

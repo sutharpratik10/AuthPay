@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Cookie, Settings, CheckCircle, X, Shield, Eye, Users, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useCookieConsent } from '@/hooks/use-cookie-consent';
+import { Button } from './ui/button';
 
 interface CookieSettings {
   essential: boolean;
@@ -108,11 +109,11 @@ export default function CookieBanner() {
         
         {/* Cookie Settings Modal */}
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow max-w-1/2 w-full max-h-[90vh] overflow-hidden border border-gray-200 dark:border-gray-800">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+                <div className="p-2 bg-blue-100 dark:bg-neutral-900 text-blue-600 dark:text-blue-400 rounded-lg">
                   <Cookie className="w-6 h-6" />
                 </div>
                 <div>
@@ -120,13 +121,13 @@ export default function CookieBanner() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">Manage how we use cookies on AuthPay</p>
                 </div>
               </div>
-              <button
+              <Button
                 onClick={() => setShowDetails(false)}
                 title="Close cookie preferences"
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="p-2 text-white rounded-lg bg-red-400 hover:bg-red-500 dark:bg-red-500 dark:hover:bg-red-600 transition-colors"
               >
                 <X className="w-5 h-5" />
-              </button>
+              </Button>
             </div>
 
             {/* Content */}
@@ -211,29 +212,29 @@ export default function CookieBanner() {
 
             {/* Footer Actions */}
             <div className="flex flex-col sm:flex-row gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
-              <button
+              <Button
                 onClick={handleAcceptAll}
-                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-500 flex items-center justify-center gap-2"
               >
                 <CheckCircle className="w-4 h-4" />
                 Accept All
-              </button>
+              </Button>
               
-              <button
+              <Button
                 onClick={handleAcceptSelected}
-                className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-500 flex items-center justify-center gap-2"
               >
                 <Settings className="w-4 h-4" />
                 Save Preferences
-              </button>
+              </Button>
               
-              <button
+              <Button
                 onClick={handleRejectAll}
-                className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-3 border bg-red-400 hover:bg-red-500 dark:bg-red-500 dark:hover:bg-red-600 dark:text-white font-medium rounded-lg transition-colors duration-500 flex items-center justify-center gap-2"
               >
                 <X className="w-4 h-4" />
                 Reject All
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -243,8 +244,8 @@ export default function CookieBanner() {
 
   // Simple banner (default view)
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 shadow-lg">
-      <div className="max-w-7xl mx-auto p-4">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-neutral-900 border-t border-gray-200 dark:border-neutral-800 shadow">
+      <div className="w-full-md p-4">
         <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
           {/* Icon and Message */}
           <div className="flex items-start gap-3 flex-1">
@@ -275,29 +276,29 @@ export default function CookieBanner() {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
-            <button
+            <Button
               onClick={handleAcceptAll}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 text-sm"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-500 flex items-center justify-center gap-2 text-sm"
             >
               <CheckCircle className="w-4 h-4" />
               Accept All
-            </button>
+            </Button>
             
-            <button
+            <Button
               onClick={() => setShowDetails(true)}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 text-sm"
+              className="px-4 py-2 border border-gray-300 bg-yellow-200 hover:bg-yellow-300 font-medium rounded-lg transition-colors duration-500 flex items-center justify-center gap-2 text-sm"
             >
               <Settings className="w-4 h-4" />
               Customize
-            </button>
+            </Button>
             
-            <button
+            <Button
               onClick={handleRejectAll}
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 text-sm"
+              className="px-4 py-2 bg-red-400 hover:bg-red-500 dark:bg-red-500 dark:hover:bg-red-600 text-white font-medium rounded-lg transition-colors duration-500 flex items-center justify-center gap-2 text-sm"
             >
               <X className="w-4 h-4" />
               Reject All
-            </button>
+            </Button>
           </div>
         </div>
       </div>
