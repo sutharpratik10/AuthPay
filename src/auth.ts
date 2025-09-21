@@ -44,6 +44,12 @@ export const {
             return "/auth/error?error=DatabaseUnavailable";
           }
           if (existingUser) {
+            // Check if the user account is suspended
+            if (existingUser.isSuspended) {
+              console.log(`[OAuth] Blocked login for suspended user: ${existingUser.email}`);
+              return "/auth/error?error=AccountSuspended";
+            }
+
             // User exists, update their information and mark email as verified
             try {
               await db.update(users)
