@@ -43,6 +43,13 @@
       "when": 1757255736406,
       "tag": "0005_lyrical_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1758439530287,
+      "tag": "0006_fat_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

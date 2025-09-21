@@ -32,11 +32,14 @@ async function getUsers(req: NextRequest) {
       role: roles.name, // alias as role for frontend
       isEmailVerified: users.isEmailVerified,
       isActive: users.isActive,
+      isSuspended: users.isSuspended,
       lastLoginAt: users.lastLoginAt,
       createdAt: users.createdAt,
       // Subscription info (joined)
       subscriptionName: subscriptionPlans.name,
       subscriptionBillingCycle: subscriptionPlans.billingCycle,
+      subscriptionStartDate: userSubscriptions.startDate,
+      subscriptionExpiryDate: userSubscriptions.expiryDate,
     })
     .from(users)
     .leftJoin(userSubscriptions, eq(users.id, userSubscriptions.userId))

@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Search, Plus, Edit, Trash2, Shield, User, Mail, Calendar, Activity, AlertTriangle, Clock } from 'lucide-react';
 import { getExpiryStatus } from '@/lib/subscription-utils';
@@ -21,6 +22,7 @@ interface User {
   role: 'admin' | 'user';
   isEmailVerified: boolean;
   isActive: boolean;
+  isSuspended: boolean;
   lastLoginAt: string | null;
   createdAt: string;
   subscriptionName: string | null;
@@ -580,7 +582,7 @@ export default function AdminUsersPage() {
                     <TableHead>Expiry Date</TableHead>
                     <TableHead>Last Login</TableHead>
                     <TableHead>Created</TableHead>
-                    <TableHead>Role</TableHead>
+                    <TableHead>Role Edit</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>                
@@ -722,7 +724,71 @@ export default function AdminUsersPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
+                        <div className="flex justify-end space-x-2 items-center">
+                          {/* Switch for isSuspended */}
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              checked={user.isSuspended}
+                              onCheckedChange={async (checked) => {
+                                try {
+                                  setUsers(prevUsers =>
+                                    prevUsers.map(u => 
+                                      u.id === user.id 
+                                        ? { ...u, isSuspended: checked }
+                                        : u
+                                    )
+                                  );
+
+                                  const res = await fetch(`/api/admin/users/${user.id}/suspend`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ isSuspended: checked })
+                                  });
+                                  
+                                  if (!res.ok) {
+                                    // Revert the optimistic update on error
+                                    setUsers(prevUsers => 
+                                      prevUsers.map(u => 
+                                        u.id === user.id 
+                                          ? { ...u, isSuspended: !checked }
+                                          : u
+                                      )
+                                    );
+                                    throw new Error('Failed to update suspension');
+                                  }
+                                  // Show success toast
+                                  toast({
+                                    title: 'Success',
+                                    description: `User ${checked ? 'suspended' : 'unsuspended'} successfully`,
+                                  });
+                                } catch {
+                                  toast({
+                                    title: 'Error',
+                                    description: 'Failed to update suspension',
+                                    variant: 'destructive',
+                                  });
+                                }
+                              }}
+                              id={`suspend-switch-${user.id}`}
+                              disabled={user.id === currentUserId}
+                              className={
+                                ''
+                              }
+                            >
+                              <span
+                                className={`
+                                  pointer-events-none absolute left-1 top-1 h-4 w-4 rounded-full transition
+                                  ${user.isSuspended ? 'bg-green-600' : 'bg-red-600'}
+                                `}
+                              ></span>
+                            </Switch>
+                            <Label 
+                              htmlFor={`suspend-switch-${user.id}`} 
+                              className="text-xs text-gray-600 dark:text-gray-400"
+                            >
+                              {user.isSuspended ? 'Suspended' : 'Active'}
+                            </Label>
+                          </div>
                           <Button
                             variant="outline"
                             size="sm"

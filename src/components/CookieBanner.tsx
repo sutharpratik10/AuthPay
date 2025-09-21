@@ -286,7 +286,7 @@ export default function CookieBanner() {
             
             <Button
               onClick={() => setShowDetails(true)}
-              className="px-4 py-2 border border-gray-300 bg-yellow-200 hover:bg-yellow-300 font-medium rounded-lg transition-colors duration-500 flex items-center justify-center gap-2 text-sm"
+              className="px-4 py-2 border border-gray-300 bg-yellow-200 hover:bg-yellow-300 text-neutral-900 font-medium rounded-lg transition-colors duration-500 flex items-center justify-center gap-2 text-sm"
             >
               <Settings className="w-4 h-4" />
               Customize

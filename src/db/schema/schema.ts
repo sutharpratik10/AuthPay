@@ -323,7 +323,8 @@ export const users = pgTable("users", {
 	isEmailVerified: boolean("is_email_verified").default(false),
 	lastLoginAt: timestamp("last_login_at", { mode: 'string' }),
 	isActive: boolean("is_active").default(true),
-	roleId: uuid("role_id").references(() => roles.id), // Only one direct relationship to roles table
+	isSuspended: boolean("is_suspended").default(false),
+	roleId: uuid("role_id").references(() => roles.id),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 	emailVerified: timestamp({ mode: 'string' }),
@@ -335,7 +336,7 @@ export const users = pgTable("users", {
 		foreignColumns: [roles.id],
 		name: "users_role_id_roles_id_fk"
 	})
-]);
+]);  
 
 export const userPreferences = pgTable("user_preferences", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
