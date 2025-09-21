@@ -736,7 +736,7 @@ export default function AdminUsersPage() {
                             onClick={() => openDeleteDialog(user)}
                             disabled={user.id === currentUserId}
                             title={user.id === currentUserId ? "You cannot delete your own account" : "Delete user"}
-                            className={user.id === currentUserId ? "cursor-not-allowed" : "cursor-not-allowed"}
+                            className={user.id === currentUserId ? "cursor-not-allowed" : "cursor-allowed"}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>

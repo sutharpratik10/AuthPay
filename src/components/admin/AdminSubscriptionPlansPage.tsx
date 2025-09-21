@@ -85,6 +85,7 @@ export default function AdminSubscriptionPlansPage() {
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
+
   // Razorpay Subscriptions State
   const [razorpaySubscriptions, setRazorpaySubscriptions] = useState<RazorpaySubscription[]>([]);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
@@ -92,6 +93,50 @@ export default function AdminSubscriptionPlansPage() {
   const [subscriptionsPage, setSubscriptionsPage] = useState(1);
   const [subscriptionsTotal, setSubscriptionsTotal] = useState(0);
   const subscriptionsPageSize = 10;
+
+  // Razorpay Subscriptions Filters
+  const [subscriptionFilters, setSubscriptionFilters] = useState({
+    id: '',
+    plan_id: '',
+    short_url: '',
+    customer_id: '',
+    current_end: '',
+    created_at: '',
+    status: '',
+  });
+
+  // Filtered subscriptions
+  const filteredRazorpaySubscriptions = razorpaySubscriptions.filter((sub) => {
+    // Subscription Id
+    if (subscriptionFilters.id && !sub.id.toLowerCase().includes(subscriptionFilters.id.toLowerCase())) return false;
+    // Plan Id
+    if (subscriptionFilters.plan_id && !sub.plan_id.toLowerCase().includes(subscriptionFilters.plan_id.toLowerCase())) return false;
+    // Subscription Link
+    if (subscriptionFilters.short_url && !(sub.short_url || '').toLowerCase().includes(subscriptionFilters.short_url.toLowerCase())) return false;
+    // Customer Id
+    if (subscriptionFilters.customer_id && !(sub.customer_id || '').toLowerCase().includes(subscriptionFilters.customer_id.toLowerCase())) return false;
+    // Next Due on (date string)
+    if (subscriptionFilters.current_end && sub.current_end) {
+      const dateStr = new Date(sub.current_end * 1000).toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      });
+      if (!dateStr.toLowerCase().includes(subscriptionFilters.current_end.toLowerCase())) return false;
+    } else if (subscriptionFilters.current_end) {
+      return false;
+    }
+    // Created At (date string)
+    if (subscriptionFilters.created_at && sub.created_at) {
+      const dateStr = new Date(sub.created_at * 1000).toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+      });
+      if (!dateStr.toLowerCase().includes(subscriptionFilters.created_at.toLowerCase())) return false;
+    } else if (subscriptionFilters.created_at) {
+      return false;
+    }
+    // Status
+    if (subscriptionFilters.status && !sub.status.toLowerCase().includes(subscriptionFilters.status.toLowerCase())) return false;
+    return true;
+  });
   
   const { toast } = useToast();
 
@@ -651,7 +696,7 @@ export default function AdminSubscriptionPlansPage() {
                         <div>
                           <div className="font-medium">{plan.name}</div>
                           {plan.description && (
-                            <div className="text-sm text-muted-foreground truncate max-w-xs">
+                            <div className="max-w-xs">
                               {plan.description}
                             </div>
                           )}
@@ -753,25 +798,102 @@ export default function AdminSubscriptionPlansPage() {
             <div className="w-full">
               <Table className="min-w-[900px]">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Subscription Id</TableHead>
-                    <TableHead>Plan Id</TableHead>
-                    <TableHead>Subscription Link</TableHead>
-                    <TableHead>Customer Id</TableHead>
-                    <TableHead>Next Due on</TableHead>
-                    <TableHead>Created At</TableHead>
-                    <TableHead>Status</TableHead>
+                  <TableRow className="py-3 align-middle" style={{ paddingTop: '12px', paddingBottom: '12px' }}>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Subscription Id</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.id}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, id: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Plan Id</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.plan_id}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, plan_id: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Subscription Link</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.short_url}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, short_url: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Customer Id</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.customer_id}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, customer_id: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Next Due on</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.current_end}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, current_end: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Created At</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.created_at}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, created_at: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Status</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.status}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, status: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {razorpaySubscriptions.length === 0 ? (
+                  {filteredRazorpaySubscriptions.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No subscriptions found.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    razorpaySubscriptions.map((subscription) => (
+                    filteredRazorpaySubscriptions.map((subscription) => (
                       <TableRow key={subscription.id} >
                         <TableCell>
                           <a 
@@ -857,7 +979,6 @@ export default function AdminSubscriptionPlansPage() {
                   )}
                 </TableBody>
               </Table>
-              
               {/* Pagination */}
               {subscriptionsTotal > subscriptionsPageSize && (
                 <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t bg-slate-50 dark:bg-slate-900">
