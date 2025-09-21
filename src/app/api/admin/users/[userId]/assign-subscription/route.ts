@@ -63,6 +63,18 @@ async function assignSubscriptionToUser(req: NextRequest) {
     const startDate = new Date();
     const expiryDate = calculateSubscriptionExpiryDate(startDate, plan.billingCycle);
 
+    // Get the statusId for 'active' status
+    const activeStatus = await db.query.subscriptionStatuses.findFirst({
+      where: eq(subscriptionPlans.name, 'active'),
+      columns: { id: true }
+    });
+    if (!activeStatus) {
+      return NextResponse.json(
+        { error: 'Active subscription status not found' },
+        { status: 500 }
+      );
+    }
+
     // Check if user already has a subscription
     const existingSubscription = await db.query.userSubscriptions.findFirst({
       where: eq(userSubscriptions.userId, userId),
@@ -74,7 +86,7 @@ async function assignSubscriptionToUser(req: NextRequest) {
       await db.update(userSubscriptions)
         .set({
           planId: planId,
-          status: 'active',
+          statusId: activeStatus.id,
           startDate: startDate.toISOString(),
           expiryDate: expiryDate.toISOString(),
           updatedAt: new Date().toISOString()
@@ -85,7 +97,7 @@ async function assignSubscriptionToUser(req: NextRequest) {
       await db.insert(userSubscriptions).values({
         userId,
         planId,
-        status: 'active',
+        statusId: activeStatus.id,
         startDate: startDate.toISOString(),
         expiryDate: expiryDate.toISOString(),
         createdAt: new Date().toISOString(),

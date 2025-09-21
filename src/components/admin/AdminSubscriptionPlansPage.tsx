@@ -42,6 +42,9 @@ interface SubscriptionPlan {
   createdAt: string;
   updatedAt: string;
   userCountActive?: number;
+  razorpay_subscription_id?: string;
+  razorpay_subscription_plan_id?: string;
+  razorpay_subscription_link?: string;
 }
 
 interface CreatePlanData {
@@ -51,6 +54,26 @@ interface CreatePlanData {
   billingCycle: string;
   features: string[];
   isActive: boolean;
+  razorpay_subscription_id?: string;
+  razorpay_subscription_plan_id?: string;
+  razorpay_subscription_link?: string;
+}
+
+// Razorpay Subscription Interface
+interface RazorpaySubscription {
+  id: string;
+  entity: string;
+  plan_id: string;
+  customer_id?: string;
+  status: string;
+  current_start?: number;
+  current_end?: number;
+  ended_at?: number;
+  charge_at?: number;
+  created_at: number;
+  short_url?: string;
+  notes?: Record<string, string>;
+  quantity?: number;
 }
 
 export default function AdminSubscriptionPlansPage() {
@@ -62,6 +85,59 @@ export default function AdminSubscriptionPlansPage() {
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
+
+  // Razorpay Subscriptions State
+  const [razorpaySubscriptions, setRazorpaySubscriptions] = useState<RazorpaySubscription[]>([]);
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
+  const [subscriptionsError, setSubscriptionsError] = useState<string | null>(null);
+  const [subscriptionsPage, setSubscriptionsPage] = useState(1);
+  const [subscriptionsTotal, setSubscriptionsTotal] = useState(0);
+  const subscriptionsPageSize = 10;
+
+  // Razorpay Subscriptions Filters
+  const [subscriptionFilters, setSubscriptionFilters] = useState({
+    id: '',
+    plan_id: '',
+    short_url: '',
+    customer_id: '',
+    current_end: '',
+    created_at: '',
+    status: '',
+  });
+
+  // Filtered subscriptions
+  const filteredRazorpaySubscriptions = razorpaySubscriptions.filter((sub) => {
+    // Subscription Id
+    if (subscriptionFilters.id && !sub.id.toLowerCase().includes(subscriptionFilters.id.toLowerCase())) return false;
+    // Plan Id
+    if (subscriptionFilters.plan_id && !sub.plan_id.toLowerCase().includes(subscriptionFilters.plan_id.toLowerCase())) return false;
+    // Subscription Link
+    if (subscriptionFilters.short_url && !(sub.short_url || '').toLowerCase().includes(subscriptionFilters.short_url.toLowerCase())) return false;
+    // Customer Id
+    if (subscriptionFilters.customer_id && !(sub.customer_id || '').toLowerCase().includes(subscriptionFilters.customer_id.toLowerCase())) return false;
+    // Next Due on (date string)
+    if (subscriptionFilters.current_end && sub.current_end) {
+      const dateStr = new Date(sub.current_end * 1000).toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      });
+      if (!dateStr.toLowerCase().includes(subscriptionFilters.current_end.toLowerCase())) return false;
+    } else if (subscriptionFilters.current_end) {
+      return false;
+    }
+    // Created At (date string)
+    if (subscriptionFilters.created_at && sub.created_at) {
+      const dateStr = new Date(sub.created_at * 1000).toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+      });
+      if (!dateStr.toLowerCase().includes(subscriptionFilters.created_at.toLowerCase())) return false;
+    } else if (subscriptionFilters.created_at) {
+      return false;
+    }
+    // Status
+    if (subscriptionFilters.status && !sub.status.toLowerCase().includes(subscriptionFilters.status.toLowerCase())) return false;
+    return true;
+  });
+  
   const { toast } = useToast();
 
   // Form state
@@ -71,7 +147,10 @@ export default function AdminSubscriptionPlansPage() {
     price: '',
     billingCycle: 'monthly',
     features: [],
-    isActive: true
+    isActive: true,
+    razorpay_subscription_id: '',
+    razorpay_subscription_plan_id: '',
+    razorpay_subscription_link: '',
   });
 
   const [newFeature, setNewFeature] = useState('');
@@ -113,9 +192,44 @@ export default function AdminSubscriptionPlansPage() {
     }
   }, [toast]);
   
+  // Load Razorpay subscriptions
+  const loadRazorpaySubscriptions = useCallback(async (page: number = 1) => {
+    setSubscriptionsLoading(true);
+    setSubscriptionsError(null);
+    try {
+      const skip = (page - 1) * subscriptionsPageSize;
+      const response = await fetch(`/api/payments/razorpay-subscriptions?count=${subscriptionsPageSize}&skip=${skip}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setRazorpaySubscriptions(data.subscriptions || []);
+        setSubscriptionsTotal(data.count || 0);
+      } else {
+        setSubscriptionsError(data.error || "Failed to load subscriptions");
+        toast({
+          title: "Error",
+          description: data.error || "Failed to load Razorpay subscriptions",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error loading subscriptions:', error);
+      const errorMessage = "Failed to load Razorpay subscriptions";
+      setSubscriptionsError(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setSubscriptionsLoading(false);
+    }
+  }, [subscriptionsPageSize, toast]);
+  
   useEffect(() => {
     loadPlans();
-  }, [loadPlans]);
+    loadRazorpaySubscriptions(subscriptionsPage);
+  }, [loadPlans, loadRazorpaySubscriptions, subscriptionsPage]);
 
   // Reset form
   const resetForm = () => {
@@ -125,7 +239,10 @@ export default function AdminSubscriptionPlansPage() {
       price: '',
       billingCycle: 'monthly',
       features: [],
-      isActive: true
+      isActive: true,
+      razorpay_subscription_id: '',
+      razorpay_subscription_plan_id: '',
+      razorpay_subscription_link: '',
     });
     setNewFeature('');
   };
@@ -257,7 +374,10 @@ export default function AdminSubscriptionPlansPage() {
       price: plan.price,
       billingCycle: plan.billingCycle,
       features: features,
-      isActive: plan.isActive
+      isActive: plan.isActive,
+      razorpay_subscription_id: plan.razorpay_subscription_id || '',
+      razorpay_subscription_plan_id: plan.razorpay_subscription_plan_id || '',
+      razorpay_subscription_link: plan.razorpay_subscription_link || '',
     });
     setEditDialogOpen(true);
   };
@@ -356,6 +476,37 @@ export default function AdminSubscriptionPlansPage() {
                       onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
                       placeholder="e.g., $9.99, $29.99"
                       required
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="razorpay_subscription_id">Razorpay Subscription ID</Label>
+                    <Input
+                      id="razorpay_subscription_id"
+                      value={formData.razorpay_subscription_id}
+                      onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_id: e.target.value }))}
+                      placeholder="Enter Razorpay Subscription ID"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="razorpay_subscription_plan_id">Razorpay Subscription Plan ID</Label>
+                    <Input
+                      id="razorpay_subscription_plan_id"
+                      value={formData.razorpay_subscription_plan_id}
+                      onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_plan_id: e.target.value }))}
+                      placeholder="Enter Razorpay Subscription Plan ID"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="razorpay_subscription_link">Razorpay Subscription Link</Label>
+                    <Input
+                      id="razorpay_subscription_link"
+                      value={formData.razorpay_subscription_link}
+                      onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_link: e.target.value }))}
+                      placeholder="Enter Razorpay Subscription Link"
                     />
                   </div>
                 </div>
@@ -545,7 +696,7 @@ export default function AdminSubscriptionPlansPage() {
                         <div>
                           <div className="font-medium">{plan.name}</div>
                           {plan.description && (
-                            <div className="text-sm text-muted-foreground truncate max-w-xs">
+                            <div className="max-w-xs">
                               {plan.description}
                             </div>
                           )}
@@ -628,7 +779,238 @@ export default function AdminSubscriptionPlansPage() {
             </Table>
           </div>
         </CardContent>
-      </Card>      
+      </Card>
+
+      {/* Razorpay Subscriptions Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Razorpay Subscriptions</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0">
+          {subscriptionsLoading ? (
+            <div className="flex flex-col items-center justify-center min-h-32 py-8 w-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+              <span className="text-muted-foreground text-center">Loading subscriptions...</span>
+            </div>
+          ) : subscriptionsError ? (
+            <div className="text-red-600 p-4">{subscriptionsError}</div>
+          ) : (
+            <div className="w-full">
+              <Table className="min-w-[900px]">
+                <TableHeader>
+                  <TableRow className="py-3 align-middle" style={{ paddingTop: '12px', paddingBottom: '12px' }}>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Subscription Id</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.id}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, id: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Plan Id</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.plan_id}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, plan_id: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Subscription Link</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.short_url}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, short_url: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Customer Id</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.customer_id}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, customer_id: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Next Due on</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.current_end}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, current_end: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Created At</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.created_at}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, created_at: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex flex-col py-2">
+                        <span>Status</span>
+                        <input
+                          type="text"
+                          className="mt-1 px-2 py-1 border rounded text-xs bg-background"
+                          placeholder="Filter..."
+                          value={subscriptionFilters.status}
+                          onChange={e => setSubscriptionFilters(f => ({ ...f, status: e.target.value }))}
+                        />
+                      </div>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRazorpaySubscriptions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        No subscriptions found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredRazorpaySubscriptions.map((subscription) => (
+                      <TableRow key={subscription.id} >
+                        <TableCell>
+                          <a 
+                            href={`https://dashboard.razorpay.com/app/subscriptions/${subscription.id}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            {subscription.id}
+                          </a>
+                        </TableCell>
+                        <TableCell>
+                          <a 
+                            href={`https://dashboard.razorpay.com/app/plans/${subscription.plan_id}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            {subscription.plan_id}
+                          </a>
+                        </TableCell>
+                        <TableCell>
+                          {subscription.short_url ? (
+                            <a 
+                              href={subscription.short_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                            >
+                              {subscription.short_url}
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">--</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {subscription.customer_id || <span className="text-muted-foreground">--</span>}
+                        </TableCell>
+                        <TableCell>
+                          {subscription.current_end ? (
+                            <span className="text-sm">
+                              {new Date(subscription.current_end * 1000).toLocaleDateString('en-IN', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric'
+                              })}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">--</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">
+                            {new Date(subscription.created_at * 1000).toLocaleString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true
+                            })}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {subscription.status === 'active' ? (
+                            <Badge className="bg-green-100 text-green-700 border-green-200">
+                              Active
+                            </Badge>
+                          ) : subscription.status === 'created' ? (
+                            <Badge className="bg-gray-100 text-gray-700 border-gray-200">
+                              Created
+                            </Badge>
+                          ) : subscription.status === 'cancelled' ? (
+                            <Badge className="bg-red-100 text-red-700 border-red-200">
+                              Cancelled
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">
+                              {subscription.status}
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              {/* Pagination */}
+              {subscriptionsTotal > subscriptionsPageSize && (
+                <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t bg-slate-50 dark:bg-slate-900">
+                  <div className="text-xs text-muted-foreground">
+                    Page {subscriptionsPage} of {Math.ceil(subscriptionsTotal / subscriptionsPageSize)} 
+                    ({subscriptionsTotal} total subscriptions)
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      disabled={subscriptionsPage === 1} 
+                      onClick={() => setSubscriptionsPage(p => Math.max(1, p - 1))}
+                    >
+                      Prev
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      disabled={subscriptionsPage === Math.ceil(subscriptionsTotal / subscriptionsPageSize)} 
+                      onClick={() => setSubscriptionsPage(p => Math.min(Math.ceil(subscriptionsTotal / subscriptionsPageSize), p + 1))}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col bg-accent text-primary">
@@ -657,6 +1039,37 @@ export default function AdminSubscriptionPlansPage() {
                     onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
                     placeholder="e.g., $9.99, $29.99"
                     required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-razorpay_subscription_id">Razorpay Subscription ID</Label>
+                  <Input
+                    id="edit-razorpay_subscription_id"
+                    value={formData.razorpay_subscription_id}
+                    onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_id: e.target.value }))}
+                    placeholder="Enter Razorpay Subscription ID"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-razorpay_subscription_plan_id">Razorpay Subscription Plan ID</Label>
+                  <Input
+                    id="edit-razorpay_subscription_plan_id"
+                    value={formData.razorpay_subscription_plan_id}
+                    onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_plan_id: e.target.value }))}
+                    placeholder="Enter Razorpay Subscription Plan ID"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-razorpay_subscription_link">Razorpay Subscription Link</Label>
+                  <Input
+                    id="edit-razorpay_subscription_link"
+                    value={formData.razorpay_subscription_link}
+                    onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_link: e.target.value }))}
+                    placeholder="Enter Razorpay Subscription Link"
                   />
                 </div>
               </div>

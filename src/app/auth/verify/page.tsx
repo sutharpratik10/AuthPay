@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import EmailVerificationForm from "@/components/auth/EmailVerificationForm"
@@ -8,31 +8,56 @@ import EmailVerificationForm from "@/components/auth/EmailVerificationForm"
 export default function VerifyPage() {
   const { isAuthenticated, isEmailVerified, loading, user } = useAuth()
   const router = useRouter()
-    // Redirect if user is already verified
+  const hasRedirected = useRef(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Ensure we only run effects after component is mounted
   useEffect(() => {
-    if (!loading) {
-      // If user is authenticated and already verified, redirect to dashboard
-      if (isAuthenticated && isEmailVerified) {
+    setMounted(true)
+  }, [])
+
+  // Redirect if user is already verified - but only after mounting and with delay
+  useEffect(() => {
+    if (!mounted || loading || hasRedirected.current) return
+
+    // Add a small delay to ensure auth state is stable
+    const timer = setTimeout(() => {
+      if (isAuthenticated && isEmailVerified && !hasRedirected.current) {
+        hasRedirected.current = true
+        console.log('[VERIFY PAGE] User is verified, redirecting to dashboard')
+        
         // Determine dashboard based on user role
         const userRole = (user as { role?: string })?.role || 'user';
         const dashboardUrl = userRole === 'admin' 
           ? '/protected/admin/dashboard' 
           : '/protected/user/dashboard';
+        
         router.push(dashboardUrl)
-        return
       }
-      // Allow both authenticated and unauthenticated users to access verification
-      // Unauthenticated users might be verifying after registration from another session
-    }
-  }, [isAuthenticated, isEmailVerified, loading, router, user])
+    }, 500) // 500ms delay to allow auth state to stabilize
+
+    return () => clearTimeout(timer)
+  }, [mounted, isAuthenticated, isEmailVerified, loading, router, user])
 
   // Show loading while checking authentication state
-  if (loading) {
+  if (!mounted || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <div className="h-10 w-10 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
           <p>Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // If user is verified but we haven't redirected yet, show loading
+  if (isAuthenticated && isEmailVerified && !hasRedirected.current) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="h-10 w-10 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
+          <p>Redirecting to dashboard...</p>
         </div>
       </div>
     )
@@ -49,6 +74,6 @@ export default function VerifyPage() {
             : "Enter the verification code we sent to your email address."
         }
       />
-    </div>
+    </div>  
   )
 }

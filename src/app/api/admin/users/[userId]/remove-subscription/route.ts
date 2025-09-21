@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
 import { db } from '@/db';
-import { users, userSubscriptions } from '@/db/schema';
+import { users, userSubscriptions, subscriptionStatuses } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 /**
@@ -48,10 +48,22 @@ async function removeSubscriptionFromUser(req: NextRequest) {
       );
     }
 
-    // Remove subscription by updating status and expiry/end dates
+    // Get the statusId for 'cancelled' status
+    const cancelledStatus = await db.query.subscriptionStatuses.findFirst({
+      where: eq(subscriptionStatuses.name, 'cancelled'),
+      columns: { id: true }
+    });
+    if (!cancelledStatus) {
+      return NextResponse.json(
+        { error: 'Cancelled subscription status not found' },
+        { status: 500 }
+      );
+    }
+
+    // Remove subscription by updating statusId and expiry/end dates
     await db.update(userSubscriptions)
       .set({
-        status: 'cancelled',
+        statusId: cancelledStatus.id,
         expiryDate: new Date().toISOString(),
         endDate: new Date().toISOString(),
         updatedAt: new Date().toISOString()

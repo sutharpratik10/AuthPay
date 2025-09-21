@@ -25,11 +25,9 @@ export default function LoginPage() {  const router = useRouter()
             router.push(redirectPath)
           } else {
             // Determine dashboard based on user role
-            const userRole = getRoleName(user);
+            const userRole = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
             const dashboardUrl = userRole === 'admin' 
-              ? ROUTES.PROTECTED.ADMIN_DASHBOARD 
-              : ROUTES.PROTECTED.USER_DASHBOARD;
-            console.log('[LOGIN] Redirecting verified user to role-based dashboard:', dashboardUrl)
+              ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
             router.push(dashboardUrl)
           }
         } else {          

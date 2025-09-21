@@ -31,10 +31,13 @@ export function AppSidebar() {
   const { data: session } = useSession();
   const [isAdmin, setIsAdmin] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
+  const [adminCheckDone, setAdminCheckDone] = useState(false);
+  const [subscriptionCheckDone, setSubscriptionCheckDone] = useState(false);
 
-  // Check if user has admin role
-  useEffect(() => {    const checkAdminRole = async () => {
-      if (session?.user?.id) {
+  // Check if user has admin role - only once per session
+  useEffect(() => {    
+    const checkAdminRole = async () => {
+      if (session?.user?.id && !adminCheckDone) {
         try {
           const response = await fetch('/api/user/admin-status');
           const data = await response.json();
@@ -47,19 +50,22 @@ export function AppSidebar() {
         } catch (error) {
           console.error('Error checking admin role:', error);
           setIsAdmin(false);
+        } finally {
+          setAdminCheckDone(true);
         }
-      } else {
+      } else if (!session?.user?.id) {
         setIsAdmin(false);
+        setAdminCheckDone(false);
       }
     };
 
     checkAdminRole();
-  }, [session?.user?.id]);
+  }, [session?.user?.id, adminCheckDone]);
 
-  // Check user subscription status
+  // Check user subscription status - only once per session
   useEffect(() => {
     const fetchSubscriptionStatus = async () => {
-      if (session?.user?.id) {
+      if (session?.user?.id && !subscriptionCheckDone) {
         try {
           const response = await fetch('/api/user/subscription-status');
           const data = await response.json();
@@ -72,14 +78,17 @@ export function AppSidebar() {
         } catch (error) {
           console.error('Error fetching subscription status:', error);
           setSubscriptionStatus(null);
+        } finally {
+          setSubscriptionCheckDone(true);
         }
-      } else {
+      } else if (!session?.user?.id) {
         setSubscriptionStatus(null);
+        setSubscriptionCheckDone(false);
       }
     };
 
     fetchSubscriptionStatus();
-  }, [session?.user?.id]);
+  }, [session?.user?.id, subscriptionCheckDone]);
 
   const navigation = [
     {
@@ -259,7 +268,7 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
           <footer className="shrink-0 border-t bg-muted/30 px-4 py-3 lg:px-8">
             <div className="container max-w-7xl mx-auto">
               <p className="text-center text-xs text-muted-foreground">
-                © {new Date().getFullYear()} {process.env.NEXT_PUBLIC_APP_NAME || "RoleKit"}. All rights reserved.
+                © {new Date().getFullYear()} {process.env.NEXT_PUBLIC_APP_NAME}. All rights reserved.
               </p>
             </div>
           </footer>

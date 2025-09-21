@@ -1,11 +1,10 @@
+import { Suspense } from "react";
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
-import { PermissionService } from '@/services/permissions';
 import AdminUsersPage from '@/components/admin/AdminUsersPage';
 
 export default async function ManageUsersPage() {
   const session = await auth();
-  
   if (!session?.user?.id) {
     redirect('/auth/login');
   }
@@ -17,7 +16,9 @@ export default async function ManageUsersPage() {
           Create, edit, and manage user accounts and roles
         </p>
       </div>
-      <AdminUsersPage />
+      <Suspense fallback={<div>Loading users...</div>}>
+        <AdminUsersPage />
+      </Suspense>
     </div>
   );
 }

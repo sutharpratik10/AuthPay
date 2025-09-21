@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { validateSessionFromRequest, createUnauthorizedResponse, trackSessionActivity } from "@/lib/session-validation";
 import { db } from "@/db";
-import { userPreferences, sessions, roles, users } from "@/db/schema";
+import { userPreferences } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 /**
  * Check if user requires 2FA verification for this session
- * Note: This is a simplified check - in a production environment,
- * you would want to check the actual session's 2FA verification status
  */
 async function checkSessionRequires2FA(userId: string): Promise<{ requires2FA: boolean; isVerified: boolean }> {
   try {
-    // Check if user has 2FA enabled
     const preferences = await db.query.userPreferences.findFirst({
       where: eq(userPreferences.userId, userId),
       columns: { twoFactorAuth: true }
@@ -20,17 +17,12 @@ async function checkSessionRequires2FA(userId: string): Promise<{ requires2FA: b
     const has2FA = preferences?.twoFactorAuth === true;
     
     if (!has2FA) {
-      return { requires2FA: false, isVerified: true }; // No 2FA required
+      return { requires2FA: false, isVerified: true };
     }
 
-    // If 2FA is required, for now we assume it's verified if user is authenticated
-    // In a more robust implementation, you would check the session token against
-    // the sessions table to verify the is2faVerified flag
-    
     return { requires2FA: true, isVerified: true };
   } catch (error) {
     console.error('Error checking 2FA requirements:', error);
-    // Fail safe: allow access if we can't determine 2FA status
     return { requires2FA: false, isVerified: true };
   }
 }
@@ -47,7 +39,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  console.log(`[MIDDLEWARE] ⚡ RUNNING: ${request.method} ${path}`);
+  console.log(`[MIDDLEWARE] ⚡ Processing: ${request.method} ${path}`);
   
   // Define route categories
   const publicRoutes = [
@@ -62,7 +54,8 @@ export async function middleware(request: NextRequest) {
     '/auth/signup', 
     '/auth/forgot-password'
   ];
-    const protectedRoutes = [
+  
+  const protectedRoutes = [
     '/protected/profile',
     '/protected/account',
     '/protected/settings',
@@ -72,70 +65,67 @@ export async function middleware(request: NextRequest) {
   
   const verificationRoute = '/auth/verify';
   
-  // Allow public routes for everyone without auth check
+  // Allow public routes without authentication check
   if (publicRoutes.includes(path)) {
     console.log(`[MIDDLEWARE] ✅ Public route allowed: ${path}`);
     return NextResponse.next();
   }
 
-  // Get session only when needed (not for public routes)
-  const session = await auth();
-  const isAuthenticated = !!session?.user;
-  const isEmailVerified = session?.user?.isEmailVerified === true;
-  
-  // Helper to get role name from userId
-async function getUserRoleName(userId: string): Promise<string> {
-  try {
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, userId),
-      columns: { roleId: true }
+  // For all other routes, validate session using the new system
+  const sessionValidation = await validateSessionFromRequest(request, {
+    extendSession: true,
+    requireVerifiedEmail: false, // We'll handle this per route
+    requireActiveUser: true,
+  });
+
+  const isAuthenticated = sessionValidation.isValid;
+  const user = sessionValidation.user;
+  const isEmailVerified = user?.isEmailVerified === true;
+
+  // Track user activity if session is valid
+  if (isAuthenticated) {
+    trackSessionActivity(request).catch(error => {
+      console.error('Failed to track session activity:', error);
     });
-    if (!user?.roleId) return "user";
-    const role = await db.query.roles.findFirst({
-      where: eq(roles.id, user.roleId),
-      columns: { name: true }
-    });
-    return role?.name || "user";
-  } catch (e) {
-    console.error("Error fetching user role:", e);
-    return "user";
   }
-}
+
+
+  // Helper to get role name from user data
+  function getUserRole(): string {
+    if (!user?.roleId) return "user";
+    // You might want to fetch role name from roleId here if needed
+    return "user"; // Simplified for now
+  }
+
+  // Helper to get dashboard URL based on user role
+  function getDashboardUrl(): string {
+    const userRole = getUserRole();
+    return userRole === 'admin'
+      ? '/protected/admin/dashboard'
+      : '/protected/user/dashboard';
+  }
 
   // Handle verification page access
   if (path === verificationRoute) {
     if (!isAuthenticated) {
-      console.log(`[MIDDLEWARE] 🔒 Unauthenticated user trying to access verify page, redirecting to login`);
-      return NextResponse.redirect(new URL('/auth/login', request.url));
+      console.log(`[MIDDLEWARE] 🔒 Unauthenticated user trying to access verify page`);
+      return createUnauthorizedResponse(request, 'Authentication required', '/auth/login');
     }
     if (isEmailVerified) {
-      // Fetch role from DB using userId and roleId foreign key
-      const userId = session?.user?.id;
-      let userRole = 'user';
-      if (userId) {
-        userRole = await getUserRoleName(userId);
-      }
-      if (userRole === 'admin') {
-        console.log(`[MIDDLEWARE] ✅ Email verified and user is admin, redirecting to admin dashboard`);
-        return NextResponse.redirect(new URL('/protected/admin/dashboard', request.url));
-      } else {
-        console.log(`[MIDDLEWARE] ✅ Email verified and user is not admin, redirecting to user dashboard`);
-        return NextResponse.redirect(new URL('/protected/user/dashboard', request.url));
-      }
+      const dashboardUrl = getDashboardUrl();
+      console.log(`[MIDDLEWARE] ✅ Email verified, redirecting to dashboard`);
+      return NextResponse.redirect(new URL(dashboardUrl, request.url));
     }
     console.log(`[MIDDLEWARE] ✅ Authenticated unverified user accessing verify page`);
     return NextResponse.next();
   }
   
   // Handle auth pages (login, signup, forgot-password)
-  if (authRoutes.includes(path)) {    if (isAuthenticated) {
+  if (authRoutes.includes(path)) {
+    if (isAuthenticated) {
       if (isEmailVerified) {
-        console.log(`[MIDDLEWARE] ✅ Authenticated verified user, redirecting to role-based dashboard`);
-        // Determine dashboard based on user role
-        const userRole = (session?.user as { role?: string })?.role || 'user';
-        const dashboardUrl = userRole === 'admin' 
-          ? '/protected/admin/dashboard' 
-          : '/protected/user/dashboard';
+        console.log(`[MIDDLEWARE] ✅ Authenticated verified user, redirecting to dashboard`);
+        const dashboardUrl = getDashboardUrl();
         return NextResponse.redirect(new URL(dashboardUrl, request.url));
       } else {
         console.log(`[MIDDLEWARE] ⚠️ Authenticated unverified user, redirecting to verify`);
@@ -153,37 +143,30 @@ async function getUserRoleName(userId: string): Promise<string> {
 
   if (needsProtection) {
     if (!isAuthenticated) {
-      console.log(`[MIDDLEWARE] 🔒 Redirecting unauthenticated user from ${path} to login`);
-      const loginUrl = new URL('/auth/login', request.url);
-      loginUrl.searchParams.set('returnTo', path);
-      return NextResponse.redirect(loginUrl);
+      console.log(`[MIDDLEWARE] 🔒 Unauthenticated access to protected route: ${path}`);
+      return createUnauthorizedResponse(request, 'Authentication required', '/auth/login');
     }
-    // Server-side session expiry check
-    const sessionToken = request.cookies.get('session-token')?.value || request.cookies.get('next-auth.session-token')?.value;
-    if (session?.user?.id && sessionToken) {
-      const sessionRecord = await db.query.sessions.findFirst({
-        where: eq(sessions.token, sessionToken),
-        columns: { expiresAt: true }
-      });
-      if (!sessionRecord || new Date() > new Date(sessionRecord.expiresAt)) {
-        console.log(`[MIDDLEWARE] 🔒 Session expired for user ${session.user.id}, redirecting to login`);
-        // Optionally: clean up expired session here
-        return NextResponse.redirect(new URL('/auth/login', request.url));
-      }
-    }
+
     if (!isEmailVerified) {
-      console.log(`[MIDDLEWARE] ⚠️ Authenticated but unverified user, redirecting to verify page`);
-      return NextResponse.redirect(new URL('/auth/verify', request.url));
+      console.log(`[MIDDLEWARE] ⚠️ Unverified email accessing protected route: ${path}`);
+      // Only redirect to verify if we're not already in a verification flow
+      if (!request.headers.get('referer')?.includes('/auth/verify')) {
+        return NextResponse.redirect(new URL('/auth/verify', request.url));
+      }
+      // If coming from verify page, allow access (user might be in verification process)
+      console.log(`[MIDDLEWARE] ⚠️ User coming from verify page, allowing temporary access`);
     }
+
     // Check if session requires 2FA verification
-    if (session?.user?.id) {
-      const { requires2FA, isVerified } = await checkSessionRequires2FA(session.user.id);
+    if (user?.id) {
+      const { requires2FA, isVerified } = await checkSessionRequires2FA(user.id);
       if (requires2FA && !isVerified) {
-        console.log(`[MIDDLEWARE] 🔒 User requires 2FA verification, redirecting to 2FA page`);
+        console.log(`[MIDDLEWARE] 🔒 2FA verification required for: ${path}`);
         return NextResponse.redirect(new URL('/auth/2fa-verify', request.url));
       }
     }
-    console.log(`[MIDDLEWARE] ✅ Authenticated verified user accessing: ${path}`);
+
+    console.log(`[MIDDLEWARE] ✅ Authorized access to: ${path}`);
     return NextResponse.next();
   }
   

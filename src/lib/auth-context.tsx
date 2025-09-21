@@ -142,7 +142,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         });
       } catch (sessionError) {
-        console.warn('Failed to create session record:', sessionError);        // Don't fail the login process if session recording fails
+        console.warn('Failed to create session record:', sessionError);        
+        // Don't fail the login process if session recording fails
       }
       
       // Don't redirect here - let middleware handle the redirect based on email verification status
@@ -153,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
     const socialLogin = async (provider: string) => {
-    await signIn(provider, { callbackUrl: "/protected" })
+    await signIn(provider, { callbackUrl: "/protected/user/dashboard" })
   }
 
   const register = async (email: string, password: string, name?: string) => {

@@ -1,16 +1,22 @@
+// src/db/index.ts
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
+import "dotenv/config";
+import { getPostgresSSLConfig } from "./ssl-config";
 
 const connectionString = process.env.DATABASE_URL!;
+if (!connectionString) throw new Error("DATABASE_URL not set");
 
-// Optimize connection pool for better performance
+// Get SSL configuration using shared utility
+const ssl = getPostgresSSLConfig();
 const client = postgres(connectionString, {
-  max: parseInt(process.env.DB_POOL_MAX || '10'), // Maximum connections in pool
-  idle_timeout: parseInt(process.env.DB_IDLE_TIMEOUT || '20'), // Seconds to keep connection idle
-  connect_timeout: 10, // Connection timeout in seconds
-  prepare: false, // Disable prepared statements for serverless compatibility
+  ...(ssl !== undefined ? { ssl } : {}), // ✅ don’t pass `undefined`
+  max: Number(process.env.DB_POOL_MAX ?? 10),
+  idle_timeout: Number(process.env.DB_IDLE_TIMEOUT ?? 20),
+  connect_timeout: Number(process.env.DB_CONNECT_TIMEOUT ?? 10),
+  prepare: false,
 });
 
-// For client-side usage (serverless)
 export const db = drizzle(client, { schema });
+export { client as sql };

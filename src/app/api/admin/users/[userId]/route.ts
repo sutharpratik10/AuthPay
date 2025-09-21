@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
 import { db } from '@/db';
-import { users } from '@/db/schema';
+import { roles, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 /**
@@ -27,7 +27,7 @@ async function updateUser(req: NextRequest) {
     // Check if user exists
     const existingUser = await db.query.users.findFirst({
       where: eq(users.id, userId),
-      columns: { id: true, email: true, role: true }
+      columns: { id: true, email: true }
     });
 
     if (!existingUser) {
@@ -56,7 +56,7 @@ async function updateUser(req: NextRequest) {
         id: users.id,
         email: users.email,
         name: users.name,
-        role: users.role,
+        role: roles.name,
         isActive: users.isActive,
         isEmailVerified: users.isEmailVerified,
         updatedAt: users.updatedAt,
@@ -87,10 +87,29 @@ async function deleteUser(req: NextRequest) {
     const pathSegments = url.pathname.split('/');
     const userId = pathSegments[pathSegments.length - 1]; // Get userId from path
 
+    // Get the current admin user from session to prevent self-deletion
+    const { auth } = await import('@/auth');
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Prevent admin from deleting themselves
+    if (session.user.id === userId) {
+      return NextResponse.json(
+        { error: 'You cannot delete your own account' },
+        { status: 403 }
+      );
+    }
+
     // Check if user exists
     const existingUser = await db.query.users.findFirst({
       where: eq(users.id, userId),
-      columns: { id: true, email: true, role: true }
+      columns: { id: true, email: true }
     });
 
     if (!existingUser) {

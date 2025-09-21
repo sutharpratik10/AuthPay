@@ -16,7 +16,7 @@ export interface AuthRouteProps {
  * Helper function to get the correct dashboard URL based on user role
  */
 export function getRoleDashboard(user: { role?: string } | null | undefined): string {
-  const role = getRoleName(user);
+  const role = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
   return role === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
 }
 

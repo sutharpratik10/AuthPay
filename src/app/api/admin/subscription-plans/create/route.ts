@@ -12,7 +12,10 @@ async function createSubscriptionPlan(req: NextRequest) {
       price,
       billingCycle,
       features,
-      isActive = true
+      isActive = true,
+      razorpay_subscription_id,
+      razorpay_subscription_plan_id,
+      razorpay_subscription_link
     } = body;
 
     // Validate required fields
@@ -53,6 +56,9 @@ async function createSubscriptionPlan(req: NextRequest) {
         billingCycle,
         features: featuresJson,
         isActive: Boolean(isActive),
+        razorpaySubscriptionId: razorpay_subscription_id || null,
+        razorpaySubscriptionPlanId: razorpay_subscription_plan_id || null,
+        razorpaySubscriptionLink: razorpay_subscription_link || null,
         createdAt: new Date(),
         updatedAt: new Date()
       })

@@ -1,14 +1,14 @@
 "use client"
 import * as React from "react"
 import Link from "next/link"
-import { useEffect, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+import { useRouter, usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/constants"
 import { getRoleName } from "@/lib/role-utils"
 import { getAppName } from "@/lib/config"
 import type { NavigationItem, NavigationSubItem } from "@/lib/constants" 
-import { Menu, X, ChevronRight, User, Settings, LogOut, Shield } from "lucide-react"
+import { Menu, X, ChevronRight, User, Settings, LogOut, Shield, LayoutDashboard } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { signOut } from "next-auth/react"
 import { ROUTES } from "@/routes/routeUtils"
@@ -33,10 +33,11 @@ import { UserProfileDropdown } from "@/components/UserProfileDropdown"
 export function Navigationbar() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
   const sidebarRef = React.useRef<HTMLDivElement>(null)
-  
+
   // Check if user is authenticated and email is verified
   const isAuthenticated = status === "authenticated" && !!session?.user
   const isEmailVerified = session?.user?.isEmailVerified
@@ -117,13 +118,14 @@ export function Navigationbar() {
 
   // After a successful login, redirect users to their role-based dashboard if they landed on a neutral page
   useEffect(() => {
-    if (!mounted) return;    if (!isAuthenticated) return;
-    const roleName = getRoleName(user);
+    if (!mounted) return;    
+    if (!isAuthenticated) return;
+    const roleName = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
     const desired = roleName === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
-    // If current path is auth page, push to desired dashboard
+    // If current path is an auth page (but NOT home), push to desired dashboard
     if (typeof window !== 'undefined') {
       const path = window.location.pathname
-      const isAuthPage = path.startsWith('/auth/') || path === '/'
+      const isAuthPage = path.startsWith('/auth/')
       if (isAuthPage) {
         router.replace(desired)
       }
@@ -141,7 +143,8 @@ export function Navigationbar() {
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border">
       <div className="flex items-center justify-between h-16 px-4">
-        {/* Logo on the left */}        <div className="flex items-center">
+        {/* Logo on the left */}        
+        <div className="flex items-center">
           <Link href={ROUTES.PUBLIC.HOME}>
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 rounded-lg flex items-center justify-center">
@@ -155,6 +158,19 @@ export function Navigationbar() {
         {/* Desktop Navigation in the middle - hidden on mobile */}
         <NavigationMenu className="mx-auto hidden md:flex">
           <NavigationMenuList>
+            {/* User Dashboard link only for authenticated users and only on Home page */}
+            {isAuthenticated && pathname === "/" && (
+              <NavigationMenuItem>
+                <NavigationMenuLink className={navigationMenuTriggerStyle()} asChild>
+                  <Link href={(() => {
+                    const roleName = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
+                    return roleName === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
+                  })()}>
+                    Dashboard
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+            )}
             {navigationItems.map((item, index) => (
               hasHref(item) ? (
                 // Direct link, no dropdown
@@ -170,7 +186,7 @@ export function Navigationbar() {
                 <NavigationMenuItem key={index}>
                   <NavigationMenuTrigger>{item.title}</NavigationMenuTrigger>
                   <NavigationMenuContent>
-                    <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] bg-primary dark:bg-neutral-700 rounded-md shadow-lg">
+                    <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] bg-white dark:bg-neutral-700 rounded-md shadow-lg">
                       {hasItems(item) && item.items.map((subItem: NavigationSubItem, subIndex: number) => (
                         <ListItem
                           key={subIndex}
@@ -186,8 +202,10 @@ export function Navigationbar() {
               )
             ))}
           </NavigationMenuList>
-        </NavigationMenu>        {/* Right side with theme toggle and mobile menu button */}
-        <div className="flex items-center gap-2">          {/* Auth links on desktop - always show buttons first to prevent layout shift */}
+        </NavigationMenu>        
+        {/* Right side with theme toggle and mobile menu button */}
+        <div className="flex items-center gap-2">          
+          {/* Auth links on desktop - always show buttons first to prevent layout shift */}
           <div className="hidden md:block">
             {mounted && isAuthenticated ? (
               <UserProfileDropdown />
@@ -238,7 +256,9 @@ export function Navigationbar() {
           }`}
           onClick={closeMenu}
           aria-hidden="true"
-        />        {/* Mobile menu sidebar */}        <div 
+        />        
+        {/* Mobile menu sidebar */}        
+        <div 
           ref={sidebarRef}
           className={`fixed inset-y-0 right-0 z-[60] w-80 bg-sidebar backdrop-blur-md shadow-2xl md:hidden h-screen flex flex-col overflow-hidden transition-all duration-300 ease-out border-l border-sidebar-border ${
             isMenuOpen ? 'translate-x-0' : 'translate-x-full'
@@ -340,7 +360,25 @@ export function Navigationbar() {
             {/* Authentication and user actions - always show auth buttons first */}
             <div className="px-3 mt-6 pt-4 border-t border-border/20">
               {mounted && isAuthenticated ? (
-                <div className="space-y-2">                  <Link 
+                <div className="space-y-2">
+                  {/* Dashboard link for authenticated users - only on home page */}
+                  {pathname === "/" && (
+                    <Link 
+                      href={(() => {
+                        const roleName = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
+                        return roleName === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
+                      })()} 
+                      onClick={closeMenu}
+                      className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-muted/60 dark:hover:bg-slate-800/60 transition-all duration-200 group text-foreground"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <LayoutDashboard className="w-4 h-4 text-muted-foreground" />
+                        <span>Dashboard</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-muted-foreground" />
+                    </Link>
+                  )}
+                  <Link 
                     href="/profile" 
                     onClick={closeMenu}
                     className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-muted/60 dark:hover:bg-slate-800/60 transition-all duration-200 group text-foreground"
