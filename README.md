@@ -1,17 +1,14 @@
-# AuthPay – Next.js Authentication, Payments & Multi‑Tenant API Layer
+# AuthPay – Next.js Authentication, Payments & RBAC API Layer
 
 [![Next.js](https://img.shields.io/badge/Next.js-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![NextAuth.js](https://img.shields.io/badge/NextAuth.js-blue?style=flat-square&logo=nextauth)](https://next-auth.js.org/)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/sutharpratik10/AccessLayer/graphs/commit-activity)
 
-AuthPay is a modular authentication, payment, and API layer built on **Next.js** and **NextAuth.js**. It offers comprehensive authentication solutions, including email/password login, multiple OAuth providers (Google, GitHub, Facebook, Microsoft Azure AD, Apple), and robust security features like 2FA, email verification, and password reset. The session management uses JWT for enhanced security and scalability.
 
-With a scalable **multi-tenant architecture**, AuthPay is ideal for SaaS applications needing isolated tenant data and granular access control. Each tenant can have its own configuration and data, ensuring a secure and customizable environment.
+AuthPay is ideal for applications needing granular access control. It offers a secure and customizable environment.
 
 **New in AuthPay:**
-- **Integrated Payment Gateway:** Seamlessly connect to payment providers (Stripe, Razorpay, etc.) for subscription management, one-time payments, and invoicing. Payment APIs are protected and tenant-aware, supporting multi-tenant billing and role-based access to payment features.
-- **Protected Paths:** Easily secure API routes and UI pages using middleware and RBAC. Define which roles can access specific endpoints or UI components. Unauthorized users are redirected or receive appropriate error responses.
-- **Role-Based Access Control (RBAC):** Fine-grained, tenant-aware RBAC system. Assign roles (admin, user, manager, etc.) per tenant, and control access to resources, payment actions, and admin features. RBAC is enforced at both API and UI levels.
+- 🏷️ **Role-Based Access Control (RBAC)**: Fine-grained RBAC system. Assign roles (admin, user, manager, etc.) and control access to resources, payment actions, and admin features. RBAC is enforced at both API and UI levels.
 
 ---
 
@@ -248,10 +245,11 @@ See `ROUTES-ARCHITECTURE.md` for more details.
 
 ## 🏷️ Role-Based Access Control (RBAC)
 
-AuthPay implements a robust, tenant-aware RBAC system. Roles are assigned per tenant, and permissions are enforced at both the API and UI levels. You can define custom roles and permissions in the database and use helper utilities in `src/lib/role-utils.ts` to check access.
+AuthPay implements a robust RBAC system. Roles are assigned to users, and permissions are enforced at both the API and UI levels. You can define custom roles and permissions in the database and use helper utilities in `src/lib/role-utils.ts` to check access.
 
 **Example roles:**
-- `admin`: Full access to all tenant resources, billing, and user management.
+**Example roles:**
+- `admin`: Full access to all resources, billing, and user management.
 - `user`: Standard access to application features.
 - `billing`: Access to payment and subscription management.
 
@@ -299,32 +297,7 @@ erDiagram
         updated_at timestamp
     }
 
-    TENANT {
-        uuid uuid PK
-        name varchar(255)
-        slug varchar(255)
-        created_at timestamp
-        updated_at timestamp
-    }
 
-    ROLE {
-        uuid uuid PK
-        name varchar(255)
-        description text
-        created_at timestamp
-        updated_at timestamp
-    }
-
-    USER_TENANT {
-        user_id uuid FK
-        tenant_id uuid FK
-        role_id uuid FK
-        joined_at timestamp
-    }
-
-    USER ||--o{ USER_TENANT : has
-    TENANT ||--o{ USER_TENANT : has
-    ROLE ||--o{ USER_TENANT : assigned
 
     USER {
       string id PK
@@ -415,8 +388,7 @@ erDiagram
 >
 > A: The UI components are located in the `components/` directory.  You can modify these components to fit your specific design requirements.
 
-> **Q: How do I handle tenant-specific configurations?**
->
 > A: Tenant configurations can be stored in the database and accessed using the tenant ID. You can create a middleware to load the tenant configuration based on the request's hostname or a custom header.
+
 
 ---
