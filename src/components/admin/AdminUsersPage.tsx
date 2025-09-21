@@ -738,7 +738,7 @@ export default function AdminUsersPage() {
                             title={user.id === currentUserId ? "You cannot delete your own account" : "Delete user"}
                             className={user.id === currentUserId ? "cursor-not-allowed" : "cursor-allowed"}
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3 w-3 text-red-500" />
                           </Button>
                         </div>
                       </TableCell>
