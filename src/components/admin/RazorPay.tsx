@@ -86,6 +86,30 @@ interface RazorpaySubscription {
   remaining_count?: number;
 }
 
+interface RazorpayInvoice {
+  id: string;
+  order_id?: string;
+  subscription_id?: string;
+  status?: string;
+  expire_by?: number;
+  issued_at?: number;
+  paid_at?: number;
+  cancelled_at?: number;
+  expired_at?: number;
+  sms_status?: string;
+  email_status?: string;
+  date?: number;
+  partial_payment?: boolean;
+  amount?: number;
+  amount_paid?: number;
+  amount_due?: number;
+  currency?: string;
+  description?: string | null;
+  notes?: Record<string, string>;
+  short_url?: string;
+  created_at?: number;
+}
+
 // Razorpay Plan interfaces (minimal)
 interface RazorpayPlanItem {
   id: string;
@@ -189,6 +213,10 @@ export default function RazorPay() {
   const [selectedRazorpaySubscription, setSelectedRazorpaySubscription] = useState<RazorpaySubscription | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  // Invoices for the currently selected subscription
+  const [subscriptionInvoices, setSubscriptionInvoices] = useState<RazorpayInvoice[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [invoicesError, setInvoicesError] = useState<string | null>(null);
 
   const { toast } = useToast();
 
@@ -334,6 +362,30 @@ export default function RazorPay() {
   }, []);
 
   // Load single Razorpay subscription by id
+  const loadRazorpayInvoices = useCallback(async (subscriptionId: string) => {
+    setInvoicesLoading(true);
+    setInvoicesError(null);
+    setSubscriptionInvoices([]);
+    try {
+      const res = await fetch(`/api/payments/razorpay-invoices?subscription_id=${encodeURIComponent(subscriptionId)}&count=50`);
+      const data = await res.json();
+      if (data && data.entity === 'collection') {
+        setSubscriptionInvoices((data.items || []) as RazorpayInvoice[]);
+      } else if (data && data.error) {
+        setInvoicesError(data.error.description || 'Failed to load invoices');
+      } else if (Array.isArray(data.items)) {
+        setSubscriptionInvoices(data.items as RazorpayInvoice[]);
+      } else {
+        setInvoicesError('Failed to load invoices');
+      }
+    } catch (err) {
+      console.error('Error loading invoices', err);
+      setInvoicesError('Failed to load invoices');
+    } finally {
+      setInvoicesLoading(false);
+    }
+  }, []);
+
   const loadRazorpaySubscription = useCallback(async (id: string) => {
     setSubscriptionLoading(true);
     setSubscriptionError(null);
@@ -344,6 +396,8 @@ export default function RazorPay() {
       const data = await res.json();
       if (data && !data.error) {
         setSelectedRazorpaySubscription(data as RazorpaySubscription);
+        // load invoices for this subscription (non-blocking)
+        loadRazorpayInvoices(String((data as RazorpaySubscription).id));
       } else {
         setSubscriptionError(data?.error?.description || 'Failed to load subscription');
       }
@@ -353,7 +407,81 @@ export default function RazorPay() {
     } finally {
       setSubscriptionLoading(false);
     }
-  }, []);
+  }, [loadRazorpayInvoices]);
+
+  // Cancel a subscription
+  const cancelRazorpaySubscription = useCallback(async (id: string) => {
+    try {
+      // guard: if selected subscription status is known and not cancellable, abort
+      const current = selectedRazorpaySubscription && selectedRazorpaySubscription.id === id ? selectedRazorpaySubscription : null;
+      if (current) {
+        const status = String(current.status);
+        if (status !== 'active' && status !== 'paused') {
+          toast({ title: 'Invalid action', description: `Subscription in status '${status}' cannot be cancelled`, variant: 'destructive' });
+          return;
+        }
+      }
+
+      const res = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+      const data = await res.json();
+      if (data && !data.error) {
+        toast({ title: 'Subscription cancelled', description: `Subscription ${id} cancelled`, variant: 'success' });
+        // refresh list and selected subscription
+        setSubscriptionDialogOpen(false);
+        loadRazorpaySubscriptions(subscriptionsPage);
+      } else {
+        toast({ title: 'Error', description: data?.error?.description || 'Failed to cancel subscription', variant: 'destructive' });
+      }
+    } catch (err) {
+      console.error('Error cancelling subscription', err);
+      toast({ title: 'Error', description: 'Failed to cancel subscription', variant: 'destructive' });
+    }
+  }, [loadRazorpaySubscriptions, subscriptionsPage, toast, selectedRazorpaySubscription]);
+
+  // Pause a subscription
+  const pauseRazorpaySubscription = useCallback(async (id: string) => {
+    try {
+      // guard: ensure selected subscription is active before pausing
+      const current = selectedRazorpaySubscription && selectedRazorpaySubscription.id === id ? selectedRazorpaySubscription : null;
+      if (current && current.status !== 'active') {
+        toast({ title: 'Invalid action', description: `Subscription must be active to pause (current: ${current.status})`, variant: 'destructive' });
+        return;
+      }
+
+      // pause now
+      const res = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(id)}/pause`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pause_at: 'now' }) });
+      const data = await res.json();
+      if (data && !data.error) {
+        toast({ title: 'Subscription paused', description: `Subscription ${id} paused`, variant: 'success' });
+        // refresh selected subscription details
+        await loadRazorpaySubscription(id);
+        loadRazorpaySubscriptions(subscriptionsPage);
+      } else {
+        toast({ title: 'Error', description: data?.error?.description || 'Failed to pause subscription', variant: 'destructive' });
+      }
+    } catch (err) {
+      console.error('Error pausing subscription', err);
+      toast({ title: 'Error', description: 'Failed to pause subscription', variant: 'destructive' });
+    }
+  }, [loadRazorpaySubscription, loadRazorpaySubscriptions, subscriptionsPage, toast, selectedRazorpaySubscription]);
+
+  // Resume a subscription
+  const resumeRazorpaySubscription = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(id)}/resume`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resume_at: 'now' }) });
+      const data = await res.json();
+      if (data && !data.error) {
+        toast({ title: 'Subscription resumed', description: `Subscription ${id} resumed`, variant: 'success' });
+        await loadRazorpaySubscription(id);
+        loadRazorpaySubscriptions(subscriptionsPage);
+      } else {
+        toast({ title: 'Error', description: data?.error?.description || 'Failed to resume subscription', variant: 'destructive' });
+      }
+    } catch (err) {
+      console.error('Error resuming subscription', err);
+      toast({ title: 'Error', description: 'Failed to resume subscription', variant: 'destructive' });
+    }
+  }, [loadRazorpaySubscription, loadRazorpaySubscriptions, subscriptionsPage, toast]);
 
   // Reset form
   const resetForm = () => {
@@ -1321,15 +1449,65 @@ export default function RazorPay() {
                     </div>
                   </div>
                 </div>
+                {/* Invoices list */}
+                <div className="col-span-2 mt-4">
+                  <div className="text-sm text-muted-foreground mb-2">Invoices</div>
+                  {invoicesLoading ? (
+                    <div className="text-sm text-muted-foreground">Loading invoices...</div>
+                  ) : invoicesError ? (
+                    <div className="text-sm text-red-600">{invoicesError}</div>
+                  ) : subscriptionInvoices.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">No invoices found.</div>
+                  ) : (
+                    <div className="overflow-x-auto mt-2">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-muted-foreground">
+                            <th className="pr-4">Invoice ID</th>
+                            <th className="pr-4">Status</th>
+                            <th className="pr-4">Amount</th>
+                            <th className="pr-4">Issued</th>
+                            <th className="pr-4">Paid</th>
+                            <th className="pr-4">Link</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {subscriptionInvoices.map((inv: RazorpayInvoice) => (
+                            <tr key={inv.id} className="border-t">
+                              <td className="py-2 pr-4">{inv.id}</td>
+                              <td className="py-2 pr-4">{inv.status}</td>
+                              <td className="py-2 pr-4">{inv.amount ? (inv.currency ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: inv.currency }).format(inv.amount / 100) : inv.amount) : '--'}</td>
+                              <td className="py-2 pr-4">{inv.issued_at ? new Date(inv.issued_at * 1000).toLocaleString() : '--'}</td>
+                              <td className="py-2 pr-4">{inv.paid_at ? new Date(inv.paid_at * 1000).toLocaleString() : '--'}</td>
+                              <td className="py-2 pr-4">{inv.short_url ? (<a href={inv.short_url} target="_blank" rel="noreferrer" className="text-primary underline">Link</a>) : '--'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="text-muted-foreground">No subscription selected.</div>
             )}
           </div>
+          {/* Actions */}
+          <div className="flex justify-end gap-2 px-4 pb-4">
+            <Button size="sm" variant="outline" onClick={() => selectedRazorpaySubscription && pauseRazorpaySubscription(selectedRazorpaySubscription.id)}>
+              Pause
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => selectedRazorpaySubscription && resumeRazorpaySubscription(selectedRazorpaySubscription.id)}>
+              Resume
+            </Button>
+            <Button size="sm" variant="destructive" onClick={() => selectedRazorpaySubscription && cancelRazorpaySubscription(selectedRazorpaySubscription.id)}>
+              Cancel Subscription
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
       
-      {/* Edit Dialog */}
+      {/* Basic Plan Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col bg-accent text-primary">
           <DialogHeader className="flex-shrink-0">

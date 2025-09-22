@@ -10,7 +10,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ success: false, error: { description: 'Missing Razorpay credentials' } }, { status: 500 });
     }
 
-    const id = params.id;
+  const { id } = await params as unknown as { id: string };
     if (!id) {
       return NextResponse.json({ success: false, error: { description: 'Missing subscription id' } }, { status: 400 });
     }

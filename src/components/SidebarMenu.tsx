@@ -162,6 +162,17 @@ export function AppSidebar() {
         </svg>
       ),
     },
+    {
+      name: 'Transactions',
+      href: '/protected/admin/transactions',
+      icon: (
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <rect x="2" y="5" width="20" height="14" rx="2" ry="2" />
+          <line x1="2" y1="10" x2="22" y2="10" />
+          <rect x="6" y="14" width="4" height="2" rx="1" ry="1" />
+        </svg>
+      ),
+    },
   ], []);
 
   // Add 'Manage Subscription' item if user has an active subscription plan
@@ -233,7 +244,7 @@ export function AppSidebar() {
                       "group-data-[collapsible=icon]:px-0",
                       "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-sm hover:scale-[1.02]",
                       "focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-0 focus-visible:outline-none",
-                      anyActiveChild && "bg-sidebar-primary text-white shadow-md font-medium"
+                      anyActiveChild && "bg-sidebar-accent text-sidebar-accent-foreground shadow-md font-medium dark:bg-sidebar-accent/90 dark:text-sidebar-accent-foreground"
                     )}
                     data-active={anyActiveChild}>
                     <button
@@ -263,8 +274,8 @@ export function AppSidebar() {
                   </SidebarMenuButton>
 
                     <div className={cn(
-                      "mt-1 space-y-1 pl-8 transform origin-top transition-all duration-200",
-                      open ? "scale-y-100 opacity-100 pointer-events-auto" : "scale-y-0 opacity-0 pointer-events-none"
+                      "space-y-1 pl-8 transform origin-top transition-all duration-600 overflow-hidden",
+                      open ? "translate-y-0 opacity-100 pointer-events-auto max-h-96" : "-translate-y-1 opacity-0 pointer-events-none max-h-0"
                     )}>
                       {children.map((child: NavItem) => {
                         const isActiveChild = pathname === child.href;
@@ -276,7 +287,7 @@ export function AppSidebar() {
                               className={cn(
                                 "w-full h-9 px-3 rounded-lg transition-all duration-200 relative group",
                                 "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-sm",
-                                isActiveChild && "bg-sidebar-primary text-white shadow-md font-medium"
+                                isActiveChild && "bg-sidebar-accent text-sidebar-accent-foreground shadow-md font-medium dark:bg-sidebar-accent/90 dark:text-sidebar-accent-foreground"
                               )}
                               data-active={isActiveChild}>
                               <Link href={child.href} className="flex items-center w-full">
@@ -316,9 +327,9 @@ export function AppSidebar() {
                     "group-data-[collapsible=icon]:px-0",
                     "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-sm hover:scale-[1.02]",
                     "focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-0 focus-visible:outline-none",
-                    "data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-md",
-                    isActive && "bg-sidebar-primary text-white shadow-md font-medium",
-                    isActive && "before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-sidebar-primary before:rounded-r"
+                    "data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground data-[active=true]:shadow-md dark:data-[active=true]:bg-sidebar-accent/90 dark:data-[active=true]:text-sidebar-accent-foreground",
+                    isActive && "bg-sidebar-accent text-sidebar-accent-foreground shadow-md font-medium dark:bg-sidebar-accent/90 dark:text-sidebar-accent-foreground",
+                    isActive && "before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-sidebar-accent before:rounded-r dark:before:bg-sidebar-accent/90"
                   )}
                   data-active={isActive}>
                   <Link href={item.href} className={cn(
