@@ -15,7 +15,7 @@ import {
 import { getAppName } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 interface SubscriptionStatus {
   hasSubscription: boolean;
@@ -24,6 +24,13 @@ interface SubscriptionStatus {
   price?: string;
   billingCycle?: string;
   expiryDate?: string;
+}
+
+interface NavItem {
+  name: string;
+  href: string;
+  icon?: React.ReactNode;
+  children?: NavItem[];
 }
 
 export function AppSidebar() {
@@ -90,7 +97,7 @@ export function AppSidebar() {
     fetchSubscriptionStatus();
   }, [session?.user?.id, subscriptionCheckDone]);
 
-  const navigation = [
+  const navigation: NavItem[] = useMemo(() => [
     {
       name: 'Dashboard',
       href: (session?.user as { role?: string } | undefined)?.role === 'admin'
@@ -105,8 +112,9 @@ export function AppSidebar() {
         </svg>
       ),
     },
-  ];  // Add admin navigation items if user is admin
-  const adminNavigation = [
+  ], [session?.user]);  // depends on session role
+
+  const adminNavigation: NavItem[] = useMemo(() => [
     {
       name: 'Manage Users',
       href: '/protected/admin/users',
@@ -119,7 +127,8 @@ export function AppSidebar() {
           <circle cx="18" cy="8" r="3"/>
         </svg>
       ),
-    },    {
+    },
+    {
       name: 'Manage Roles',
       href: '/protected/admin/roles',
       icon: (
@@ -131,18 +140,29 @@ export function AppSidebar() {
       ),
     },
     {
-      name: 'Subscription Plans',
-      href: '/protected/admin/subscription-plans',
+      name: 'Payment Gateway',
+      href: '#',
+      children: [
+        {
+          name: 'RazorPay',
+          href: '/protected/admin/paymentgateway/razorpay',
+          icon: (
+            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <path d="M9 9h6v6H9z"/>
+            </svg>
+          ),
+        },
+      ],
       icon: (
         <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-          <path d="M9 9h6v6H9z"/>
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <path d="M21 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v4"/>
+          <path d="M12 2v6"/>
+          <path d="M5 7h14"/>
+          <path d="M6 21h12a2 2 0 0 0 2-2V9H4v10a2 2 0 0 0 2 2z"/>
         </svg>
       ),
     },
-  ];
+  ], []);
 
   // Add 'Manage Subscription' item if user has an active subscription plan
   if (subscriptionStatus?.hasSubscription) {
@@ -159,7 +179,23 @@ export function AppSidebar() {
   }
 
   // Combine regular navigation with admin navigation if user is admin
-  const finalNavigation = isAdmin ? [...navigation, ...adminNavigation] : navigation;
+  const finalNavigation = useMemo<NavItem[]>(() => (isAdmin ? [...navigation, ...adminNavigation] : navigation), [isAdmin, navigation, adminNavigation]);
+  // Track which parent menu items are open (for submenus)
+  const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
+
+  // Open any parent menu if one of its children matches the current pathname
+  useEffect(() => {
+    const newOpen: Record<string, boolean> = {};
+    finalNavigation.forEach((item: NavItem) => {
+      if (item.children && Array.isArray(item.children)) {
+        const children = item.children as NavItem[];
+        if (children.some((c) => pathname === c.href)) {
+          newOpen[item.name] = true;
+        }
+      }
+    });
+    setOpenItems((prev) => ({ ...prev, ...newOpen }));
+  }, [pathname, finalNavigation]);
   
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -178,8 +214,97 @@ export function AppSidebar() {
       <SidebarContent className={cn(
         "px-3 py-4",
         "group-data-[collapsible=icon]:px-2"
-      )}>          <SidebarMenu className="space-y-1">
-          {finalNavigation.map((item) => {
+      )}>
+        <SidebarMenu className="space-y-1">
+          {finalNavigation.map((item: NavItem) => {
+            // If item has children, render a collapsible submenu
+            if (item.children && Array.isArray(item.children)) {
+              const children = item.children as NavItem[];
+              const anyActiveChild = children.some((c) => pathname === c.href);
+              const open = !!openItems[item.name];
+
+              return (
+                <SidebarMenuItem key={item.name}>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={item.name}
+                    className={cn(
+                      "w-full h-11 px-3 rounded-lg transition-all duration-200 relative group",
+                      "group-data-[collapsible=icon]:px-0",
+                      "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-sm hover:scale-[1.02]",
+                      "focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-0 focus-visible:outline-none",
+                      anyActiveChild && "bg-sidebar-primary text-white shadow-md font-medium"
+                    )}
+                    data-active={anyActiveChild}>
+                    <button
+                      onClick={() => setOpenItems((prev) => ({ ...prev, [item.name]: !prev[item.name] }))}
+                      className="flex items-center w-full min-w-0 text-left">
+                      <div className={cn(
+                        "flex items-center justify-center flex-shrink-0 transition-colors duration-200",
+                        "w-5 h-5 mr-1",
+                        "group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:mr-0",
+                        anyActiveChild ? "text-white" : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground"
+                      )}>
+                        <div className="w-4 h-4 flex items-center justify-center">
+                          {item.icon}
+                        </div>
+                      </div>
+                      <span className={cn(
+                        "text-sm font-medium transition-all duration-200 truncate flex-1",
+                        "group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:sr-only",
+                        anyActiveChild ? "text-white" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                      )}>
+                        {item.name}
+                      </span>
+                      <svg className={cn("w-3 h-3 ml-2 transform origin-center transition-transform duration-200", open ? "rotate-90" : "rotate-0")} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 6 15 12 9 18" />
+                      </svg>
+                    </button>
+                  </SidebarMenuButton>
+
+                    <div className={cn(
+                      "mt-1 space-y-1 pl-8 transform origin-top transition-all duration-200",
+                      open ? "scale-y-100 opacity-100 pointer-events-auto" : "scale-y-0 opacity-0 pointer-events-none"
+                    )}>
+                      {children.map((child: NavItem) => {
+                        const isActiveChild = pathname === child.href;
+                        return (
+                          <SidebarMenuItem key={child.name}>
+                            <SidebarMenuButton
+                              asChild
+                              tooltip={child.name}
+                              className={cn(
+                                "w-full h-9 px-3 rounded-lg transition-all duration-200 relative group",
+                                "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-sm",
+                                isActiveChild && "bg-sidebar-primary text-white shadow-md font-medium"
+                              )}
+                              data-active={isActiveChild}>
+                              <Link href={child.href} className="flex items-center w-full">
+                                <div className={cn(
+                                  "flex items-center justify-center flex-shrink-0 transition-colors duration-200",
+                                  "w-4 h-4 mr-1",
+                                  isActiveChild ? "text-white" : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground"
+                                )}>
+                                  <div className="w-3 h-3 flex items-center justify-center">
+                                    {child.icon}
+                                  </div>
+                                </div>
+                                <span className={cn(
+                                  "text-sm font-medium truncate",
+                                  isActiveChild ? "text-white" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                                )}>
+                                  {child.name}
+                                </span>
+                              </Link>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        );
+                      })}
+                    </div>
+                </SidebarMenuItem>
+              );
+            }
+
             const isActive = pathname === item.href;
             return (
               <SidebarMenuItem key={item.name}>
@@ -192,7 +317,7 @@ export function AppSidebar() {
                     "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-sm hover:scale-[1.02]",
                     "focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-0 focus-visible:outline-none",
                     "data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-md",
-                    isActive && "bg-sidebar-primary text-sidebar-primary-foreground shadow-md font-medium",
+                    isActive && "bg-sidebar-primary text-white shadow-md font-medium",
                     isActive && "before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-sidebar-primary before:rounded-r"
                   )}
                   data-active={isActive}>
@@ -202,11 +327,11 @@ export function AppSidebar() {
                   )}>
                     <div className={cn(
                       "flex items-center justify-center flex-shrink-0 transition-colors duration-200",
-                      "w-5 h-5 mr-3",
+                      "w-5 h-5 mr-2",
                       "group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:mr-0",
                       isActive 
-                        ? "text-sidebar-primary-foreground" 
-                        : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground"
+                        ? "text-white" 
+                        : "text-sidebar-foreground/80 group-hover:text-sidebar-accent-foreground"
                     )}>
                       <div className="w-4 h-4 flex items-center justify-center">
                         {item.icon}
@@ -215,7 +340,7 @@ export function AppSidebar() {
                     <span className={cn(
                       "text-sm font-medium transition-all duration-200 truncate",
                       "group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:sr-only",
-                      isActive ? "text-sidebar-primary-foreground" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                      isActive ? "text-white" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
                     )}>
                       {item.name}
                     </span>

@@ -74,9 +74,41 @@ interface RazorpaySubscription {
   short_url?: string;
   notes?: Record<string, string>;
   quantity?: number;
+  auth_attempts?: number;
+  total_count?: number;
+  paid_count?: number;
+  customer_notify?: boolean;
+  expire_by?: number;
+  offer_id?: string;
+  start_at?: number;
+  end_at?: number;
+  has_scheduled_changes?: boolean;
+  remaining_count?: number;
 }
 
-export default function AdminSubscriptionPlansPage() {
+// Razorpay Plan interfaces (minimal)
+interface RazorpayPlanItem {
+  id: string;
+  active?: boolean;
+  name?: string;
+  description?: string | null;
+  amount?: number;
+  unit_amount?: number;
+  currency?: string;
+  created_at?: number;
+}
+
+interface RazorpayPlan {
+  id: string;
+  entity: string;
+  interval?: number;
+  period?: string;
+  item?: RazorpayPlanItem;
+  notes?: Record<string,string>;
+  created_at?: number;
+}
+
+export default function RazorPay() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
@@ -138,6 +170,26 @@ export default function AdminSubscriptionPlansPage() {
     return true;
   });
   
+  // Razorpay Plans State
+  const [razorpayPlans, setRazorpayPlans] = useState<RazorpayPlan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [plansError, setPlansError] = useState<string | null>(null);
+  const [plansPage, setPlansPage] = useState(1);
+  const [plansTotal, setPlansTotal] = useState(0);
+  const plansPageSize = 10;
+
+  // Single plan dialog state
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
+  const [selectedRazorpayPlan, setSelectedRazorpayPlan] = useState<RazorpayPlan | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
+
+  // Single subscription dialog state
+  const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false);
+  const [selectedRazorpaySubscription, setSelectedRazorpaySubscription] = useState<RazorpaySubscription | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+
   const { toast } = useToast();
 
   // Form state
@@ -230,6 +282,78 @@ export default function AdminSubscriptionPlansPage() {
     loadPlans();
     loadRazorpaySubscriptions(subscriptionsPage);
   }, [loadPlans, loadRazorpaySubscriptions, subscriptionsPage]);
+
+  // Load Razorpay plans
+  const loadRazorpayPlans = useCallback(async (page: number = 1) => {
+    setPlansLoading(true);
+    setPlansError(null);
+    try {
+      const skip = (page - 1) * plansPageSize;
+      const res = await fetch(`/api/payments/razorpay-plans?count=${plansPageSize}&skip=${skip}`);
+      const data = await res.json();
+      if (data && data.entity === 'collection') {
+        setRazorpayPlans(data.items || []);
+        setPlansTotal(data.count || (data.items || []).length);
+      } else if (data && data.error) {
+        setPlansError(data.error.description || 'Failed to load plans');
+      } else {
+        setPlansError('Failed to load plans');
+      }
+    } catch (err) {
+      console.error('Error loading Razorpay plans', err);
+      setPlansError('Failed to load Razorpay plans');
+    } finally {
+      setPlansLoading(false);
+    }
+  }, [plansPageSize]);
+
+  useEffect(() => {
+    loadRazorpayPlans(plansPage);
+  }, [loadRazorpayPlans, plansPage]);
+
+  // Load single Razorpay plan by id
+  const loadRazorpayPlan = useCallback(async (id: string) => {
+    setPlanLoading(true);
+    setPlanError(null);
+    setSelectedRazorpayPlan(null);
+    setPlanDialogOpen(true);
+    try {
+      const res = await fetch(`/api/payments/razorpay-plans/${encodeURIComponent(id)}`);
+      const data = await res.json();
+      if (data && !data.error) {
+        setSelectedRazorpayPlan(data as RazorpayPlan);
+      } else {
+        setPlanError(data?.error?.description || 'Failed to load plan');
+      }
+    } catch (err) {
+      console.error('Error fetching plan', err);
+      setPlanError('Failed to load plan');
+    } finally {
+      setPlanLoading(false);
+    }
+  }, []);
+
+  // Load single Razorpay subscription by id
+  const loadRazorpaySubscription = useCallback(async (id: string) => {
+    setSubscriptionLoading(true);
+    setSubscriptionError(null);
+    setSelectedRazorpaySubscription(null);
+    setSubscriptionDialogOpen(true);
+    try {
+      const res = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(id)}`);
+      const data = await res.json();
+      if (data && !data.error) {
+        setSelectedRazorpaySubscription(data as RazorpaySubscription);
+      } else {
+        setSubscriptionError(data?.error?.description || 'Failed to load subscription');
+      }
+    } catch (err) {
+      console.error('Error fetching subscription', err);
+      setSubscriptionError('Failed to load subscription');
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }, []);
 
   // Reset form
   const resetForm = () => {
@@ -643,27 +767,19 @@ export default function AdminSubscriptionPlansPage() {
         </Card>
       </div>
 
-      {/* Search and Filters */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center space-x-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search plans by name, description, or billing cycle..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Plans Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Subscription Plans ({filteredPlans.length})</CardTitle>
+        <CardHeader className="relative">
+          <CardTitle className="m-0">Basic Plans</CardTitle>
+          <div className="absolute right-3 top-3 w-50 sm:w-40 md:w-96">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search plans by name, description, or billing cycle..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -696,9 +812,7 @@ export default function AdminSubscriptionPlansPage() {
                         <div>
                           <div className="font-medium">{plan.name}</div>
                           {plan.description && (
-                            <div className="max-w-xs">
-                              {plan.description}
-                            </div>
+                            <div className="max-w-xs">{plan.description}</div>
                           )}
                         </div>
                       </TableCell>
@@ -709,20 +823,15 @@ export default function AdminSubscriptionPlansPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">
-                          {plan.billingCycle}
-                        </Badge>
+                        <Badge variant="outline">{plan.billingCycle}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="max-w-xs">
                           {parseFeatures(plan.features).length > 0 ? (
                             <div className="text-sm">
-                              <span className="text-muted-foreground">
-                                {parseFeatures(plan.features).length} features
-                              </span>
+                              <span className="text-muted-foreground">{parseFeatures(plan.features).length} features</span>
                               <div className="text-xs text-muted-foreground truncate">
-                                {parseFeatures(plan.features).slice(0, 2).join(', ')}
-                                {parseFeatures(plan.features).length > 2 && '...'}
+                                {parseFeatures(plan.features).slice(0, 2).join(', ')}{parseFeatures(plan.features).length > 2 && '...'}
                               </div>
                             </div>
                           ) : (
@@ -731,16 +840,10 @@ export default function AdminSubscriptionPlansPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {plan.isActive ? (
-                          <Badge className="bg-green-100 text-green-800">Active</Badge>
-                        ) : (
-                          <Badge variant="secondary">Inactive</Badge>
-                        )}
+                        {plan.isActive ? <Badge className="bg-green-100 text-green-800">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm text-muted-foreground">
-                          {new Date(plan.createdAt).toLocaleDateString()}
-                        </div>
+                        <div className="text-sm text-muted-foreground">{new Date(plan.createdAt).toLocaleDateString()}</div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center">
@@ -750,21 +853,13 @@ export default function AdminSubscriptionPlansPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditDialog(plan)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(plan)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              if (!(plan.userCountActive && plan.userCountActive > 0)) {
-                                openDeleteDialog(plan);
-                              }
-                            }}
+                            onClick={() => { if (!(plan.userCountActive && plan.userCountActive > 0)) openDeleteDialog(plan); }}
                             className={`text-red-600 hover:text-red-900 ${plan.userCountActive && plan.userCountActive > 0 ? 'cursor-not-allowed opacity-60' : ''}`}
                             title={plan.userCountActive && plan.userCountActive > 0 ? 'Cannot delete: plan has active users' : 'Delete plan'}
                           >
@@ -778,6 +873,79 @@ export default function AdminSubscriptionPlansPage() {
               </TableBody>
             </Table>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Razorpay Plans Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Razorpay Plans</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0">
+          {plansLoading ? (
+            <div className="flex items-center justify-center min-h-24 py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+            </div>
+          ) : plansError ? (
+            <div className="text-red-600 p-4">{plansError}</div>
+          ) : (
+            <div className="w-full">
+              <Table className="min-w-[700px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Plan Id</TableHead>
+                    <TableHead>Plan Name</TableHead>
+                    <TableHead>Amount/Unit</TableHead>
+                    <TableHead>Billing Cycle</TableHead>
+                    <TableHead>Created At</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {razorpayPlans.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No plans found.</TableCell>
+                    </TableRow>
+                  ) : (
+                    razorpayPlans.map((p: RazorpayPlan) => (
+                      <TableRow key={p.id}>
+                        <TableCell>
+                          <button
+                            type="button"
+                            className="text-primary underline hover:text-primary/80 cursor-pointer"
+                            onClick={() => { loadRazorpayPlan(p.id); setPlanDialogOpen(true); }}
+                          >
+                            {p.id}
+                          </button>
+                        </TableCell>
+                        <TableCell>{p.item?.name || '-'}</TableCell>
+                        <TableCell>
+                          {p.item?.currency ? (
+                            <span>
+                              {new Intl.NumberFormat('en-IN', { style: 'currency', currency: p.item.currency }).format((p.item.amount || p.item.unit_amount || 0) / 100)}
+                            </span>
+                          ) : (
+                            (p.item?.amount || p.item?.unit_amount || '-')
+                          )}
+                        </TableCell>
+                        <TableCell>{p.period || '-'}</TableCell>
+                        <TableCell>{p.created_at ? new Date(p.created_at * 1000).toLocaleString() : '-'}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+
+              {plansTotal > plansPageSize && (
+                <div className="flex items-center justify-between gap-2 px-4 py-3 border-t bg-slate-50 dark:bg-slate-900">
+                  <div className="text-xs text-muted-foreground">Page {plansPage} of {Math.ceil(plansTotal / plansPageSize)} ({plansTotal} total plans)</div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" disabled={plansPage === 1} onClick={() => setPlansPage(p => Math.max(1, p - 1))}>Prev</Button>
+                    <Button size="sm" variant="outline" disabled={plansPage === Math.ceil(plansTotal / plansPageSize)} onClick={() => setPlansPage(p => Math.min(Math.ceil(plansTotal / plansPageSize), p + 1))}>Next</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -896,22 +1064,22 @@ export default function AdminSubscriptionPlansPage() {
                     filteredRazorpaySubscriptions.map((subscription) => (
                       <TableRow key={subscription.id} >
                         <TableCell>
-                          <a 
-                            href={`https://dashboard.razorpay.com/app/subscriptions/${subscription.id}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            className="text-primary underline hover:text-primary/80 cursor-pointer"
+                            onClick={() => { loadRazorpaySubscription(subscription.id); }}
                           >
                             {subscription.id}
-                          </a>
+                          </button>
                         </TableCell>
                         <TableCell>
-                          <a 
-                            href={`https://dashboard.razorpay.com/app/plans/${subscription.plan_id}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            className="text-primary underline hover:text-primary/80 cursor-pointer"
+                            onClick={() => { loadRazorpayPlan(subscription.plan_id); setPlanDialogOpen(true); }}
                           >
                             {subscription.plan_id}
-                          </a>
+                          </button>
                         </TableCell>
                         <TableCell>
                           {subscription.short_url ? (
@@ -1010,6 +1178,156 @@ export default function AdminSubscriptionPlansPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Plan Details Dialog */}
+      <Dialog open={planDialogOpen} onOpenChange={(open) => { if (!open) { setSelectedRazorpayPlan(null); setPlanError(null); } setPlanDialogOpen(open); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{selectedRazorpayPlan ? selectedRazorpayPlan.id : 'Plan Details'}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {planLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : planError ? (
+              <div className="text-red-600">{planError}</div>
+            ) : selectedRazorpayPlan ? (
+              <div>
+                <div className="mb-4">
+                  <div className="text-sm text-muted-foreground">Plan Name</div>
+                  <div className="font-medium">{selectedRazorpayPlan.item?.name || '-'}</div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Plan Description</div>
+                    <div>{selectedRazorpayPlan.item?.description || '--'}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Billing Amount</div>
+                    <div>
+                      {selectedRazorpayPlan.item?.currency ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: selectedRazorpayPlan.item.currency }).format((selectedRazorpayPlan.item.amount || selectedRazorpayPlan.item.unit_amount || 0) / 100) : '--'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Billing Frequency</div>
+                    <div>{selectedRazorpayPlan.period || '—'}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Created At</div>
+                    <div>{selectedRazorpayPlan.created_at ? new Date(selectedRazorpayPlan.created_at * 1000).toLocaleString() : '--'}</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-muted-foreground">No plan selected.</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Subscription Details Dialog */}
+      <Dialog open={subscriptionDialogOpen} onOpenChange={(open) => { if (!open) { setSelectedRazorpaySubscription(null); setSubscriptionError(null); } setSubscriptionDialogOpen(open); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{selectedRazorpaySubscription ? selectedRazorpaySubscription.id : 'Subscription Details'}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {subscriptionLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : subscriptionError ? (
+              <div className="text-red-600">{subscriptionError}</div>
+            ) : selectedRazorpaySubscription ? (
+              <div>
+                <div className="mb-4">
+                  <div className="text-sm text-muted-foreground">Subscription ID</div>
+                  <div className="font-medium">{selectedRazorpaySubscription.id}</div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Plan</div>
+                    <div>
+                      {selectedRazorpaySubscription.plan_id ? (
+                        <button
+                          type="button"
+                          className="text-primary underline hover:text-primary/80"
+                          onClick={() => { loadRazorpayPlan(selectedRazorpaySubscription.plan_id); setPlanDialogOpen(true); }}
+                        >
+                          {selectedRazorpaySubscription.plan_id}
+                        </button>
+                      ) : (<span className="text-muted-foreground">--</span>)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-muted-foreground">Status</div>
+                    <div>{selectedRazorpaySubscription.status}</div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-muted-foreground">Created At</div>
+                    <div>{selectedRazorpaySubscription.created_at ? new Date(selectedRazorpaySubscription.created_at * 1000).toLocaleString() : '--'}</div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-muted-foreground">Next Due</div>
+                    <div>{selectedRazorpaySubscription.current_end ? new Date(selectedRazorpaySubscription.current_end * 1000).toLocaleString() : '--'}</div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-muted-foreground">Short URL</div>
+                    <div>
+                      {selectedRazorpaySubscription.short_url ? (
+                        <a href={selectedRazorpaySubscription.short_url} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                          {selectedRazorpaySubscription.short_url}
+                        </a>
+                      ) : (<span className="text-muted-foreground">--</span>)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-muted-foreground">Quantity</div>
+                    <div>{selectedRazorpaySubscription.quantity ?? '--'}</div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-muted-foreground">Paid Count</div>
+                    <div>{selectedRazorpaySubscription.paid_count ?? '--'}</div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-muted-foreground">Total Count</div>
+                    <div>{selectedRazorpaySubscription.total_count ?? '--'}</div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-muted-foreground">Remaining</div>
+                    <div>{selectedRazorpaySubscription.remaining_count ?? '--'}</div>
+                  </div>
+
+                  <div className="col-span-2">
+                    <div className="text-sm text-muted-foreground">Notes</div>
+                    <div>
+                      {selectedRazorpaySubscription.notes ? (
+                        <div className="space-y-1">
+                          {Object.entries(selectedRazorpaySubscription.notes).map(([k, v]) => (
+                            <div key={k} className="text-sm"><strong>{k}:</strong> {v}</div>
+                          ))}
+                        </div>
+                      ) : (<span className="text-muted-foreground">--</span>)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-muted-foreground">No subscription selected.</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
       
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
