@@ -11,6 +11,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSub,
 } from "@/components/ui/sidebar";
 import { getAppName } from "@/lib/config";
 import { cn } from "@/lib/utils";
@@ -254,7 +255,7 @@ export function AppSidebar() {
                         "flex items-center justify-center flex-shrink-0 transition-colors duration-200",
                         "w-5 h-5 mr-1",
                         "group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:mr-0",
-                        anyActiveChild ? "text-white" : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground"
+                        anyActiveChild ? "text-sidebar-accent-foreground dark:text-white" : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground"
                       )}>
                         <div className="w-4 h-4 flex items-center justify-center">
                           {item.icon}
@@ -263,7 +264,7 @@ export function AppSidebar() {
                       <span className={cn(
                         "text-sm font-medium transition-all duration-200 truncate flex-1",
                         "group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:sr-only",
-                        anyActiveChild ? "text-white" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                        anyActiveChild ? "text-sidebar-accent-foreground dark:text-white" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
                       )}>
                         {item.name}
                       </span>
@@ -273,7 +274,7 @@ export function AppSidebar() {
                     </button>
                   </SidebarMenuButton>
 
-                    <div className={cn(
+                    <SidebarMenuSub className={cn(
                       "space-y-1 pl-8 transform origin-top transition-all duration-600 overflow-hidden",
                       open ? "translate-y-0 opacity-100 pointer-events-auto max-h-96" : "-translate-y-1 opacity-0 pointer-events-none max-h-0"
                     )}>
@@ -294,7 +295,7 @@ export function AppSidebar() {
                                 <div className={cn(
                                   "flex items-center justify-center flex-shrink-0 transition-colors duration-200",
                                   "w-4 h-4 mr-1",
-                                  isActiveChild ? "text-white" : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground"
+                                  isActiveChild ? "text-sidebar-accent-foreground dark:text-white" : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground"
                                 )}>
                                   <div className="w-3 h-3 flex items-center justify-center">
                                     {child.icon}
@@ -302,7 +303,7 @@ export function AppSidebar() {
                                 </div>
                                 <span className={cn(
                                   "text-sm font-medium truncate",
-                                  isActiveChild ? "text-white" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                                  isActiveChild ? "text-sidebar-accent-foreground dark:text-white" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
                                 )}>
                                   {child.name}
                                 </span>
@@ -311,7 +312,7 @@ export function AppSidebar() {
                           </SidebarMenuItem>
                         );
                       })}
-                    </div>
+                    </SidebarMenuSub>
                 </SidebarMenuItem>
               );
             }
@@ -341,7 +342,7 @@ export function AppSidebar() {
                       "w-5 h-5 mr-2",
                       "group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:mr-0",
                       isActive 
-                        ? "text-white" 
+                        ? "text-sidebar-accent-foreground dark:text-white" 
                         : "text-sidebar-foreground/80 group-hover:text-sidebar-accent-foreground"
                     )}>
                       <div className="w-4 h-4 flex items-center justify-center">
@@ -351,7 +352,7 @@ export function AppSidebar() {
                     <span className={cn(
                       "text-sm font-medium transition-all duration-200 truncate",
                       "group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:sr-only",
-                      isActive ? "text-white" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                      isActive ? "text-sidebar-accent-foreground dark:text-white" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
                     )}>
                       {item.name}
                     </span>

@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronDown, Calendar as CalendarIcon, Search, Download, X, ArrowUpDown, RefreshCcwIcon } from 'lucide-react';
+import { ChevronDown, Calendar as CalendarIcon, Search, Download, X, ArrowUpDown, RefreshCcwIcon, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
@@ -489,6 +489,8 @@ export default function Transactions() {
 
   return (
     <div className="space-y-6">
+
+       {/* Transactions */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -551,6 +553,9 @@ export default function Transactions() {
           ) : error ? (
             <div className="py-12 text-center">
               <p className="text-red-600 font-medium">{error}</p>
+              <DialogClose asChild>
+                <Button variant="outline" size="sm">Close</Button>
+              </DialogClose>
               <Button onClick={() => loadPayments(page)} className="mt-2">
                 Try again
               </Button>
@@ -678,7 +683,7 @@ export default function Transactions() {
                                 payment.status === 'authorized' ? 'secondary' :
                                 'outline'
                               }
-                              className="text-xs"
+                              className={cn('text-xs', payment.status === 'failed' && 'text-white')}
                             >
                               {payment.status.toUpperCase()}
                             </Badge>
@@ -706,6 +711,18 @@ export default function Transactions() {
             </div>
           )}
         </CardContent>
+
+        {/* Payments pagination footer */}
+        <div className="flex items-center justify-between p-4">
+          <div className="text-sm text-muted-foreground">
+            Showing page {page} of {Math.ceil((totalCount || 0) / pageSize)}{totalCount > 0 && ` (${totalCount} total results)`}{(statusFilters.length > 0 || methodFilters.length > 0) && ` • ${filteredPayments.length} filtered`}
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={page === 1 || loading} onClick={() => setPage(p => Math.max(1, p-1))}>Previous</Button>
+            <Button size="sm" variant="outline" disabled={page >= Math.ceil((totalCount || 0) / pageSize) || loading} onClick={() => setPage(p => p+1)}>Next</Button>
+          </div>
+        </div>
+
       </Card>
 
       {/* Invoices */}
@@ -788,7 +805,14 @@ export default function Transactions() {
                       <TableCell className="flex items-center gap-2">
                         <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-id', String(getInvoiceVal(inv, 'id')))}>{copiedKey === 'invoice-id' ? 'Copied' : 'Copy ID'}</Button>
                         <Button size="sm" variant="ghost" onClick={() => openInvoiceDialog(String(getInvoiceVal(inv, 'id') || ''))}>Details</Button>
-                        {getInvoiceVal(inv, 'short_url') && <a className="text-primary underline text-sm" href={String(getInvoiceVal(inv, 'short_url'))} target="_blank" rel="noreferrer">Open</a>}
+                        {getInvoiceVal(inv, 'short_url') && (
+                          <a href={String(getInvoiceVal(inv, 'short_url'))} target="_blank" rel="noreferrer">
+                            <Button size="sm" variant="ghost" className="h-auto p-1 text-sm inline-flex items-center gap-2">
+                              <ExternalLink className="w-4 h-4" />
+                              Open
+                            </Button>
+                          </a>
+                        )}
                         {getInvoiceVal(inv, 'short_url') && <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-url', String(getInvoiceVal(inv, 'short_url')))}>{copiedKey === 'invoice-url' ? 'Copied' : 'Copy Link'}</Button>}
                       </TableCell>
                     </TableRow>
@@ -807,36 +831,6 @@ export default function Transactions() {
           </div>
         </div>
       </Card>
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          Showing page {page} of {Math.ceil((totalCount || 0) / pageSize)} 
-          {totalCount > 0 && ` (${totalCount} total results)`}
-          {(statusFilters.length > 0 || methodFilters.length > 0) && 
-            ` • ${filteredPayments.length} filtered`
-          }
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            size="sm" 
-            variant="outline" 
-            disabled={page === 1 || loading} 
-            onClick={() => setPage(p => Math.max(1, p-1))}
-          >
-            Previous
-          </Button>
-          <Button 
-            size="sm" 
-            variant="outline" 
-            disabled={page >= Math.ceil((totalCount || 0) / pageSize) || loading} 
-            onClick={() => setPage(p => p+1)}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
-      {/* Close the main wrapping div */}
 
       {/* Payment Details Dialog */}
       <Dialog
@@ -1032,8 +1026,27 @@ export default function Transactions() {
       >
         <DialogContent hideClose className="max-w-3xl">
           <div className="flex items-center justify-between p-2">
-            <DialogTitle>Invoice Details{selectedInvoiceId ? ` • ${selectedInvoiceId}` : ''}</DialogTitle>
+            <DialogTitle>Invoice Details</DialogTitle>
             <div className="flex items-center gap-2">
+              {(() => {
+                const inv = invoiceDetails as Record<string, unknown> || {};
+                const shortUrl = getInvoiceVal(inv, 'short_url');
+                return (
+                  <div className="flex flex-col items-end gap-2">
+                    {shortUrl && (
+                      <div className="flex items-center gap-2">
+                        <a href={String(shortUrl)} target="_blank" rel="noreferrer">
+                          <Button size="sm" variant="ghost" className="h-auto p-1 text-sm inline-flex items-center gap-2">
+                            <ExternalLink className="w-4 h-4" />
+                            Open
+                          </Button>
+                        </a>
+                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-url', String(shortUrl))}>{copiedKey === 'invoice-url' ? 'Copied' : 'Copy Link'}</Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <DialogClose asChild>
                 <Button variant="outline" size="sm">Close</Button>
               </DialogClose>
@@ -1048,7 +1061,6 @@ export default function Transactions() {
             ) : invoiceDetails ? (
               (() => {
                 const inv = invoiceDetails as Record<string, unknown>;
-                const shortUrl = getInvoiceVal(inv, 'short_url');
                 const status = getInvoiceVal(inv, 'status') || '--';
                 const amountRaw = getInvoiceVal(inv, 'amount');
                 const currency = getInvoiceVal(inv, 'currency') || 'INR';
@@ -1077,8 +1089,8 @@ export default function Transactions() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                       <div>
-                        <div className="text-xs text-muted-foreground">Invoice ID</div>
-                        <div className="font-mono break-all">{String(inv['id'] || '')}</div>
+                        <div className="text-xs text-muted-foreground">Invoice ID </div>
+                        <div className="font-mono break-all">{selectedInvoiceId}</div>
                         <div className="mt-2 text-xs text-muted-foreground">Invoice Number</div>
                         <div className="font-medium">{String(inv['invoice_number'] || inv['receipt'] || '--')}</div>
                       </div>
@@ -1089,18 +1101,6 @@ export default function Transactions() {
                           <div className="font-medium">{status}</div>
                           <div className="text-xs text-muted-foreground mt-2">Total</div>
                           <div className="font-bold text-lg">{amountDisplay}</div>
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-id', String(inv['id'] || ''))}>{copiedKey === 'invoice-id' ? 'Copied' : 'Copy ID'}</Button>
-                          {shortUrl && (
-                            <div className="flex items-center gap-2">
-                              <a className="text-primary underline text-sm" href={String(shortUrl)} target="_blank" rel="noreferrer">Open</a>
-                              <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-url', String(shortUrl))}>{copiedKey === 'invoice-url' ? 'Copied' : 'Copy Link'}</Button>
-                              <a className="text-sm" href={`/api/payments/razorpay-invoices/${encodeURIComponent(String(inv['id'] || ''))}/download`}>
-                                <Button size="sm" variant="ghost">Download</Button>
-                              </a>
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
