@@ -12,6 +12,7 @@
     "db:studio": "drizzle-kit studio",
     "db:migrate": "ts-node -P tsconfig.scripts.json scripts/migrate.ts",
     "db:seed": "ts-node -P tsconfig.scripts.json scripts/db-seed.ts",
+    "razorpay:sync": "ts-node -P tsconfig.scripts.json scripts/test-razorpay-sync.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

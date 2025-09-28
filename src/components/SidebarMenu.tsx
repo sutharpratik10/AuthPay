@@ -98,22 +98,40 @@ export function AppSidebar() {
     fetchSubscriptionStatus();
   }, [session?.user?.id, subscriptionCheckDone]);
 
-  const navigation: NavItem[] = useMemo(() => [
-    {
-      name: 'Dashboard',
-      href: (session?.user as { role?: string } | undefined)?.role === 'admin'
-        ? '/protected/admin/dashboard'
-        : '/protected/user/dashboard',
-      icon: (
-        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-          <rect x="3" y="3" width="7" height="7"/>
-          <rect x="14" y="3" width="7" height="7"/>
-          <rect x="14" y="14" width="7" height="7"/>
-          <rect x="3" y="14" width="7" height="7"/>
-        </svg>
-      ),
-    },
-  ], [session?.user]);  // depends on session role
+  const navigation: NavItem[] = useMemo(() => {
+    const nav: NavItem[] = [
+      {
+        name: 'Dashboard',
+        href: (session?.user as { role?: string } | undefined)?.role === 'admin'
+          ? '/protected/admin/dashboard'
+          : '/protected/user/dashboard',
+        icon: (
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7"/>
+            <rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/>
+          </svg>
+        ),
+      },
+    ];
+
+    // Add 'Manage Subscription' item if user has an active subscription plan
+    if (subscriptionStatus?.hasSubscription) {
+      nav.push({
+        name: 'Manage Subscription',
+        href: '/protected/user/manage-subscription',
+        icon: (
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+            <path d="M3 3h18v18H3z" />
+            <path d="M9 9h6v6H9z" />
+          </svg>
+        ),
+      });
+    }
+
+    return nav;
+  }, [session?.user, subscriptionStatus?.hasSubscription]);  // depends on session role and subscription
 
   const adminNavigation: NavItem[] = useMemo(() => [
     {
@@ -176,19 +194,7 @@ export function AppSidebar() {
     },
   ], []);
 
-  // Add 'Manage Subscription' item if user has an active subscription plan
-  if (subscriptionStatus?.hasSubscription) {
-    navigation.push({
-      name: 'Manage Subscription',
-      href: '/protected/user/manage-subscription',
-      icon: (
-        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-          <path d="M3 3h18v18H3z" />
-          <path d="M9 9h6v6H9z" />
-        </svg>
-      ),
-    });
-  }
+  
 
   // Combine regular navigation with admin navigation if user is admin
   const finalNavigation = useMemo<NavItem[]>(() => (isAdmin ? [...navigation, ...adminNavigation] : navigation), [isAdmin, navigation, adminNavigation]);

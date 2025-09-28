@@ -12,6 +12,7 @@ export const subscriptionPlans = pgTable("subscription_plans", {
 	razorpaySubscriptionId: varchar('razorpay_subscription_id', { length: 100 }),
 	razorpaySubscriptionPlanId: varchar('razorpay_subscription_plan_id', { length: 100 }),
 	razorpaySubscriptionLink: varchar('razorpay_subscription_link', { length: 255 }),
+	
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -498,9 +499,13 @@ export const subscriptionRenewalTypes = pgTable("subscription_renewal_types", {
 export const userSubscriptions = pgTable("user_subscriptions", {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  planId: uuid('plan_id').notNull().references(() => subscriptionPlans.id, { onDelete: 'cascade' }),
+	// planId made nullable to support subscriptions created directly on Razorpay
+	planId: uuid('plan_id').references(() => subscriptionPlans.id, { onDelete: 'cascade' }),
   statusId: uuid('status_id').notNull().references(() => subscriptionStatuses.id),
   renewalTypeId: uuid('renewal_type_id').references(() => subscriptionRenewalTypes.id),
+	// Razorpay metadata (nullable)
+	razorpaySubscriptionId: varchar('razorpay_subscription_id', { length: 100 }),
+	razorpayCustomerId: varchar('razorpay_customer_id', { length: 100 }),
   startDate: timestamp('start_date', { mode: 'string' }).notNull(),
   expiryDate: timestamp('expiry_date', { mode: 'string' }),
   endDate: timestamp('end_date', { mode: 'string' }),

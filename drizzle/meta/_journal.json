@@ -50,6 +50,20 @@
       "when": 1758439530287,
       "tag": "0006_fat_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1759056261662,
+      "tag": "0007_wet_zaladane",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1759057956470,
+      "tag": "0008_daffy_kingpin",
+      "breakpoints": true
     }
   ]
 }

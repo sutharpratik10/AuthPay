@@ -16,22 +16,25 @@ import {
   Sparkles,
   Building,
 } from "lucide-react";
+import { SubscriptionPlan } from '@/types/subscription-plans';
 
 // ---------- Razorpay minimal typings ----------
-type RazorpayHandlerResponse = {
+type SubscriptionHandlerResponse = {
   razorpay_payment_id: string;
-  razorpay_order_id: string;
+  razorpay_order_id?: string;
+  razorpay_subscription_id?: string;
   razorpay_signature: string;
 };
 
 type RazorpayOptions = {
   key: string;
-  amount: number; // in paise
-  currency: string;
+  amount?: number; // in paise
+  currency?: string;
   name?: string;
   description?: string;
-  order_id: string;
-  handler: (response: RazorpayHandlerResponse) => void;
+  order_id?: string;
+  subscription_id?: string;
+  handler: (response: SubscriptionHandlerResponse) => void;
   prefill?: Record<string, unknown>;
   theme?: { color?: string };
 };
@@ -49,16 +52,6 @@ declare global {
   }
 }
 // ---------------------------------------------
-
-interface SubscriptionPlan {
-  id: string;
-  name: string;
-  description: string | null;
-  price: string;
-  billingCycle: string;
-  features: string[];
-  priceNumber: number;
-}
 
 interface SubscriptionPlansProps {
   onPlanSelected?: (planId: string) => void;
@@ -85,19 +78,60 @@ export default function SubscriptionPlansSelector({
   useEffect(() => {
     const loadPlans = async () => {
       try {
+        // Load local plans
         const response = await fetch("/api/subscription-plans");
         const data = await response.json();
-
-        if (data.success) {
-          setPlans(data.data.plans as SubscriptionPlan[]);
-        } else {
-          toast({
-            title: "Error",
-            description: "Failed to load subscription plans",
-            variant: "destructive",
-          });
+        let localPlans: SubscriptionPlan[] = [];
+        if (data?.success) {
+          localPlans = data.data.plans as SubscriptionPlan[];
         }
-      } catch (error) {
+
+        // Also try to fetch Razorpay plans and merge them into the list
+        let razorpayPlans: SubscriptionPlan[] = [];
+        try {
+          const rpResp = await fetch('/api/payments/razorpay-plans?count=100');
+          if (rpResp.ok) {
+            const rpJson = await rpResp.json();
+            // Razorpay SDK returns an object with `items` array
+            const items = rpJson.items || rpJson.subscriptions || rpJson.plans || rpJson;
+            if (Array.isArray(items)) {
+              razorpayPlans = items.map((r: unknown) => {
+                const rz = r as Record<string, unknown>;
+                const item = rz.item as Record<string, unknown> | undefined;
+                const amountRaw = item?.amount ?? item?.unit_amount ?? 0;
+                const amountNum = typeof amountRaw === 'string' ? parseInt(amountRaw, 10) : Number(amountRaw || 0);
+                const rupees = Number.isFinite(amountNum) ? amountNum / 100 : 0;
+                const billingCycle = String(rz.period || '').toLowerCase() || 'monthly';
+                const idStr = String(rz.id || '');
+
+                return {
+                  id: `rz-${idStr}`,
+                  name: String(item?.name || `Razorpay ${billingCycle} plan`),
+                  description: item?.description ? String(item.description) : null,
+                  price: `${String((item?.currency || 'INR')).toUpperCase()} ${rupees.toFixed(2)}`,
+                  billingCycle,
+                  features: rz.notes ? [JSON.stringify(rz.notes)] : [],
+                  isActive: Boolean(item?.active),
+                  razorpaySubscriptionId: null,
+                  razorpaySubscriptionPlanId: idStr,
+                  razorpaySubscriptionLink: `https://dashboard.razorpay.com/plans/${idStr}`,
+                  createdAt: new Date((Number(rz.created_at) || Date.now()) * 1000).toISOString(),
+                  updatedAt: new Date().toISOString(),
+                  priceNumber: rupees,
+                  formattedPrice: rupees ? `₹${rupees.toFixed(2)}` : '₹0.00',
+                  canPurchase: true,
+                } as SubscriptionPlan;
+              });
+            }
+          }
+        } catch (err) {
+          // non-fatal: show local plans even if Razorpay fetch fails
+          console.warn('Failed to load Razorpay plans:', err);
+        }
+
+        // Merge local plans + razorpay plans (local first)
+        setPlans([...localPlans, ...razorpayPlans]);
+  } catch (error) {
         console.error("Error loading plans:", error);
         toast({
           title: "Error",
@@ -128,28 +162,25 @@ export default function SubscriptionPlansSelector({
     setPurchasing(planId);
 
     try {
-      // 1) Create order on backend
-      const orderResp = await fetch("/api/payments/razorpay-create-order", {
+      // 1) Create subscription on backend (server will call Razorpay subscriptions.create)
+      const createBody: Record<string, unknown> = { planId: plan.id };
+  const p = plan as Partial<SubscriptionPlan>;
+  if (p.razorpaySubscriptionPlanId) createBody.razorpayPlanId = p.razorpaySubscriptionPlanId;
+
+      const subResp = await fetch("/api/payments/razorpay-subscriptions/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: plan.priceNumber, currency: "INR", planId: plan.id }),
+        body: JSON.stringify(createBody),
       });
 
-      if (!orderResp.ok) {
-        const err = (await orderResp.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(err?.error || "Failed to create payment order");
+      if (!subResp.ok) {
+        const err = (await subResp.json().catch(() => ({}))) as { error?: string };
+        throw new Error(err?.error || "Failed to create subscription");
       }
 
-      const orderData = (await orderResp.json()) as {
-        order?: { id: string; amount: number; currency: string };
-      };
-
-      const order = orderData.order;
-      if (!order?.id) {
-        throw new Error("Invalid order returned from server");
-      }
+      const subData = await subResp.json();
+      const subscription = subData.subscription;
+      if (!subscription?.id) throw new Error("Invalid subscription returned from server");
 
       // 2) Ensure Razorpay script is loaded
       if (!isRazorpayLoaded()) {
@@ -179,12 +210,14 @@ export default function SubscriptionPlansSelector({
 
       const options: RazorpayOptions = {
         key,
-        amount: order.amount, // in paise
-        currency: order.currency,
         name: plan.name,
         description: plan.description || "",
-        order_id: order.id,
-        handler: async (response: RazorpayHandlerResponse) => {
+        subscription_id: subscription.id,
+        handler: async (response: {
+          razorpay_payment_id: string;
+          razorpay_subscription_id?: string;
+          razorpay_signature: string;
+        }) => {
           try {
             await fetch("/api/subscription-plans/purchase", {
               method: "POST",
@@ -194,7 +227,7 @@ export default function SubscriptionPlansSelector({
                 payment: {
                   provider: "razorpay",
                   razorpayPaymentId: response.razorpay_payment_id,
-                  razorpayOrderId: response.razorpay_order_id,
+                  razorpaySubscriptionId: response.razorpay_subscription_id || subscription.id,
                   razorpaySignature: response.razorpay_signature,
                 },
               }),
@@ -366,9 +399,16 @@ export default function SubscriptionPlansSelector({
                       <CardTitle className="text-lg font-semibold mb-1">
                         {plan.name}
                       </CardTitle>
-                      {/* NOTE: dynamic Tailwind classes like bg-${x} won't be picked up by the JIT unless safelisted */}
                       <Badge
-                        className={`mx-auto bg-${colorScheme.accent}-100 text-${colorScheme.accent}-800 dark:bg-${colorScheme.accent}-900/30 dark:text-${colorScheme.accent}-300 border-0`}
+                        className={`mx-auto border-0 ${
+                          colorScheme.accent === 'blue' 
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                            : colorScheme.accent === 'purple'
+                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
+                            : colorScheme.accent === 'amber'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
+                        }`}
                       >
                         {isYearly ? "Annual" : "Monthly"}
                       </Badge>
@@ -414,17 +454,24 @@ export default function SubscriptionPlansSelector({
                         className={`w-full py-3 text-base font-medium rounded-lg mt-2 transition-all duration-200 ${
                           plan.priceNumber === 0
                             ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 cursor-not-allowed"
+                            : !plan.canPurchase
+                            ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 cursor-not-allowed"
                             : colorScheme.popular
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted text-foreground hover:bg-muted/80"
                         } ${isPurchasing ? "opacity-70" : ""}`}
                         onClick={() => handlePurchasePlan(plan.id)}
-                        disabled={isPurchasing || plan.priceNumber === 0}
+                        disabled={isPurchasing || plan.priceNumber === 0 || !plan.canPurchase}
                       >
                         {plan.priceNumber === 0 ? (
                           <>
                             <Check className="h-4 w-4 mr-1" />
                             Current Plan
+                          </>
+                        ) : !plan.canPurchase ? (
+                          <>
+                            <Building className="h-4 w-4 mr-1" />
+                            Not Available
                           </>
                         ) : isPurchasing ? (
                           <>

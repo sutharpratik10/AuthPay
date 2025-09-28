@@ -279,6 +279,67 @@ export default function RazorPay() {
     razorpay_subscription_link: '',
   });
 
+  // Razorpay Plan Create (Dialog) state
+  const [razorCreateDialogOpen, setRazorCreateDialogOpen] = useState(false);
+  const [rpPeriod, setRpPeriod] = useState<'daily'|'weekly'|'monthly'|'quarterly'|'yearly'>('monthly');
+  const [rpInterval, setRpInterval] = useState<number>(1);
+  const [rpName, setRpName] = useState('');
+  const [rpAmount, setRpAmount] = useState(''); // user-facing amount (e.g., 699.00) or smallest unit depending on UI
+  const [rpCurrency, setRpCurrency] = useState('INR');
+  const [rpDescription, setRpDescription] = useState('');
+  const [rpNotes, setRpNotes] = useState(''); // simple JSON string of notes key-values (optional)
+  // const [creatingRp, setCreatingRp] = useState(false);
+
+  const resetRazorCreateForm = () => {
+    setRpPeriod('monthly');
+    setRpInterval(1);
+    setRpName('');
+    setRpAmount('');
+    setRpCurrency('INR');
+    setRpDescription('');
+    setRpNotes('');
+  };
+
+  const createRazorpayPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+  try {
+      // convert amount to paise / cents depending on currency; assume smallest unit = amount * 100
+      const amountNumber = Math.round(Number(rpAmount) * 100);
+      const payload = {
+        period: rpPeriod,
+        interval: rpInterval,
+        item: {
+          name: rpName,
+          amount: amountNumber,
+          currency: rpCurrency,
+          description: rpDescription || undefined,
+        },
+        notes: rpNotes ? JSON.parse(rpNotes) : undefined,
+      };
+
+  const res = await fetch('/api/payments/razorpay-plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok && data && !data.error) {
+        toast({ title: 'Plan created', description: `Razorpay plan ${data.id || ''} created`, variant: 'success' });
+        setRazorCreateDialogOpen(false);
+        resetRazorCreateForm();
+        // refresh plans list
+        loadRazorpayPlans(plansPage);
+      } else {
+        toast({ title: 'Error', description: data?.error?.description || data?.error || 'Failed to create plan', variant: 'destructive' });
+      }
+    } catch (err) {
+      console.error('Create Razorpay plan failed', err);
+      toast({ title: 'Error', description: 'Failed to create Razorpay plan', variant: 'destructive' });
+    } finally {
+      // finished
+    }
+  };
+
   const [newFeature, setNewFeature] = useState('');
   // Load plans
   const loadPlans = useCallback(async () => {
@@ -774,156 +835,6 @@ export default function RazorPay() {
           <h1 className="text-3xl font-bold">Subscription Plans</h1>
           <p className="text-muted-foreground">Manage subscription plans and pricing</p>
         </div>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Plan
-            </Button>
-          </DialogTrigger>          
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col bg-accent text-primary">
-            <DialogHeader className="flex-shrink-0">
-              <DialogTitle>Create New Subscription Plan</DialogTitle>
-            </DialogHeader>
-            
-            <form onSubmit={handleCreatePlan} className="flex flex-col h-full">
-              <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="name">Plan Name *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="e.g., Basic, Pro, Enterprise"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="price">Price *</Label>
-                    <Input
-                      id="price"
-                      value={formData.price}
-                      onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
-                      placeholder="e.g., $9.99, $29.99"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="razorpay_subscription_id">Razorpay Subscription ID</Label>
-                    <Input
-                      id="razorpay_subscription_id"
-                      value={formData.razorpay_subscription_id}
-                      onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_id: e.target.value }))}
-                      placeholder="Enter Razorpay Subscription ID"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="razorpay_subscription_plan_id">Razorpay Subscription Plan ID</Label>
-                    <Input
-                      id="razorpay_subscription_plan_id"
-                      value={formData.razorpay_subscription_plan_id}
-                      onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_plan_id: e.target.value }))}
-                      placeholder="Enter Razorpay Subscription Plan ID"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="razorpay_subscription_link">Razorpay Subscription Link</Label>
-                    <Input
-                      id="razorpay_subscription_link"
-                      value={formData.razorpay_subscription_link}
-                      onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_link: e.target.value }))}
-                      placeholder="Enter Razorpay Subscription Link"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Describe the plan benefits..."
-                    rows={3}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="billingCycle">Billing Cycle *</Label>
-                    <select
-                      id="billingCycle"
-                      title="Select billing cycle"
-                      value={formData.billingCycle}
-                      onChange={(e) => setFormData(prev => ({ ...prev, billingCycle: e.target.value }))}
-                      className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
-                      required
-                    >
-                      <option value="monthly">Monthly</option>
-                      <option value="yearly">Yearly</option>
-                      <option value="quarterly">Quarterly</option>
-                      <option value="one-time">One-time</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="isActive"
-                      checked={formData.isActive}
-                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
-                    />
-                    <Label htmlFor="isActive">Active Plan</Label>
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Features</Label>
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <Input
-                        value={newFeature}
-                        onChange={(e) => setNewFeature(e.target.value)}
-                        placeholder="Add a feature..."
-                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
-                      />
-                      <Button type="button" onClick={addFeature} variant="outline">
-                        Add
-                      </Button>
-                    </div>
-                    {formData.features.length > 0 && (
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
-                        {formData.features.map((feature, index) => (
-                          <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
-                            <span className="text-sm">{feature}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeFeature(index)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-shrink-0 flex justify-end space-x-2 pt-4 mt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">Create Plan</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Stats Cards */}
@@ -974,18 +885,139 @@ export default function RazorPay() {
         </Card>
       </div>
 
-      {/* Plans Table */}
+      {/* Basic Plans Table */}
       <Card>
         <CardHeader className="relative">
           <CardTitle className="m-0">Basic Plans</CardTitle>
-          <div className="absolute right-3 top-3 w-50 sm:w-40 md:w-96">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search plans by name, description, or billing cycle..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          <div className="absolute right-3 top-3 flex items-center gap-2 w-auto sm:w-80 md:w-96">
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={resetForm}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Plan
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col bg-accent text-primary">
+                <DialogHeader className="flex-shrink-0">
+                  <DialogTitle>Create New Subscription Plan</DialogTitle>
+                </DialogHeader>
+
+                <form onSubmit={handleCreatePlan} className="flex flex-col h-full">
+                  <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="name">Plan Name *</Label>
+                        <Input
+                          id="name"
+                          value={formData.name}
+                          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="e.g., Basic, Pro, Enterprise"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="price">Price *</Label>
+                        <Input
+                          id="price"
+                          value={formData.price}
+                          onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+                          placeholder="e.g., $9.99, $29.99"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        id="description"
+                        value={formData.description}
+                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Describe the plan benefits..."
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="billingCycle">Billing Cycle *</Label>
+                        <select
+                          id="billingCycle"
+                          title="Select billing cycle"
+                          value={formData.billingCycle}
+                          onChange={(e) => setFormData(prev => ({ ...prev, billingCycle: e.target.value }))}
+                          className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                          required
+                        >
+                          <option value="monthly">Monthly</option>
+                          <option value="yearly">Yearly</option>
+                          <option value="quarterly">Quarterly</option>
+                          <option value="one-time">One-time</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="isActive"
+                          checked={formData.isActive}
+                          onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
+                        />
+                        <Label htmlFor="isActive">Active Plan</Label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Features</Label>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <Input
+                            value={newFeature}
+                            onChange={(e) => setNewFeature(e.target.value)}
+                            placeholder="Add a feature..."
+                            onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
+                          />
+                          <Button type="button" onClick={addFeature} variant="outline">
+                            Add
+                          </Button>
+                        </div>
+                        {formData.features.length > 0 && (
+                          <div className="space-y-2 max-h-40 overflow-y-auto">
+                            {formData.features.map((feature, index) => (
+                              <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
+                                <span className="text-sm">{feature}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeFeature(index)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex-shrink-0 flex justify-end space-x-2 pt-4 mt-4 border-t">
+                    <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit">Create Plan</Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search plans by name, description, or billing cycle..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -1085,8 +1117,85 @@ export default function RazorPay() {
 
       {/* Razorpay Plans Table */}
       <Card>
-        <CardHeader>
+        <CardHeader className="relative">
           <CardTitle>Razorpay Plans</CardTitle>
+          <div className="absolute right-3 top-3 flex items-center gap-2 w-auto sm:w-80 md:w-96">
+            <Dialog open={razorCreateDialogOpen} onOpenChange={setRazorCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={() => { resetRazorCreateForm(); setRazorCreateDialogOpen(true); }}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Plan
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col bg-accent text-primary">
+                <DialogHeader className="flex-shrink-0">
+                  <DialogTitle>Create Razorpay Plan</DialogTitle>
+                </DialogHeader>
+
+                <form onSubmit={createRazorpayPlan} className="flex flex-col h-full">
+                  <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="rp-name">Name *</Label>
+                        <Input id="rp-name" value={rpName} onChange={e => setRpName(e.target.value)} required />
+                      </div>
+                      <div>
+                        <Label htmlFor="rp-amount">Amount (e.g. 699.00) *</Label>
+                        <Input id="rp-amount" value={rpAmount} onChange={e => setRpAmount(e.target.value)} required />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="rp-period">Period *</Label>
+                        <select id="rp-period" aria-label="Razorpay plan period" value={rpPeriod} onChange={e => setRpPeriod(e.target.value as 'daily'|'weekly'|'monthly'|'quarterly'|'yearly')} className="w-full px-3 py-2 border border-input rounded">
+                          <option value="daily">Daily</option>
+                          <option value="weekly">Weekly</option>
+                          <option value="monthly">Monthly</option>
+                          <option value="quarterly">Quarterly</option>
+                          <option value="yearly">Yearly</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label htmlFor="rp-interval">Interval *</Label>
+                        <Input id="rp-interval" type="number" min={1} value={String(rpInterval)} onChange={e => setRpInterval(Number(e.target.value))} required />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="rp-currency">Currency</Label>
+                      <Input id="rp-currency" value={rpCurrency} onChange={e => setRpCurrency(e.target.value)} />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="rp-description">Description</Label>
+                      <Textarea id="rp-description" value={rpDescription} onChange={e => setRpDescription(e.target.value)} rows={3} />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="rp-notes">Notes (JSON)</Label>
+                      <Textarea id="rp-notes" value={rpNotes} onChange={e => setRpNotes(e.target.value)} rows={3} placeholder='{"notes_key":"value"}' />
+                    </div>
+                  </div>
+
+                  <div className="flex-shrink-0 flex justify-end space-x-2 pt-4 mt-4 border-t">
+                    <Button type="button" variant="outline" onClick={() => setRazorCreateDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit">Create</Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search subscriptions..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           {plansLoading ? (

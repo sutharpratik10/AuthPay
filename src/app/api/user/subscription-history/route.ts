@@ -20,6 +20,7 @@ export async function GET() {
         expiryDate: userSubscriptions.expiryDate,
         endDate: userSubscriptions.endDate,
         amount: subscriptionPlans.price, // Add price as amount
+        razorpaySubscriptionId: userSubscriptions.razorpaySubscriptionId,
       })
       .from(userSubscriptions)
       .leftJoin(subscriptionPlans, eq(userSubscriptions.planId, subscriptionPlans.id))
@@ -44,6 +45,7 @@ export async function GET() {
       expiryDate: r.expiryDate,
       endDate: r.endDate,
       amount: r.amount,
+      razorpaySubscriptionId: r.razorpaySubscriptionId,
     }));
 
     return NextResponse.json({ success: true, data: { history } });

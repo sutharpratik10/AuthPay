@@ -25,6 +25,8 @@ export async function GET() {
         startDate: userSubscriptions.startDate,
         expiryDate: userSubscriptions.expiryDate,
         subStatus: userSubscriptions.statusId, // <-- use statusId
+  razorpaySubscriptionId: userSubscriptions.razorpaySubscriptionId,
+  razorpayCustomerId: userSubscriptions.razorpayCustomerId,
         planName: subscriptionPlans.name,
         planDescription: subscriptionPlans.description,
         planPrice: subscriptionPlans.price,
@@ -39,7 +41,8 @@ export async function GET() {
 
     const sub = rows[0];
 
-    if (!sub || !sub.planId) {
+    // If there's no subscription row, or neither a local plan nor a Razorpay subscription id, report no subscription
+    if (!sub || (!sub.planId && !sub.razorpaySubscriptionId)) {
       return NextResponse.json({
         success: true,
         data: { hasSubscription: false, message: 'No subscription found' }
@@ -51,6 +54,9 @@ export async function GET() {
       typeof sub.planFeatures === 'string'
         ? (() => { try { return JSON.parse(sub.planFeatures); } catch { return []; } })()
         : Array.isArray(sub.planFeatures) ? sub.planFeatures : [];
+
+    // If plan is missing (Razorpay-only subscription), features should be empty array
+    const effectiveFeatures = features ?? [];
 
     const expiry = sub.expiryDate ? new Date(sub.expiryDate) : null;
     const now = new Date();
@@ -105,16 +111,18 @@ export async function GET() {
       success: true,
       data: {
         hasSubscription: true,
-        planId: sub.planId,
-        planName: sub.planName,
-        planDescription: sub.planDescription,
-        price: typeof sub.planPrice === 'number' ? `$${sub.planPrice}` : sub.planPrice,
-        billingCycle: sub.billingCycle,
-        features,
+        planId: sub.planId ?? null,
+        planName: sub.planName ?? (sub.razorpaySubscriptionId ? 'Razorpay plan' : null),
+        planDescription: sub.planDescription ?? null,
+        price: typeof sub.planPrice === 'number' ? `$${sub.planPrice}` : (sub.planPrice ?? null),
+        billingCycle: sub.billingCycle ?? 'monthly',
+        features: effectiveFeatures,
         startDate: sub.startDate,
         expiryDate: sub.expiryDate,
         isActive,
         status,
+        razorpaySubscriptionId: sub.razorpaySubscriptionId ?? null,
+        razorpayCustomerId: sub.razorpayCustomerId ?? null,
         message: expiryStatus.message,
         daysRemaining: expiryStatus.daysRemaining
       }
