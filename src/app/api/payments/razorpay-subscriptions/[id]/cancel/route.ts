@@ -32,8 +32,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (statusStr !== 'active' && statusStr !== 'paused') {
       return NextResponse.json({ success: false, error: { description: `Subscription in status '${statusStr}' cannot be cancelled` } }, { status: 400 });
     }
-
-    // Call SDK cancel with option
     // Call SDK cancel with option
     try {
       // Debug info

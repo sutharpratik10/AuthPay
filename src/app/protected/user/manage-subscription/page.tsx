@@ -12,6 +12,7 @@ interface SubscriptionStatus {
   price: string;
   billingCycle: string;
   expiryDate: string;
+  razorpaySubscriptionId?: string | null;
 }
 
 interface SubscriptionHistoryItem {
@@ -27,6 +28,7 @@ export default function ManageSubscriptionPage() {
   const [subscriptionStatus, setSubscriptionStatus] = React.useState<SubscriptionStatus | null>(null);
   const [subscriptionHistory, setSubscriptionHistory] = React.useState<SubscriptionHistoryItem[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [cancelling, setCancelling] = React.useState(false);
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -146,6 +148,43 @@ export default function ManageSubscriptionPage() {
     loadSubscriptionHistory();
   }, [toast]);
 
+  // Handler to cancel razorpay subscription
+  const handleCancel = async () => {
+    const id = subscriptionStatus?.razorpaySubscriptionId as unknown as string;
+    if (!id) return;
+    const ok = window.confirm('Are you sure you want to cancel this subscription?');
+    if (!ok) return;
+    try {
+      setCancelling(true);
+      const res = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(id)}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cancel_at_cycle_end: false })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        // Ask backend to refresh local subscription state (updates expired/cancelled rows)
+        try {
+          await fetch('/api/user/subscription-status', { method: 'POST' });
+        } catch {
+          // ignore sync errors, we will still update UI locally
+        }
+
+        // Update UI locally so user sees 'cancelled' immediately
+        setSubscriptionStatus((prev) => prev ? { ...prev, status: 'cancelled' } : prev);
+
+        toast({ title: 'Cancelled', description: 'Subscription cancelled successfully', variant: 'success' });
+      } else {
+        const msg = json?.error?.description || json?.message || 'Failed to cancel subscription';
+        toast({ title: 'Error', description: String(msg), variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to cancel subscription', variant: 'destructive' });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   React.useEffect(() => {
     const updateExpiredSubscriptions = async () => {
       // Call a backend endpoint to update expired subscriptions in DB
@@ -179,11 +218,12 @@ export default function ManageSubscriptionPage() {
         <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-slate-50/30 to-gray-50/20 dark:from-gray-800 dark:via-slate-950/20 dark:to-slate-950/10 backdrop-blur-sm">
           <CardHeader className="pb-6">
             <CardTitle className="flex items-center text-2xl">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 mr-3">
-                <Crown className="h-6 w-6 text-white" />
-              </div>
-              Current Subscription
-            </CardTitle>
+                <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 mr-3">
+                  <Crown className="h-6 w-6 text-white" />
+                </div>
+                Current Subscription
+                {/* cancel button intentionally hidden on loading skeleton */}
+              </CardTitle>
           </CardHeader>
           <CardContent className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -241,6 +281,19 @@ export default function ManageSubscriptionPage() {
               <Crown className="h-6 w-6 text-white" />
             </div>
             Current Subscription
+            {subscriptionStatus?.razorpaySubscriptionId && subscriptionStatus?.status === 'active' && (
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white text-sm font-medium"
+                disabled={cancelling}
+              >
+                {cancelling ? 'Cancelling...' : 'Cancel subscription'}
+              </button>
+            )}
+            {subscriptionStatus?.status === 'cancelled' && (
+              <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-gray-700 text-white text-sm font-medium">cancelled</span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-8">
@@ -277,7 +330,7 @@ export default function ManageSubscriptionPage() {
             </div>
 
             {/* Only show Billing and Next Billing/Valid Until if active/trialing */}
-            {subscriptionStatus && ['active', 'trialing'].includes(subscriptionStatus.status) && (
+            {subscriptionStatus && (['active', 'trialing'].includes(subscriptionStatus.status) || subscriptionStatus.status === 'cancelled') && (
               <>
                 <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
                   <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Billing</p>
@@ -293,7 +346,9 @@ export default function ManageSubscriptionPage() {
                     {subscriptionStatus.status === 'lifetime' ? 'Valid Until' : 'Next Billing'}
                   </p>
                   <p className="text-xl font-bold">
-                    {subscriptionStatus.expiryDate ? (
+                    {subscriptionStatus.status === 'cancelled' ? (
+                      'Your subscription is cancelled'
+                    ) : subscriptionStatus.expiryDate ? (
                       subscriptionStatus.status === 'lifetime' ?
                         'Lifetime' :
                         formatDate(subscriptionStatus.expiryDate)
