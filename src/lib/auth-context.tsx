@@ -133,18 +133,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: result.error }
       }
 
-      // Create session record after successful login
-      try {
-        await fetch('/api/auth/track-session', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (sessionError) {
-        console.warn('Failed to create session record:', sessionError);        
-        // Don't fail the login process if session recording fails
-      }
+      // Session is already created by NextAuth credentials callback in auth.config.ts
+      // No need to call track-session here - it would be redundant
       
       // Don't redirect here - let middleware handle the redirect based on email verification status
       return {}
@@ -187,18 +177,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: "Registration successful but auto-login failed. Please sign in manually." }
       }
 
-      // Create session record after successful auto-login
-      try {
-        await fetch('/api/auth/track-session', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (sessionError) {
-        console.warn('Failed to create session record:', sessionError);
-        // Don't fail the registration process if session recording fails
-      }
+      // Session is already created by NextAuth credentials callback in auth.config.ts
+      // No need to call track-session here - it would be redundant
 
       // User is now authenticated but email not verified - redirect to verify page
       try {
@@ -227,29 +207,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!res.ok) {
         return { success: false, error: data.error }
-      }      // After successful verification, update the session and redirect
-      // Use router instead of window.location.href to prevent unhandled rejections
-      setTimeout(() => {
+      }
+      
+      // After successful verification, force session update and redirect
+      // Import getSession dynamically to force a fresh session fetch
+      const { getSession } = await import('next-auth/react');
+      
+      // Force refresh the session to get updated isEmailVerified status
+      await getSession();
+      
+      // Small delay to ensure session is fully updated
+      setTimeout(async () => {
         try {
+          // Refresh session one more time to be sure
+          await getSession();
+          
           // Get user role to determine correct dashboard
-          // After verification, we should refresh the session to get updated user data
           const currentUser = session?.user;
           const userRole = currentUser?.role || 'user';
           const dashboardUrl = userRole === 'admin' 
             ? '/protected/admin/dashboard' 
             : '/protected/user/dashboard';
-          router.push(dashboardUrl)
+          router.push(dashboardUrl);
         } catch (routerError) {
-          console.error("Failed to redirect after verification:", routerError)
-          // Fallback to window.location if router fails
-          const currentUser = session?.user;
-          const userRole = currentUser?.role || 'user';
-          const dashboardUrl = userRole === 'admin' 
-            ? '/protected/admin/dashboard' 
-            : '/protected/user/dashboard';
-          window.location.href = dashboardUrl
+          console.error("Failed to redirect after verification:", routerError);
+          // Fallback to full page reload which will fetch fresh session
+          window.location.href = '/protected/user/dashboard';
         }
-      }, 1500)
+      }, 1000);
 
       return { success: true }
     } catch (error) {

@@ -4,6 +4,7 @@ import { eq, and, gte, lt } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { LocationService } from './location';
 import { emailService } from './email';
+import { EmailQueueService } from './email-queue';
 
 interface CreateSessionOptions {
   userId: string;
@@ -199,7 +200,8 @@ export class SessionService {
 
   /**
    * Create a new session record in the database
-   */  static async createSession({ userId, userAgent, ipAddress }: CreateSessionOptions) {
+   */  
+  static async createSession({ userId, userAgent, ipAddress }: CreateSessionOptions) {
     try {
       const sessionToken = nanoid(32);
       const expiresAt = new Date();
@@ -236,11 +238,9 @@ export class SessionService {
         return newSession[0];
       });
 
-      // Send security alert email asynchronously (don't block session creation)
-      this.sendSecurityAlertEmail(userId, userAgent, ipAddress).catch(error => {
-        console.error('Failed to send security alert email:', error);
-        // Don't throw error - session creation should succeed even if email fails
-      });
+      // Queue security alert email for background processing
+      // This returns immediately and doesn't block the HTTP response
+      EmailQueueService.enqueueSecurityAlert(userId, userAgent, ipAddress);
 
       console.log(`Session created for user ${userId}: ${sessionToken.substring(0, 8)}...`);
       return result;
@@ -319,12 +319,19 @@ export class SessionService {
       }
 
       // Get location and browser information
-      const locationData = ipAddress ? await LocationService.getLocationFromIP(ipAddress) : null;
+      // Fetch location in background (don't await to keep email sending fast)
+      const locationPromise = ipAddress ? LocationService.getLocationFromIP(ipAddress) : Promise.resolve(null);
       const browserInfo = userAgent ? LocationService.parseBrowserInfo(userAgent) : {
         browser: 'Unknown Browser',
         os: 'Unknown OS',
         device: 'Unknown Device'
       };
+
+      // Wait for location with a timeout - if it takes too long, send email without location
+      const locationData = await Promise.race([
+        locationPromise,
+        new Promise<null>(resolve => setTimeout(() => resolve(null), 500)) // 500ms timeout
+      ]);
 
       // Format location for email
       const location = locationData 

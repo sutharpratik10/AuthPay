@@ -2,51 +2,24 @@
 
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
-import { redirect } from "next/navigation"
 import SubscriptionDashboard from "@/components/SubscriptionDashboard"
 import JobSearchContainer from "@/components/JobSearch/JobSearchContainer"
-
-interface UserSubscriptionStatus {
-  hasSubscription: boolean;
-  planName?: string;
-  role?: string;
-  isActive?: boolean;
-}
+import { useSubscription } from "@/contexts/SubscriptionContext"
 
 export default function UserDashboardPage() {
   const { data: session, status } = useSession()
   const [userName, setUserName] = useState("User")
-  const [subscriptionStatus, setSubscriptionStatus] = useState<UserSubscriptionStatus | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { subscriptionStatus, isLoading } = useSubscription() // Use context
 
+  // Update user name when session is available
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      redirect('/auth/login')
-    }
-    if (status === 'authenticated') {
-      const nameFromSession = session?.user?.name
-      setUserName(nameFromSession || 'User')
-
-      // fetch subscription status for user dashboard
-      ;(async () => {
-        try {
-          const res = await fetch('/api/user/subscription-status')
-          const data = await res.json()
-          if (data?.success) {
-            setSubscriptionStatus(data.data)
-          } else {
-            setSubscriptionStatus({ hasSubscription: false })
-          }
-        } catch {
-          setSubscriptionStatus({ hasSubscription: false })
-        } finally {
-          setIsLoading(false)
-        }
-      })()
+    if (status === 'authenticated' && session?.user?.name) {
+      setUserName(session.user.name)
     }
   }, [status, session])
 
-  if (isLoading) {
+  // Show loading while session is being checked or subscription data is loading
+  if (status === 'loading' || isLoading) {
     return (
       <div className="w-full max-w-full px-2 sm:px-4 py-6 mx-auto">
         <div className="animate-pulse space-y-4">

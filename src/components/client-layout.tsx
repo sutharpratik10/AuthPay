@@ -9,11 +9,15 @@ import { Footer } from "@/components/footer"; // Import the Footer component
 import { Toaster } from "@/components/ui/toaster";
 import { useOAuthSessionTracking } from "@/hooks/use-oauth-session-tracking";
 import CookieBanner from "@/components/CookieBanner";
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
+    <SessionProvider 
+      refetchInterval={0}  // Disable automatic session polling
+      refetchOnWindowFocus={false}  // Disable refetch on window focus
+    >
       <ClientLayoutInner>{children}</ClientLayoutInner>
     </SessionProvider>
   );
@@ -57,18 +61,20 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
     >
       <AuthProvider>
-        {/* Track OAuth sessions with Suspense boundary for useSearchParams */}
-        <Suspense fallback={null}>
-          <OAuthSessionTracker />
-        </Suspense>
-        <Navigationbar />
-        <div className="h-16"></div>
-        <main className="min-h-[calc(100vh-148px)]">
-          {children}
-        </main>
-        {!isAuthenticated && <Footer />}
-        <CookieBanner />
-        <Toaster />
+        <SubscriptionProvider>
+          {/* Track OAuth sessions with Suspense boundary for useSearchParams */}
+          <Suspense fallback={null}>
+            <OAuthSessionTracker />
+          </Suspense>
+          <Navigationbar />
+          <div className="h-16"></div>
+          <main className="min-h-[calc(100vh-148px)]">
+            {children}
+          </main>
+          {!isAuthenticated && <Footer />}
+          <CookieBanner />
+          <Toaster />
+        </SubscriptionProvider>
       </AuthProvider>
     </ThemeProvider>
   );

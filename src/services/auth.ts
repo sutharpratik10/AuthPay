@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { users, otpCodes } from "@/db/schema";
-import { emailService } from "./email";
+import { EmailQueueService } from "./email-queue";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { eq, and, lt } from "drizzle-orm";
@@ -52,8 +52,10 @@ export class AuthService {
         isValid: true,
         createdAt: new Date(),
       });
-      // Send verification email
-      await emailService.sendVerificationEmail(newUser.email, verificationCode);
+      
+      // Queue verification email for background sending (non-blocking)
+      EmailQueueService.enqueueVerificationEmail(newUser.email, verificationCode);
+      
       return {
         success: true,
         user: {
@@ -93,22 +95,42 @@ export class AuthService {
         await db.delete(otpCodes).where(eq(otpCodes.id, otpRecord.id));
         return { success: false, error: "Verification code has expired" };
       }
+      
+      // Update user's email verification status
       await db.update(users)
         .set({
           isEmailVerified: true,
           updatedAt: new Date().toISOString(),
         })
         .where(eq(users.id, otpRecord.userId));
+      
+      // Delete the used OTP code
       await db.delete(otpCodes).where(eq(otpCodes.id, otpRecord.id));
-      if (otpRecord.user) {
-        await emailService.sendWelcomeEmail(
-          otpRecord.user.email,
-          otpRecord.user.name || ''
+      
+      // Fetch the updated user to return correct data
+      const updatedUser = await db.query.users.findFirst({
+        where: eq(users.id, otpRecord.userId),
+        columns: {
+          email: true,
+          name: true,
+          isEmailVerified: true
+        }
+      });
+      
+      // Send welcome email in background (non-blocking)
+      if (updatedUser) {
+        EmailQueueService.enqueueWelcomeEmail(
+          updatedUser.email,
+          updatedUser.name || ''
         );
       }
+      
       return {
         success: true,
-        user: otpRecord.user,
+        user: {
+          email: updatedUser?.email || otpRecord.user.email,
+          name: updatedUser?.name ?? otpRecord.user.name,
+        },
       };
     } catch (error: unknown) {
       console.error("Email verification error:", error);
@@ -146,7 +168,10 @@ export class AuthService {
         isValid: true,
         createdAt: new Date(),
       });
-      await emailService.sendVerificationEmail(user.email, verificationCode);
+      
+      // Queue verification email for background sending (non-blocking)
+      EmailQueueService.enqueueVerificationEmail(user.email, verificationCode);
+      
       return { success: true };
     } catch (error: unknown) {
       console.error("Resend verification email error:", error);
@@ -184,7 +209,10 @@ export class AuthService {
         isValid: true,
         createdAt: new Date(),
       });
-      await emailService.sendPasswordResetEmail(user.email, resetCode, user.name || '');
+      
+      // Queue password reset email for background sending (non-blocking)
+      EmailQueueService.enqueuePasswordResetEmail(user.email, resetCode, user.name || '');
+      
       return {
         success: true,
         message: "Password reset code sent to your email"

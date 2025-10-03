@@ -72,14 +72,24 @@ export async function GET() {
       status = statusRow?.name || '';
     }
 
-    // If expired, override status and isActive
+    // Determine access status based on expiry date and subscription status
     if (expiry && expiry <= now) {
-      status = 'expired';
+      // Subscription has expired
+      if (status === 'cancelled') {
+        status = 'cancelled'; // Keep cancelled status even after expiry
+      } else {
+        status = 'expired';
+      }
       isActive = false;
     } else if (status === 'active') {
       isActive = true;
     } else if (status === 'cancelled') {
-      isActive = false;
+      // Cancelled but not yet expired - user still has access
+      if (expiry && expiry > now) {
+        isActive = true; // User retains access until expiry date
+      } else {
+        isActive = false;
+      }
       status = 'cancelled';
     }
 
@@ -88,19 +98,28 @@ export async function GET() {
     // --- Update expired subscriptions for this user before returning status ---
     try {
       const { eq, lt, and, ne } = await import("drizzle-orm");
-      // Get the 'expired' status id
-      const expiredStatus = await db.query.subscriptionStatuses.findFirst({
-        where: eq(subscriptionStatuses.name, 'expired'),
-        columns: { id: true }
-      });
+      // Get the 'expired' and 'cancelled' status ids
+      const [expiredStatus, cancelledStatus] = await Promise.all([
+        db.query.subscriptionStatuses.findFirst({
+          where: eq(subscriptionStatuses.name, 'expired'),
+          columns: { id: true }
+        }),
+        db.query.subscriptionStatuses.findFirst({
+          where: eq(subscriptionStatuses.name, 'cancelled'),
+          columns: { id: true }
+        })
+      ]);
+      
       if (expiredStatus?.id && userId) {
-        // Update all userSubscriptions for this user where expiryDate < now and statusId != expired
+        // Update all userSubscriptions for this user where expiryDate < now 
+        // and statusId is not expired or cancelled (preserve cancelled status)
         await db.update(userSubscriptions)
           .set({ statusId: expiredStatus.id, updatedAt: new Date().toISOString() })
           .where(and(
             eq(userSubscriptions.userId, userId),
             lt(userSubscriptions.expiryDate, new Date().toISOString()),
-            ne(userSubscriptions.statusId, expiredStatus.id)
+            ne(userSubscriptions.statusId, expiredStatus.id),
+            cancelledStatus?.id ? ne(userSubscriptions.statusId, cancelledStatus.id) : undefined
           ));
       }
     } catch (e) {
@@ -112,7 +131,7 @@ export async function GET() {
       data: {
         hasSubscription: true,
         planId: sub.planId ?? null,
-        planName: sub.planName ?? (sub.razorpaySubscriptionId ? 'Razorpay plan' : null),
+        planName: sub.planName ?? null,
         planDescription: sub.planDescription ?? null,
         price: typeof sub.planPrice === 'number' ? `$${sub.planPrice}` : (sub.planPrice ?? null),
         billingCycle: sub.billingCycle ?? 'monthly',
@@ -146,19 +165,34 @@ export async function POST() {
     }
     const userId = session.user.id;
     const { eq, lt, and, ne } = await import("drizzle-orm");
-    // Get the 'expired' status id
-    const expiredStatus = await db.query.subscriptionStatuses.findFirst({
-      where: eq(subscriptionStatuses.name, 'expired'),
-      columns: { id: true }
-    });
+    
+    // Get the 'expired' and 'cancelled' status ids
+    const [expiredStatus, cancelledStatus] = await Promise.all([
+      db.query.subscriptionStatuses.findFirst({
+        where: eq(subscriptionStatuses.name, 'expired'),
+        columns: { id: true }
+      }),
+      db.query.subscriptionStatuses.findFirst({
+        where: eq(subscriptionStatuses.name, 'cancelled'),
+        columns: { id: true }
+      })
+    ]);
+    
     if (expiredStatus?.id && userId) {
-      // Update all userSubscriptions for this user where expiryDate < now and statusId != expired
+      const excludeStatuses = [expiredStatus.id];
+      if (cancelledStatus?.id) {
+        excludeStatuses.push(cancelledStatus.id);
+      }
+      
+      // Update all userSubscriptions for this user where expiryDate < now 
+      // and statusId is not expired or cancelled (don't override cancelled subscriptions)
       const result = await db.update(userSubscriptions)
         .set({ statusId: expiredStatus.id, updatedAt: new Date().toISOString() })
         .where(and(
           eq(userSubscriptions.userId, userId),
           lt(userSubscriptions.expiryDate, new Date().toISOString()),
-          ne(userSubscriptions.statusId, expiredStatus.id)
+          ne(userSubscriptions.statusId, expiredStatus.id),
+          cancelledStatus?.id ? ne(userSubscriptions.statusId, cancelledStatus.id) : undefined
         ));
       return NextResponse.json({ success: true, updated: result });
     }

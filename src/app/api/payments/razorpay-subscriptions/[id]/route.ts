@@ -3,14 +3,14 @@ import Razorpay from 'razorpay';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
       return NextResponse.json({ success: false, error: { description: 'Missing Razorpay credentials' } }, { status: 500 });
     }
 
-  const { id } = await params as unknown as { id: string };
+    const { id } = await params;
     if (!id) {
       return NextResponse.json({ success: false, error: { description: 'Missing subscription id' } }, { status: 400 });
     }

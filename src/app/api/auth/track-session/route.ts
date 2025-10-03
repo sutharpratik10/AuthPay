@@ -5,18 +5,27 @@ import { getClientInfo } from '@/lib/client-info';
 
 export async function POST(request: NextRequest) {
   try {
+    const requestStart = Date.now();
+    console.log('[track-session] Starting request');
+    
+    const authStart = Date.now();
     const session = await auth();
+    console.log(`[track-session] Auth check took ${Date.now() - authStart}ms`);
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get additional data from request body (for OAuth tracking)
+    const bodyStart = Date.now();
     const body = await request.json().catch(() => ({}));
     const { provider, skipIfExists = false } = body;
+    console.log(`[track-session] Body parse took ${Date.now() - bodyStart}ms`);
 
     // Get request information with improved IP detection
+    const clientInfoStart = Date.now();
     const clientInfo = getClientInfo(request);
+    console.log(`[track-session] Client info took ${Date.now() - clientInfoStart}ms`);
     
     // If this is an OAuth login, add provider info to user agent
     const userAgent = provider 
@@ -34,8 +43,11 @@ export async function POST(request: NextRequest) {
 
     // Check if session already exists for this user (to avoid duplicates)
     if (skipIfExists) {
+      const checkStart = Date.now();
       const existingSessions = await SessionService.getUserActiveSessions(session.user.id);
+      console.log(`[track-session] Session check took ${Date.now() - checkStart}ms, found ${existingSessions.length} sessions`);
       if (existingSessions.length > 0) {
+        console.log(`[track-session] Total request time: ${Date.now() - requestStart}ms`);
         return NextResponse.json({
           success: true,
           message: 'Session already exists',
@@ -45,11 +57,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Create or get session record
+    const createStart = Date.now();
     const sessionRecord = await SessionService.createSession({
       userId: session.user.id,
       userAgent: userAgent,
       ipAddress: clientInfo.ipAddress,
     });
+    console.log(`[track-session] Session creation took ${Date.now() - createStart}ms`);
+
+    console.log(`[track-session] Session creation took ${Date.now() - createStart}ms`);
 
     // If the session is expired, delete it and return error
     if (new Date(sessionRecord.expiresAt) <= new Date()) {
@@ -60,6 +76,7 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
 
+    console.log(`[track-session] Total request time: ${Date.now() - requestStart}ms`);
     return NextResponse.json({
       success: true,
       message: provider ? `OAuth session tracked for ${provider}` : 'Session created successfully',

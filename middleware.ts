@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateSessionFromRequest, createUnauthorizedResponse, trackSessionActivity } from "@/lib/session-validation";
+import { getToken } from "next-auth/jwt";
 import { db } from "@/db";
 import { userPreferences } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -71,25 +71,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // For all other routes, validate session using the new system
-  const sessionValidation = await validateSessionFromRequest(request, {
-    extendSession: true,
-    requireVerifiedEmail: false, // We'll handle this per route
-    requireActiveUser: true,
+  // Use NextAuth's JWT check for fast authentication (no database query)
+  const token = await getToken({ 
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET 
   });
 
-  const isAuthenticated = sessionValidation.isValid;
-  const user = sessionValidation.user;
+  const isAuthenticated = !!token;
+  const user = token ? {
+    id: token.sub as string,
+    email: token.email as string,
+    isEmailVerified: token.isEmailVerified as boolean,
+    roleId: token.roleId as string,
+  } : null;
   const isEmailVerified = user?.isEmailVerified === true;
-
-  // Track user activity if session is valid
-  if (isAuthenticated) {
-    trackSessionActivity(request).catch(error => {
-      console.error('Failed to track session activity:', error);
-    });
-  }
-
-
   // Helper to get role name from user data
   function getUserRole(): string {
     if (!user?.roleId) return "user";
@@ -109,7 +104,7 @@ export async function middleware(request: NextRequest) {
   if (path === verificationRoute) {
     if (!isAuthenticated) {
       console.log(`[MIDDLEWARE] 🔒 Unauthenticated user trying to access verify page`);
-      return createUnauthorizedResponse(request, 'Authentication required', '/auth/login');
+      return NextResponse.redirect(new URL('/auth/login', request.url));
     }
     if (isEmailVerified) {
       const dashboardUrl = getDashboardUrl();
@@ -144,7 +139,7 @@ export async function middleware(request: NextRequest) {
   if (needsProtection) {
     if (!isAuthenticated) {
       console.log(`[MIDDLEWARE] 🔒 Unauthenticated access to protected route: ${path}`);
-      return createUnauthorizedResponse(request, 'Authentication required', '/auth/login');
+      return NextResponse.redirect(new URL('/auth/login', request.url));
     }
 
     if (!isEmailVerified) {

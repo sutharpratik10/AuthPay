@@ -63,6 +63,12 @@ export function ProtectedRoute({
     let isMounted = true;
     
     async function checkUserInDatabase() {
+      // Skip validation if user is on verify page (they're in the middle of verification)
+      if (pathname === '/auth/verify') {
+        console.log('[PROTECTED_ROUTE] Skipping validation - user on verify page');
+        return;
+      }
+      
       // Only validate once per session, not on every render
       if (
         authState.isAuthenticated && 
@@ -119,7 +125,7 @@ export function ProtectedRoute({
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [authState.isAuthenticated, authState.user?.id, authState.loading, logout, userValidated]);
+  }, [authState.isAuthenticated, authState.user?.id, authState.loading, logout, userValidated, pathname]);
 
   useEffect(() => {
     // Only process redirects when loading is complete and user is validated

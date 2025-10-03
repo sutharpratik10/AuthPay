@@ -78,20 +78,26 @@ export default function SubscriptionPlansSelector({
   useEffect(() => {
     const loadPlans = async () => {
       try {
-        // Load local plans
-        const response = await fetch("/api/subscription-plans");
-        const data = await response.json();
+        // Fetch both local plans and Razorpay plans in parallel for faster loading
+        const [localResponse, razorpayResponse] = await Promise.allSettled([
+          fetch("/api/subscription-plans"),
+          fetch('/api/payments/razorpay-plans?count=100')
+        ]);
+
+        // Process local plans
         let localPlans: SubscriptionPlan[] = [];
-        if (data?.success) {
-          localPlans = data.data.plans as SubscriptionPlan[];
+        if (localResponse.status === 'fulfilled' && localResponse.value.ok) {
+          const data = await localResponse.value.json();
+          if (data?.success) {
+            localPlans = data.data.plans as SubscriptionPlan[];
+          }
         }
 
-        // Also try to fetch Razorpay plans and merge them into the list
+        // Process Razorpay plans
         let razorpayPlans: SubscriptionPlan[] = [];
-        try {
-          const rpResp = await fetch('/api/payments/razorpay-plans?count=100');
-          if (rpResp.ok) {
-            const rpJson = await rpResp.json();
+        if (razorpayResponse.status === 'fulfilled' && razorpayResponse.value.ok) {
+          try {
+            const rpJson = await razorpayResponse.value.json();
             // Razorpay SDK returns an object with `items` array
             const items = rpJson.items || rpJson.subscriptions || rpJson.plans || rpJson;
             if (Array.isArray(items)) {
@@ -123,15 +129,14 @@ export default function SubscriptionPlansSelector({
                 } as SubscriptionPlan;
               });
             }
+          } catch (err) {
+            console.warn('Failed to parse Razorpay plans:', err);
           }
-        } catch (err) {
-          // non-fatal: show local plans even if Razorpay fetch fails
-          console.warn('Failed to load Razorpay plans:', err);
         }
 
         // Merge local plans + razorpay plans (local first)
         setPlans([...localPlans, ...razorpayPlans]);
-  } catch (error) {
+      } catch (error) {
         console.error("Error loading plans:", error);
         toast({
           title: "Error",

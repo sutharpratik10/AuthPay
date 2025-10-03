@@ -32,11 +32,24 @@ interface IPApiResponse {
   query: string;
 }
 
-export class LocationService {  /**
+// Simple in-memory cache for location data (1 hour TTL)
+const locationCache = new Map<string, { data: LocationData; timestamp: number }>();
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
+
+export class LocationService {
+  /**
    * Get location data from IP address using ip-api.com (free service)
    * Falls back to minimal data if service is unavailable
+   * Includes caching to reduce API calls
    */
   static async getLocationFromIP(ipAddress: string): Promise<LocationData> {
+    // Check cache first
+    const cached = locationCache.get(ipAddress);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log(`Using cached location for IP: ${ipAddress}`);
+      return cached.data;
+    }
+
     // Default fallback data
     const fallbackData: LocationData = {
       ip: ipAddress,
@@ -51,13 +64,16 @@ export class LocationService {  /**
       // Skip location lookup for local/private IPs
       if (this.isPrivateIP(ipAddress)) {
         console.log(`Skipping location lookup for private IP: ${ipAddress}`);
-        return {
+        const localData = {
           ...fallbackData,
           city: 'Local Network',
           region: 'Private',
           country: 'Local',
           countryCode: 'LOCAL'
         };
+        // Cache local IP results too
+        locationCache.set(ipAddress, { data: localData, timestamp: Date.now() });
+        return localData;
       }
 
       console.log(`Fetching location data for IP: ${ipAddress}`);
@@ -68,12 +84,14 @@ export class LocationService {  /**
         headers: {
           'User-Agent': 'AuthApp/1.0',
         },
-        // Set timeout for the request
-        signal: AbortSignal.timeout(5000) // 5 second timeout
+        // Set timeout for the request (reduced from 5s to 3s)
+        signal: AbortSignal.timeout(3000) // 3 second timeout
       });
 
       if (!response.ok) {
         console.warn(`IP geolocation service returned ${response.status} for IP ${ipAddress}`);
+        // Cache fallback data to avoid repeated failed lookups
+        locationCache.set(ipAddress, { data: fallbackData, timestamp: Date.now() });
         return fallbackData;
       }
 
@@ -82,6 +100,8 @@ export class LocationService {  /**
 
       if (data.status === 'fail') {
         console.warn('IP geolocation lookup failed:', data);
+        // Cache fallback data
+        locationCache.set(ipAddress, { data: fallbackData, timestamp: Date.now() });
         return fallbackData;
       }
 
@@ -99,10 +119,16 @@ export class LocationService {  /**
       };
 
       console.log(`Successfully got location for ${ipAddress}:`, locationResult);
+      
+      // Cache the successful result
+      locationCache.set(ipAddress, { data: locationResult, timestamp: Date.now() });
+      
       return locationResult;
 
     } catch (error) {
       console.error(`Error fetching location data for IP ${ipAddress}:`, error);
+      // Cache fallback data to avoid repeated failures
+      locationCache.set(ipAddress, { data: fallbackData, timestamp: Date.now() });
       return fallbackData;
     }
   }

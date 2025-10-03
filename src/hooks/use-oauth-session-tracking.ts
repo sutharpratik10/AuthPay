@@ -64,13 +64,26 @@ export function useOAuthSessionTracking() {
       session?.user?.id && 
       !hasTrackedRef.current
     ) {
-      // Check if this is an OAuth callback
-      const error = searchParams?.get('error');
+      // Check if this is an OAuth callback by looking for provider in URL
+      const currentUrl = window.location.href;
+      const providers = ['google', 'github', 'facebook', 'azure-ad', 'apple'];
+      const isOAuth = providers.some(p => 
+        currentUrl.includes(p) || currentUrl.includes(p.replace('-', ''))
+      );
       
-      // If there's no error and we have a session, this might be an OAuth login
-      if (!error) {
-        trackOAuthSession();
-        hasTrackedRef.current = true;
+      // Only track if this is actually an OAuth login
+      if (isOAuth) {
+        const error = searchParams?.get('error');
+        
+        // If there's no error and we have a session, track it
+        if (!error) {
+          // Add a small delay to allow the main login session to be created first
+          // This prevents race condition with credentials login
+          setTimeout(() => {
+            trackOAuthSession();
+          }, 100);
+          hasTrackedRef.current = true;
+        }
       }
     }
   }, [status, session, searchParams, trackOAuthSession]);

@@ -17,15 +17,7 @@ import { getAppName } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { useEffect, useState, useMemo } from "react";
-
-interface SubscriptionStatus {
-  hasSubscription: boolean;
-  planName?: string;
-  status?: string;
-  price?: string;
-  billingCycle?: string;
-  expiryDate?: string;
-}
+import { useSubscription } from "@/contexts/SubscriptionContext";
 
 interface NavItem {
   name: string;
@@ -38,9 +30,8 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
+  const { subscriptionStatus } = useSubscription(); // Use context instead of fetching
   const [adminCheckDone, setAdminCheckDone] = useState(false);
-  const [subscriptionCheckDone, setSubscriptionCheckDone] = useState(false);
 
   // Check if user has admin role - only once per session
   useEffect(() => {    
@@ -69,34 +60,6 @@ export function AppSidebar() {
 
     checkAdminRole();
   }, [session?.user?.id, adminCheckDone]);
-
-  // Check user subscription status - only once per session
-  useEffect(() => {
-    const fetchSubscriptionStatus = async () => {
-      if (session?.user?.id && !subscriptionCheckDone) {
-        try {
-          const response = await fetch('/api/user/subscription-status');
-          const data = await response.json();
-          
-          if (data.success) {
-            setSubscriptionStatus(data.data);
-          } else {
-            setSubscriptionStatus(null);
-          }
-        } catch (error) {
-          console.error('Error fetching subscription status:', error);
-          setSubscriptionStatus(null);
-        } finally {
-          setSubscriptionCheckDone(true);
-        }
-      } else if (!session?.user?.id) {
-        setSubscriptionStatus(null);
-        setSubscriptionCheckDone(false);
-      }
-    };
-
-    fetchSubscriptionStatus();
-  }, [session?.user?.id, subscriptionCheckDone]);
 
   const navigation: NavItem[] = useMemo(() => {
     const nav: NavItem[] = [
