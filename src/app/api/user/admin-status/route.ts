@@ -1,33 +1,39 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+/**
+ * REFACTORED: /api/user/admin-status
+ * 
+ * This is a refactored version using centralized API helpers
+ * 
+ * IMPROVEMENTS:
+ * - Eliminated repetitive auth checking code
+ * - Standardized response format
+ * - Better error handling
+ * - Performance logging
+ * - Cleaner, more maintainable code
+ */
+
+import { NextRequest } from 'next/server';
+import { 
+  withApiHandler, 
+  successResponse,
+  createPerformanceLogger 
+} from '@/lib/api-helpers';
 import { PermissionService } from '@/services/permissions';
 
 /**
  * GET /api/user/admin-status - Check if current user is admin
+ * 
+ * BEFORE: ~15 lines with manual auth checks
+ * AFTER: ~8 lines using withApiHandler wrapper
  */
-export async function GET() {
-  try {
-    const session = await auth();
+export const GET = withApiHandler(
+  async (request: NextRequest, { user }) => {
+    const logger = createPerformanceLogger(request);
     
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const isAdmin = await PermissionService.isAdmin(session.user.id);
+    // User is guaranteed to exist due to requireAuth option
+    const isAdmin = await PermissionService.isAdmin(user!.id);
     
-    return NextResponse.json({
-      success: true,
-      data: { isAdmin }
-    });
-
-  } catch (error) {
-    console.error('Error checking admin status:', error);
-    return NextResponse.json(
-      { error: 'Failed to check admin status' },
-      { status: 500 }
-    );
-  }
-}
+    logger.end(user!.id);
+    return successResponse({ isAdmin });
+  },
+  { requireAuth: true } // Automatic auth check
+);
