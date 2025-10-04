@@ -225,6 +225,10 @@ export const otpCodes = pgTable("otp_codes", {
 	isValid: boolean('is_valid').default(true),
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 	attemptCount: integer('attempt_count').default(0),
+	// Secure token-based flow for password reset
+	sessionToken: varchar('session_token', { length: 64 }), // Token from email step
+	verifiedToken: varchar('verified_token', { length: 64 }), // Token after code verification
+	verifiedAt: timestamp('verified_at'), // When code was verified
 }, (table) => [
 	foreignKey({
 			columns: [table.userId],

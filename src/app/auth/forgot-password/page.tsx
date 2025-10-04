@@ -21,14 +21,11 @@ export default function ForgotPasswordPage() {
   const [resendDisabled, setResendDisabled] = useState(false)
   const [countdown, setCountdown] = useState(0)
   
-  // Security: Track which steps have been validated
-  const [validatedSteps, setValidatedSteps] = useState<Set<Step>>(new Set(['email']))
-  const [verifiedCode, setVerifiedCode] = useState<string | null>(null)
+  // SECURITY: Server-provided tokens for secure flow
+  const [sessionToken, setSessionToken] = useState<string | null>(null)
+  const [verifiedToken, setVerifiedToken] = useState<string | null>(null)
 
-  // SECURITY: Prevent URL manipulation by NOT reading from URL params
-  // Users must go through the proper flow
-  
-  // SECURITY WARNING: Prevent page refresh from bypassing validation
+  // SECURITY: Prevent page refresh from bypassing validation
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (currentStep !== 'email' && currentStep !== 'success') {
@@ -66,11 +63,11 @@ export default function ForgotPasswordPage() {
       
       const data = await response.json()
       
-      if (response.ok) {
+      if (response.ok && data.sessionToken) {
+        // SECURITY: Store session token from server
+        setSessionToken(data.sessionToken)
         setSuccess("Password reset code sent to your email")
         setCurrentStep('verify')
-        setValidatedSteps(prev => new Set(prev).add('verify'))
-        // NO URL manipulation - keep the URL clean
       } else {
         setError(data.error || 'Failed to send reset code')
       }
@@ -85,9 +82,9 @@ export default function ForgotPasswordPage() {
   const handleCodeVerification = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // SECURITY: Ensure user came from email step
-    if (!validatedSteps.has('verify')) {
-      setError('Please start the password reset process from the beginning')
+    // SECURITY: Ensure we have a session token
+    if (!sessionToken) {
+      setError('Session expired. Please start the password reset process again.')
       setCurrentStep('email')
       return
     }
@@ -95,20 +92,20 @@ export default function ForgotPasswordPage() {
     setIsLoading(true)
     setError("")
       try {
-      const response = await fetch('/api/auth/reset-password', {
+      // SECURITY: Call new verify endpoint with session token
+      const response = await fetch('/api/auth/verify-reset-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ code, sessionToken })
       })
       
       const data = await response.json()
       
-      if (response.ok) {
+      if (response.ok && data.verifiedToken) {
+        // SECURITY: Store verified token from server
+        setVerifiedToken(data.verifiedToken)
         setSuccess("Code verified successfully")
-        setVerifiedCode(code) // Store verified code
         setCurrentStep('reset')
-        setValidatedSteps(prev => new Set(prev).add('reset'))
-        // NO URL manipulation
       } else {
         setError(data.error || 'Invalid or expired code')
       }
@@ -123,9 +120,9 @@ export default function ForgotPasswordPage() {
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // SECURITY: Ensure user came from verify step with valid code
-    if (!validatedSteps.has('reset') || !verifiedCode) {
-      setError('Please verify your code first')
+    // SECURITY: Ensure we have a verified token
+    if (!verifiedToken) {
+      setError('Invalid session. Please verify your code first.')
       setCurrentStep('verify')
       return
     }
@@ -146,11 +143,11 @@ export default function ForgotPasswordPage() {
     }
     
     try {
-      // Use the verified code, not user input
+      // SECURITY: Use verified token instead of raw code
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: verifiedCode, newPassword })
+        body: JSON.stringify({ verifiedToken, newPassword })
       })
       
       const data = await response.json()
@@ -158,13 +155,12 @@ export default function ForgotPasswordPage() {
       if (response.ok) {
         setSuccess("Password reset successfully")
         setCurrentStep('success')
-        setValidatedSteps(prev => new Set(prev).add('success'))
         // Clear sensitive data
         setCode("")
-        setVerifiedCode(null)
+        setSessionToken(null)
+        setVerifiedToken(null)
         setNewPassword("")
         setConfirmPassword("")
-        // NO URL manipulation
       } else {
         setError(data.error || 'Failed to reset password')
       }
@@ -209,11 +205,10 @@ export default function ForgotPasswordPage() {
   const handleBackToEmail = () => {
     setCurrentStep('email')
     setCode("")
-    setVerifiedCode(null)
+    setSessionToken(null)
+    setVerifiedToken(null)
     setError("")
     setSuccess("")
-    setValidatedSteps(new Set(['email']))
-    // NO URL manipulation - URL stays clean
   }
 
   const renderEmailStep = () => (

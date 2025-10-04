@@ -165,7 +165,8 @@ class InitiatePasswordResetRouteHandler extends BaseRouteHandler {
       }
 
       return this.createSuccessResponse({
-        message: result.message || 'Password reset code sent successfully'
+        message: result.message || 'Password reset code sent successfully',
+        sessionToken: result.sessionToken // SECURITY: Return session token for secure flow
       });
     } catch (error) {
       return this.handleError(error, 'Password reset initiation error');

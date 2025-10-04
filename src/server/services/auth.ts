@@ -3,7 +3,7 @@ import { users, otpCodes } from "@/server/db/schema";
 import { EmailQueueService } from "./email-queue";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
-import { eq, and, lt } from "drizzle-orm";
+import { eq, and, lt, gt } from "drizzle-orm";
 
 type ServiceResult<T extends object = object> = { success: true } & T | { success: false; error: string };
 
@@ -180,20 +180,31 @@ export class AuthService {
   }
 
   /**
-   * Initiate password reset process
+   * Initiate password reset process with secure token-based flow
    */
-  static async initiatePasswordReset(email: string): Promise<ServiceResult<{ message: string }>> {
+  static async initiatePasswordReset(email: string): Promise<ServiceResult<{ message: string; sessionToken?: string }>> {
     try {
       const user = await db.query.users.findFirst({
         where: (users, { eq }) => eq(users.email, email.toLowerCase())
       });
+      
+      // SECURITY: Always return success even if user doesn't exist
+      // This prevents email enumeration attacks
       if (!user) {
+        console.log('[Password Reset] User not found, but returning success to prevent enumeration')
         return {
-          success: false,
-          error: `Account with email ${email} doesn't exist`
+          success: true,
+          message: "If an account exists with this email, a reset code has been sent"
         };
       }
+      
       const resetCode = this.generateVerificationCode();
+      
+      // SECURITY: Generate session token for secure flow
+      const crypto = await import('crypto');
+      const sessionToken = crypto.randomBytes(32).toString('hex');
+      
+      // Delete old password reset codes for this user
       await db.delete(otpCodes)
         .where(
           and(
@@ -201,21 +212,27 @@ export class AuthService {
             eq(otpCodes.type, "password_reset")
           )
         );
+      
+      // Insert new code with session token
       await db.insert(otpCodes).values({
         userId: user.id,
         code: resetCode,
         type: "password_reset",
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
         isValid: true,
         createdAt: new Date(),
+        sessionToken, // SECURITY: Token for step validation
       });
+      
+      console.log('[Password Reset] Session token generated for user:', user.email)
       
       // Queue password reset email for background sending (non-blocking)
       EmailQueueService.enqueuePasswordResetEmail(user.email, resetCode, user.name || '');
       
       return {
         success: true,
-        message: "Password reset code sent to your email"
+        message: "Password reset code sent to your email",
+        sessionToken // Return session token to client
       };
     } catch (error: unknown) {
       console.error("Password reset initiation error:", error);
@@ -337,6 +354,112 @@ export class AuthService {
           };
         }
       }
+      return {
+        success: false,
+        error: "An error occurred while resetting password. Please try again."
+      };
+    }
+  }
+
+  /**
+   * SECURE PASSWORD RESET: Reset password using verified token
+   * This method requires a verifiedToken (proof that code was verified in previous step)
+   * This prevents attackers from bypassing the verification step
+   */
+  static async resetPasswordWithVerifiedToken(verifiedToken: string, newPassword: string): Promise<ServiceResult<{ message: string }>> {
+    try {
+      if (!verifiedToken || typeof verifiedToken !== 'string') {
+        return {
+          success: false,
+          error: "Invalid verified token"
+        };
+      }
+      
+      if (!newPassword || typeof newPassword !== 'string') {
+        return {
+          success: false,
+          error: "Invalid new password"
+        };
+      }
+      
+      if (newPassword.length < 8) {
+        return {
+          success: false,
+          error: "Password must be at least 8 characters long"
+        };
+      }
+
+      console.log('[Reset Password] Verifying token and resetting password')
+
+      // SECURITY: Verify the token exists, is valid, and was verified
+      const resetCode = await db.query.otpCodes.findFirst({
+        where: and(
+          eq(otpCodes.verifiedToken, verifiedToken),
+          eq(otpCodes.type, 'password_reset'),
+          eq(otpCodes.isValid, true),
+          gt(otpCodes.expiresAt, new Date())
+        )
+      });
+
+      if (!resetCode) {
+        console.log('[Reset Password] Invalid or expired verified token')
+        return {
+          success: false,
+          error: "Invalid or expired reset session. Please start the password reset process again."
+        };
+      }
+
+      // SECURITY: Verify the code was actually verified (has verifiedAt timestamp)
+      if (!resetCode.verifiedAt) {
+        console.log('[Reset Password] Token was not verified through proper flow')
+        return {
+          success: false,
+          error: "Invalid reset session. Please verify your code first."
+        };
+      }
+
+      console.log('[Reset Password] Token validated, updating password')
+
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update user password
+      await db
+        .update(users)
+        .set({
+          password: hashedPassword,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(users.id, resetCode.userId));
+
+      // SECURITY: Delete the OTP code (one-time use)
+      await db.delete(otpCodes)
+        .where(eq(otpCodes.id, resetCode.id));
+
+      console.log('[Reset Password] Password reset successful')
+
+      return {
+        success: true,
+        message: "Password reset successfully"
+      };
+    } catch (error: unknown) {
+      console.error("[Reset Password Error]:", error);
+      
+      if (error instanceof Error) {
+        if (error.message.includes('duplicate key') || error.message.includes('constraint')) {
+          return {
+            success: false,
+            error: "Database constraint error. Please try again."
+          };
+        }
+        if (error.message.includes('connection')) {
+          return {
+            success: false,
+            error: "Database connection error. Please try again later."
+          };
+        }
+      }
+      
       return {
         success: false,
         error: "An error occurred while resetting password. Please try again."
