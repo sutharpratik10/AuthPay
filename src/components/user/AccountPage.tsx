@@ -267,57 +267,62 @@ export default function AccountPage() {
   const handlePasswordChange = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     
+    console.log('=== [Password Change] FUNCTION CALLED ===')
+    console.log('[Password Change] Event:', event)
     console.log('[Password Change] Starting password change process...')
     console.log('[Password Change] Has password:', hasPassword)
+    console.log('[Password Change] Password strength score:', passwordStrength.score)
     console.log('[Password Change] Form data:', {
       currentPassword: passwordForm.currentPassword ? '***' : 'empty',
       newPassword: passwordForm.newPassword ? '***' : 'empty',
-      confirmPassword: passwordForm.confirmPassword ? '***' : 'empty'
+      confirmPassword: passwordForm.confirmPassword ? '***' : 'empty',
+      newPasswordLength: passwordForm.newPassword.length,
+      passwordsMatch: passwordForm.newPassword === passwordForm.confirmPassword
     })
     
-    // For OAuth users without password, handle setting password
-    if (hasPassword === false) {
-      console.log('[Password Change] Handling set password for OAuth user')
-      return handleSetPassword()
-    }
-    
-    // Validation for users with existing password
-    if (!passwordForm.currentPassword) {
-      console.log('[Password Change] Validation failed: Current password required')
-      setMessage({ type: 'error', text: 'Current password is required!' })
-      return
-    }
-    
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      console.log('[Password Change] Validation failed: Passwords do not match')
-      setMessage({ type: 'error', text: 'New passwords do not match!' })
-      return
-    }
-    
-    if (passwordForm.newPassword.length < 8) {
-      console.log('[Password Change] Validation failed: Password too short')
-      setMessage({ type: 'error', text: 'Password must be at least 8 characters long!' })
-      return
-    }
-
-    // Password strength validation
-    if (passwordStrength.score < 2) {
-      console.log('[Password Change] Validation failed: Password too weak, score:', passwordStrength.score)
-      setMessage({ type: 'error', text: 'Password is too weak. Please create a stronger password.' })
-      return
-    }
-    
-    if (passwordForm.currentPassword === passwordForm.newPassword) {
-      console.log('[Password Change] Validation failed: Same as current password')
-      setMessage({ type: 'error', text: 'New password must be different from current password!' })
-      return
-    }
-    
-    console.log('[Password Change] All validations passed, calling API...')
-    setIsLoading(true)
-    setMessage(null)
-    
     try {
+      // For OAuth users without password, handle setting password
+      if (hasPassword === false) {
+        console.log('[Password Change] Handling set password for OAuth user')
+        return handleSetPassword()
+      }
+      
+      // Validation for users with existing password
+      if (!passwordForm.currentPassword) {
+        console.log('[Password Change] Validation failed: Current password required')
+        setMessage({ type: 'error', text: 'Current password is required!' })
+        return
+      }
+      
+      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+        console.log('[Password Change] Validation failed: Passwords do not match')
+        setMessage({ type: 'error', text: 'New passwords do not match!' })
+        return
+      }
+      
+      if (passwordForm.newPassword.length < 8) {
+        console.log('[Password Change] Validation failed: Password too short')
+        setMessage({ type: 'error', text: 'Password must be at least 8 characters long!' })
+        return
+      }
+
+      // Password strength validation
+      if (passwordStrength.score < 2) {
+        console.log('[Password Change] Validation failed: Password too weak, score:', passwordStrength.score)
+        setMessage({ type: 'error', text: 'Password is too weak. Please create a stronger password.' })
+        return
+      }
+      
+      if (passwordForm.currentPassword === passwordForm.newPassword) {
+        console.log('[Password Change] Validation failed: Same as current password')
+        setMessage({ type: 'error', text: 'New password must be different from current password!' })
+        return
+      }
+      
+      console.log('[Password Change] All validations passed, calling API...')
+      setIsLoading(true)
+      setMessage(null)
+      
       // First, verify current password and send OTP
       console.log('[Password Change] Calling /api/auth/verify-password')
       const response = await fetch('/api/auth/verify-password', {
@@ -355,10 +360,10 @@ export default function AccountPage() {
       console.log('[Password Change] Password change step completed successfully')
       
     } catch (error) {
-      console.error('[Password Change] Error during password verification:', error)
+      console.error('[Password Change] Error during password change:', error)
       setMessage({ 
         type: 'error', 
-        text: error instanceof Error ? error.message : 'Failed to verify current password. Please try again.' 
+        text: error instanceof Error ? error.message : 'Failed to process password change. Please try again.' 
       })
     } finally {
       setIsLoading(false)
@@ -1042,6 +1047,26 @@ export default function AccountPage() {
                             passwordStrength.score < 2 ||
                             (hasPassword !== false && !passwordForm.currentPassword)
                           }
+                          onClick={() => {
+                            console.log('=== BUTTON CLICKED ===')
+                            console.log('Button disabled state:', {
+                              isLoading,
+                              hasNewPassword: !!passwordForm.newPassword,
+                              hasConfirmPassword: !!passwordForm.confirmPassword,
+                              passwordsMatch: passwordForm.newPassword === passwordForm.confirmPassword,
+                              passwordLength: passwordForm.newPassword.length,
+                              passwordStrengthScore: passwordStrength.score,
+                              hasPassword,
+                              hasCurrentPassword: !!passwordForm.currentPassword,
+                              shouldBeDisabled: isLoading || 
+                                !passwordForm.newPassword || 
+                                !passwordForm.confirmPassword ||
+                                passwordForm.newPassword !== passwordForm.confirmPassword ||
+                                passwordForm.newPassword.length < 8 ||
+                                passwordStrength.score < 2 ||
+                                (hasPassword !== false && !passwordForm.currentPassword)
+                            })
+                          }}
                         >
                           {isLoading ? 'Processing...' : (hasPassword === false ? 'Set Password' : 'Send OTP')}
                         </Button>
