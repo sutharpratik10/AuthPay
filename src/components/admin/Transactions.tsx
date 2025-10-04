@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronDown, Calendar as CalendarIcon, Search, Download, X, ArrowUpDown, RefreshCcwIcon, ExternalLink } from 'lucide-react';
+import { ChevronDown, Calendar as CalendarIcon, Search, Download, X, ArrowUpDown, RefreshCcwIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils/helpers';
 import {
@@ -25,6 +25,7 @@ import {
   DialogTitle,
   DialogClose,
 } from '@/components/ui/dialog';
+import { InvoiceDialog } from '@/components/shared/InvoiceDialog';
 
 export default function Transactions() {
   // transient copied key state used for copy buttons in dialogs/tables
@@ -211,45 +212,13 @@ export default function Transactions() {
     }
   }, []);
 
-  // Invoice details dialog state + fetch
+  // Invoice dialog state
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
-  const [invoiceDetails, setInvoiceDetails] = useState<Record<string, unknown> | null>(null);
-  const [invoiceDetailsLoading, setInvoiceDetailsLoading] = useState(false);
-  const [invoiceDetailsError, setInvoiceDetailsError] = useState<string | null>(null);
-
-  const fetchInvoiceById = useCallback(async (id: string) => {
-    setInvoiceDetailsLoading(true);
-    setInvoiceDetailsError(null);
-    setInvoiceDetails(null);
-    try {
-      const res = await fetch(`/api/payments/razorpay-invoices/${encodeURIComponent(id)}`);
-      const text = await res.text();
-      if (!res.ok) {
-        let message = `Request failed (${res.status})`;
-        try { const parsed = JSON.parse(text); message = parsed?.error?.description || parsed?.message || JSON.stringify(parsed); } catch {}
-        throw new Error(message);
-      }
-      try {
-        const data = JSON.parse(text);
-        setInvoiceDetails(data);
-      } catch {
-        setInvoiceDetailsError(`Unexpected response format from server. First 1000 chars: ${String(text).slice(0,1000)}`);
-      }
-    } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const e: any = err;
-      console.error('Error fetching invoice', e);
-      setInvoiceDetailsError(e?.message || 'Failed to load invoice details');
-    } finally {
-      setInvoiceDetailsLoading(false);
-    }
-  }, []);
 
   const openInvoiceDialog = (id: string) => {
     setSelectedInvoiceId(id);
     setInvoiceDialogOpen(true);
-    fetchInvoiceById(id);
   };
 
   // Invoices state & UI
@@ -803,16 +772,15 @@ export default function Transactions() {
                       <TableCell><Badge className="text-xs">{String(getInvoiceVal(inv, 'status') || '--')}</Badge></TableCell>
                       <TableCell className="text-sm">{getInvoiceVal(inv, 'date') ? new Date(Number(getInvoiceVal(inv, 'date')) * 1000).toLocaleString('en-IN') : '--'}</TableCell>
                       <TableCell className="flex items-center gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-auto p-1 text-sm inline-flex items-center gap-2"
+                          onClick={() => openInvoiceDialog(String(getInvoiceVal(inv, 'id') || ''))}
+                        >
+                          Open
+                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-id', String(getInvoiceVal(inv, 'id')))}>{copiedKey === 'invoice-id' ? 'Copied' : 'Copy ID'}</Button>
-                        <Button size="sm" variant="ghost" onClick={() => openInvoiceDialog(String(getInvoiceVal(inv, 'id') || ''))}>Details</Button>
-                        {getInvoiceVal(inv, 'short_url') && (
-                          <a href={String(getInvoiceVal(inv, 'short_url'))} target="_blank" rel="noreferrer">
-                            <Button size="sm" variant="ghost" className="h-auto p-1 text-sm inline-flex items-center gap-2">
-                              <ExternalLink className="w-4 h-4" />
-                              Open
-                            </Button>
-                          </a>
-                        )}
                         {getInvoiceVal(inv, 'short_url') && <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-url', String(getInvoiceVal(inv, 'short_url')))}>{copiedKey === 'invoice-url' ? 'Copied' : 'Copy Link'}</Button>}
                       </TableCell>
                     </TableRow>
@@ -1013,215 +981,12 @@ export default function Transactions() {
         </DialogContent>
       </Dialog>
       
-      {/* Invoice Details Dialog */}
-      <Dialog
+      {/* Invoice Dialog */}
+      <InvoiceDialog
+        invoiceId={selectedInvoiceId}
         open={invoiceDialogOpen}
-        onOpenChange={(open: boolean) => {
-          if (!open) {
-            setInvoiceDialogOpen(false);
-            setInvoiceDetails(null);
-            setSelectedInvoiceId(null);
-          }
-        }}
-      >
-        <DialogContent hideClose className="max-w-3xl">
-          <div className="flex items-center justify-between p-2">
-            <DialogTitle>Invoice Details</DialogTitle>
-            <div className="flex items-center gap-2">
-              {(() => {
-                const inv = invoiceDetails as Record<string, unknown> || {};
-                const shortUrl = getInvoiceVal(inv, 'short_url');
-                return (
-                  <div className="flex flex-col items-end gap-2">
-                    {shortUrl && (
-                      <div className="flex items-center gap-2">
-                        <a href={String(shortUrl)} target="_blank" rel="noreferrer">
-                          <Button size="sm" variant="ghost" className="h-auto p-1 text-sm inline-flex items-center gap-2">
-                            <ExternalLink className="w-4 h-4" />
-                            Open
-                          </Button>
-                        </a>
-                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-url', String(shortUrl))}>{copiedKey === 'invoice-url' ? 'Copied' : 'Copy Link'}</Button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-              <DialogClose asChild>
-                <Button variant="outline" size="sm">Close</Button>
-              </DialogClose>
-            </div>
-          </div>
-
-          <div className="p-2 max-h-[70vh] overflow-y-auto text-sm">
-            {invoiceDetailsLoading ? (
-              <div className="py-8 text-center">Loading invoice...</div>
-            ) : invoiceDetailsError ? (
-              <div className="py-8 text-center text-red-600">{invoiceDetailsError}</div>
-            ) : invoiceDetails ? (
-              (() => {
-                const inv = invoiceDetails as Record<string, unknown>;
-                const status = getInvoiceVal(inv, 'status') || '--';
-                const amountRaw = getInvoiceVal(inv, 'amount');
-                const currency = getInvoiceVal(inv, 'currency') || 'INR';
-                const amountDisplay = amountRaw ? `${currency} ${Number(amountRaw) / 100}` : '--';
-                const customerId = getInvoiceVal(inv, 'customer_id') || '';
-                const custDetails = inv['customer_details'] as Record<string, unknown> | undefined;
-                const customerName = String((custDetails?.['customer_name'] || custDetails?.['name'] || customerId || '--'));
-                const lineItems = Array.isArray(inv['line_items']) ? (inv['line_items'] as unknown as Record<string, unknown>[]) : [];
-                const notes = inv['notes'] as Record<string, unknown> | undefined;
-                const terms = inv['terms_and_conditions'] ? String(inv['terms_and_conditions']) : undefined;
-
-                const billing = (inv['billing_address'] as Record<string, unknown> | undefined) || (custDetails?.['billing_address'] as Record<string, unknown> | undefined);
-                const shipping = (inv['shipping_address'] as Record<string, unknown> | undefined) || (custDetails?.['shipping_address'] as Record<string, unknown> | undefined);
-
-                const issuedAt = inv['issued_at'] ? Number(inv['issued_at']) : (inv['date'] ? Number(inv['date']) : undefined);
-                const dueDate = inv['due_date'] ? Number(inv['due_date']) : undefined;
-                const paidAt = inv['paid_at'] ? Number(inv['paid_at']) : undefined;
-
-                const subtotal = Number(getInvoiceVal(inv, 'sub_total') || getInvoiceVal(inv, 'subtotal') || 0);
-                const tax = Number(getInvoiceVal(inv, 'tax') || 0);
-                const total = Number(getInvoiceVal(inv, 'amount') || 0);
-                const amount_paid = Number(getInvoiceVal(inv, 'amount_paid') || 0);
-                const amount_due = Number(getInvoiceVal(inv, 'amount_due') || (total - amount_paid));
-
-                return (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                      <div>
-                        <div className="text-xs text-muted-foreground">Invoice ID </div>
-                        <div className="font-mono break-all">{selectedInvoiceId}</div>
-                        <div className="mt-2 text-xs text-muted-foreground">Invoice Number</div>
-                        <div className="font-medium">{String(inv['invoice_number'] || inv['receipt'] || '--')}</div>
-                      </div>
-
-                      <div className="flex items-start justify-end gap-2">
-                        <div className="text-right">
-                          <div className="text-xs text-muted-foreground">Status</div>
-                          <div className="font-medium">{status}</div>
-                          <div className="text-xs text-muted-foreground mt-2">Total</div>
-                          <div className="font-bold text-lg">{amountDisplay}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <div className="text-xs text-muted-foreground">Customer</div>
-                        <div className="font-medium">{customerName}</div>
-                        {custDetails && (
-                          <div className="mt-2 text-sm text-muted-foreground">
-                            {String(custDetails['email'] || custDetails['email_id'] || '')}
-                            <div>{String(custDetails['contact'] || custDetails['phone'] || '')}</div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-xs text-muted-foreground">Dates</div>
-                        <div className="mt-1 text-sm">
-                          <div>Issued: {issuedAt ? new Date(issuedAt * 1000).toLocaleString('en-IN') : '--'}</div>
-                          <div>Due: {dueDate ? new Date(dueDate * 1000).toLocaleString('en-IN') : '--'}</div>
-                          <div>Paid: {paidAt ? new Date(paidAt * 1000).toLocaleString('en-IN') : '--'}</div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-xs text-muted-foreground">Meta</div>
-                        <div className="mt-1 text-sm">
-                          <div>Order ID: {String(inv['order_id'] || '--')}</div>
-                          <div>Payment ID: {String(inv['payment_id'] || '--')}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {lineItems.length > 0 && (
-                      <div className="p-3 rounded border">
-                        <div className="text-sm font-medium">Line Items</div>
-                        <div className="mt-2 space-y-2">
-                          {lineItems.map((li, idx) => {
-                            const id = String((li as Record<string, unknown>)['id'] ?? idx);
-                            const name = String((li as Record<string, unknown>)['name'] ?? (li as Record<string, unknown>)['description'] ?? 'Item');
-                            const liAmount = Number((li as Record<string, unknown>)['amount'] ?? 0) / 100;
-                            const liCurrency = String((li as Record<string, unknown>)['currency'] ?? currency);
-                            return (
-                              <div key={id} className="flex items-center justify-between">
-                                <div className="text-sm">{name}</div>
-                                <div className="text-sm font-medium">{liCurrency ? `${liCurrency} ${liAmount}` : `₹${liAmount.toFixed(2)}`}</div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        {billing && (
-                          <div className="p-3 rounded border">
-                            <div className="text-sm font-medium">Billing Address</div>
-                            <div className="mt-2 text-sm whitespace-pre-line">
-                              {String(billing['line1'] || billing['address_line1'] || '')}{billing && billing['line2'] ? `\n${String(billing['line2'])}` : ''}
-                              {billing && billing['city'] ? `\n${String(billing['city'])}` : ''}
-                              {billing && billing['state'] ? `\n${String(billing['state'])}` : ''}
-                              {billing && billing['postcode'] ? `\n${String(billing['postcode'])}` : ''}
-                              {billing && billing['country'] ? `\n${String(billing['country'])}` : ''}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div>
-                        {shipping && (
-                          <div className="p-3 rounded border">
-                            <div className="text-sm font-medium">Shipping Address</div>
-                            <div className="mt-2 text-sm whitespace-pre-line">
-                              {String(shipping['line1'] || shipping['address_line1'] || '')}{shipping && shipping['line2'] ? `\n${String(shipping['line2'])}` : ''}
-                              {shipping && shipping['city'] ? `\n${String(shipping['city'])}` : ''}
-                              {shipping && shipping['state'] ? `\n${String(shipping['state'])}` : ''}
-                              {shipping && shipping['postcode'] ? `\n${String(shipping['postcode'])}` : ''}
-                              {shipping && shipping['country'] ? `\n${String(shipping['country'])}` : ''}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="p-3 rounded border">
-                          <div className="text-sm font-medium">Amount Summary</div>
-                          <div className="mt-2 text-sm space-y-1">
-                            <div>Subtotal: {subtotal ? `${currency} ${(subtotal/100).toFixed(2)}` : '--'}</div>
-                            <div>Tax: {tax ? `${currency} ${(tax/100).toFixed(2)}` : '--'}</div>
-                            <div className="font-medium">Total: {total ? `${currency} ${(total/100).toFixed(2)}` : '--'}</div>
-                            <div>Amount Paid: {amount_paid ? `${currency} ${(amount_paid/100).toFixed(2)}` : '0.00'}</div>
-                            <div>Amount Due: {amount_due ? `${currency} ${(amount_due/100).toFixed(2)}` : '0.00'}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {notes && typeof notes === 'object' && (
-                      <div className="p-3 rounded border">
-                        <div className="text-sm font-medium">Notes</div>
-                        <pre className="mt-2 text-xs whitespace-pre-wrap">{JSON.stringify(notes, null, 2)}</pre>
-                      </div>
-                    )}
-
-                    {terms && (
-                      <div className="p-3 rounded border">
-                        <div className="text-sm font-medium">Terms & Conditions</div>
-                        <div className="mt-2 text-sm whitespace-pre-wrap">{terms}</div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()
-            ) : (
-              <div className="text-center text-muted-foreground">No invoice selected</div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setInvoiceDialogOpen}
+      />
     </div>
   );
 }

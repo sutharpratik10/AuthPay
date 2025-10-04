@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { InvoiceDialog } from '@/components/user/InvoiceDialog';
+import { InvoiceDialog } from '@/components/shared/InvoiceDialog';
 
 interface SubscriptionStatus {
   planName: string;
