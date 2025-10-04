@@ -28,12 +28,15 @@ export function useOAuthSessionTracking() {
         }
       }
 
-      console.log('Tracking OAuth session:', {
-        provider,
-        userId: session?.user?.id,
-        email: session?.user?.email,
-        url: currentUrl
-      });
+      // Only log in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Tracking OAuth session:', {
+          provider,
+          userId: session?.user?.id,
+          email: session?.user?.email,
+          url: currentUrl
+        });
+      }
 
       const response = await fetch('/api/auth/track-session', {
         method: 'POST',
@@ -48,12 +51,18 @@ export function useOAuthSessionTracking() {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('OAuth session tracking result:', result);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('OAuth session tracking result:', result);
+        }
       } else {
-        console.warn('Failed to track OAuth session:', response.status);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Failed to track OAuth session:', response.status);
+        }
       }
     } catch (error) {
-      console.error('Error tracking OAuth session:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error tracking OAuth session:', error);
+      }
     }
   }, [session?.user?.id, session?.user?.email]);
 

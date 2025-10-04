@@ -2,8 +2,8 @@
 
 import { ReactNode, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
-import { getRoleName } from "@/lib/role-utils"
+import { useAuth } from "@/contexts/auth-context"
+import { getRoleName } from "@/lib/auth/role-utils"
 import { ROUTES } from "@/routes/routeUtils"
 
 export interface AuthRouteProps {

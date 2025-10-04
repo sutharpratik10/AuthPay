@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { subscriptionPlanService } from '@/services/subscription-plans';
+import { subscriptionPlanService } from '@/server/services/subscription-plans';
 
 /**
  * GET /api/subscription-plans - Get all active subscription plans (public)

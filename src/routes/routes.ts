@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService } from '@/services/auth';
-import { auth, signOut } from '@/auth';
+import { AuthService } from '@/server/services/auth';
+import { auth, signOut } from '@/config/auth';
 import { BaseRouteHandler, IRouteHandler } from './BaseRouteHandler';
 
 /**

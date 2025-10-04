@@ -2,8 +2,8 @@
 
 import { ReactNode, useEffect, useMemo, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
-import { ForceRedirect } from "@/components/ForceRedirect"
+import { useAuth } from "@/contexts/auth-context"
+import { ForceRedirect } from "@/components/shared/ForceRedirect"
 
 export interface ProtectedRouteProps {
   children: ReactNode

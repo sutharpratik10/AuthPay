@@ -19,12 +19,12 @@ import {
   withApiHandler, 
   successResponse,
   createPerformanceLogger 
-} from '@/lib/api-helpers';
-import { getStatusName, getStatusIds } from '@/lib/query-cache';
-import { db } from '@/db';
-import { userSubscriptions, subscriptionPlans } from '@/db/schema';
+} from '@/lib/api/helpers';
+import { getStatusName, getStatusIds } from '@/lib/cache/query-cache';
+import { db } from '@/server/db';
+import { userSubscriptions, subscriptionPlans } from '@/server/db/schema';
 import { eq, desc, lt, and, ne } from 'drizzle-orm';
-import { getExpiryStatus } from '@/lib/subscription-utils';
+import { getExpiryStatus } from '@/lib/utils/subscription-utils';
 
 /**
  * GET /api/user/subscription-status - Get current user's subscription status

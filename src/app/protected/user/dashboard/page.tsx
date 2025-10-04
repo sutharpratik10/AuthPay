@@ -1,25 +1,21 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useSession } from "next-auth/react"
-import SubscriptionDashboard from "@/components/SubscriptionDashboard"
-import JobSearchContainer from "@/components/JobSearch/JobSearchContainer"
-import { useSubscription } from "@/contexts/SubscriptionContext"
+import { redirect } from "next/navigation"
+import UserDashboard from "@/components/user/UserDashboard"
 
 export default function UserDashboardPage() {
-  const { data: session, status } = useSession()
-  const [userName, setUserName] = useState("User")
-  const { subscriptionStatus, isLoading } = useSubscription() // Use context
+  const { status } = useSession()
 
-  // Update user name when session is available
   useEffect(() => {
-    if (status === 'authenticated' && session?.user?.name) {
-      setUserName(session.user.name)
+    if (status === "unauthenticated") {
+      redirect("/auth/login")
     }
-  }, [status, session])
+  }, [status])
 
-  // Show loading while session is being checked or subscription data is loading
-  if (status === 'loading' || isLoading) {
+  // Show loading state while checking authentication
+  if (status === "loading") {
     return (
       <div className="w-full max-w-full px-2 sm:px-4 py-6 mx-auto">
         <div className="animate-pulse space-y-4">
@@ -31,31 +27,10 @@ export default function UserDashboardPage() {
     )
   }
 
-  // Determine if the user has an active subscription
-  const isActiveSub = !!subscriptionStatus && subscriptionStatus.isActive === true;
+  // Don't render until authenticated
+  if (status !== "authenticated") {
+    return null
+  }
 
-  return (
-    <div className="w-full max-w-full px-2 sm:px-4 py-6 mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Welcome back, {userName}! {isActiveSub
-              ? `You have an active ${subscriptionStatus?.planName ?? ''} subscription.`
-              : 'Manage your subscription and explore our features.'}
-          </p>
-        </div>
-      </div>
-
-      {!isActiveSub && (
-        <SubscriptionDashboard />
-      )}
-
-      {isActiveSub && (
-        <div>
-          <JobSearchContainer />
-        </div>
-      )}
-    </div>
-  )
+  return <UserDashboard />
 }

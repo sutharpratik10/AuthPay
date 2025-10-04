@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { AlertCircle, Mail, Github, Facebook, CreditCard, Eye, EyeOff, Check, X, Loader2 } from "lucide-react"
-import { calculatePasswordStrength, getPasswordStrengthWidth, type PasswordStrength } from "@/lib/password-strength"
+import { calculatePasswordStrength, getPasswordStrengthWidth, type PasswordStrength } from "@/lib/auth/password-strength"
 
 export default function SignupForm() {
   const { register, socialLogin, loading } = useAuth()

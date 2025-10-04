@@ -2,8 +2,8 @@
 
 import { useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
-import { getRoleName } from "@/lib/role-utils"
+import { useAuth } from "@/contexts/auth-context"
+import { getRoleName } from "@/lib/auth/role-utils"
 import { ROUTES } from "@/routes/routeUtils"
 import LoginForm from "@/components/auth/LoginForm"
 

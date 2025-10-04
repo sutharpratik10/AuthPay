@@ -1,18 +1,18 @@
 // app/api/subscription-plans/purchase/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { db } from '@/db';
+import { auth } from '@/config/auth';
+import { db } from '@/server/db';
 import {
   users, subscriptionPlans, userSubscriptions,
   subscriptionStatuses, subscriptionRenewalTypes,
   paymentOrders, paymentTransactions,
-} from '@/db/schema';
+} from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { calculateSubscriptionExpiryDate } from '@/lib/subscription-utils';
+import { calculateSubscriptionExpiryDate } from '@/lib/utils/subscription-utils';
 import { getPaymentProvider } from '@/lib/payments/gateway';
 import '@/lib/payments/providers/razorpay';
 import Razorpay from 'razorpay';
-import { emailService } from "@/services/email";
+import { emailService } from "@/server/services/email";
 
 interface PaymentInfo {
   provider: string;

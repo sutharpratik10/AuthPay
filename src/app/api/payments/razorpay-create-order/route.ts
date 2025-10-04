@@ -1,9 +1,9 @@
 // app/api/payments/razorpay-create-order/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
-import { auth } from "@/auth";
-import { db } from "@/db";
-import { paymentOrders, paymentTransactions, users, subscriptionPlans } from "@/db/schema";
+import { auth } from "@/config/auth";
+import { db } from "@/server/db";
+import { paymentOrders, paymentTransactions, users, subscriptionPlans } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { getPaymentProvider } from "@/lib/payments/gateway";
 import type { CreateOrderResult } from "@/lib/payments/gateway";

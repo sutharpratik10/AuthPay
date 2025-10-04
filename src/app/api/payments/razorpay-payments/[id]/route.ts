@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { withDynamicApiHandler, errorResponse } from '@/lib/api-helpers';
+import { withDynamicApiHandler, errorResponse } from '@/lib/api/helpers';
 
 export const GET = withDynamicApiHandler<{ id?: string }>(
   async (request, { params }) => {

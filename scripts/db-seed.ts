@@ -19,8 +19,8 @@ console.log('cwd:', process.cwd());
 console.log('.env path:', chosenEnv, 'exists:', fs.existsSync(chosenEnv));
 console.log('DATABASE_URL:', process.env.DATABASE_URL);
 
-import { db } from '../src/db/index';
-import { roles, users, subscriptionPlans, subscriptionStatuses, subscriptionRenewalTypes } from '../src/db/schema';
+import { db } from '../src/server/db/index';
+import { roles, users, subscriptionPlans, subscriptionStatuses, subscriptionRenewalTypes } from '../src/server/db/schema';
 import bcrypt from 'bcryptjs';
 
 const defaultRoles = [

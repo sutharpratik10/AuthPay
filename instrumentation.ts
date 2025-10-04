@@ -13,7 +13,7 @@ export async function register() {
     console.log('[Next.js] Instrumentation hook triggered');
     
     // Initialize server-side caches and services
-    const { initializeServer } = await import('@/lib/initialize-server');
+    const { initializeServer } = await import('@/lib/utils/initialize-server');
     await initializeServer();
   }
 }

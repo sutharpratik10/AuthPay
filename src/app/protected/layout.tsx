@@ -6,7 +6,7 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toaster";
-import { AppSidebar } from "@/components/SidebarMenu";
+import { AppSidebar } from "@/components/layout/SidebarMenu";
 
 function SidebarLayout({ children }: { children: React.ReactNode }) {
   return (

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
-import { withDynamicApiHandler, errorResponse } from '@/lib/api-helpers';
+import { withDynamicApiHandler, errorResponse } from '@/lib/api/helpers';
 
 export const runtime = 'nodejs';
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
-import { db } from '@/db';
-import { subscriptionPlans } from '@/db/schema';
+import { db } from '@/server/db';
+import { subscriptionPlans } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const runtime = 'nodejs';

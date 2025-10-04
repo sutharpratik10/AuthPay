@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withSessionValidation } from '@/lib/session-validation';
-import { SessionService } from '@/services/session';
-import { db } from '@/db';
-import { users, roles } from '@/db/schema';
+import { withSessionValidation } from '@/lib/auth/session-validation';
+import { SessionService } from '@/server/services/session';
+import { db } from '@/server/db';
+import { users, roles } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 // Helper function to check if user is admin

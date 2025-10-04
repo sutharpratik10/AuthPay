@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { db } from '@/db';
-import { userSubscriptions, subscriptionPlans, subscriptionStatuses } from '@/db/schema';
+import { auth } from '@/config/auth';
+import { db } from '@/server/db';
+import { userSubscriptions, subscriptionPlans, subscriptionStatuses } from '@/server/db/schema';
 import { eq, desc, inArray } from 'drizzle-orm';
 
 export async function GET() {

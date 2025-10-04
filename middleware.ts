@@ -1,45 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { db } from "@/db";
-import { userPreferences } from "@/db/schema";
-import { eq } from "drizzle-orm";
-
-/**
- * Check if user requires 2FA verification for this session
- */
-async function checkSessionRequires2FA(userId: string): Promise<{ requires2FA: boolean; isVerified: boolean }> {
-  try {
-    const preferences = await db.query.userPreferences.findFirst({
-      where: eq(userPreferences.userId, userId),
-      columns: { twoFactorAuth: true }
-    });
-
-    const has2FA = preferences?.twoFactorAuth === true;
-    
-    if (!has2FA) {
-      return { requires2FA: false, isVerified: true };
-    }
-
-    return { requires2FA: true, isVerified: true };
-  } catch (error) {
-    console.error('Error checking 2FA requirements:', error);
-    return { requires2FA: false, isVerified: true };
-  }
-}
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   
-  // Skip middleware for static assets and API routes (except auth)
+  // Skip middleware for:
+  // 1. Static assets and Next.js internals
+  // 2. ALL API routes (including /api/auth/* - NextAuth handles its own auth)
+  // 3. Image files
   if (
     path.startsWith('/_next/') ||
-    path.startsWith('/api/') && !path.startsWith('/api/auth') ||
-    path.match(/\.(ico|png|jpg|jpeg|svg|css|js)$/)
+    path.startsWith('/api/') ||  // Skip ALL API routes
+    path.match(/\.(ico|png|jpg|jpeg|svg|css|js|gif|webp|woff|woff2|ttf)$/)
   ) {
     return NextResponse.next();
   }
 
-  console.log(`[MIDDLEWARE] ⚡ Processing: ${request.method} ${path}`);
+  // Only log in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[MIDDLEWARE] ⚡ Processing: ${request.method} ${path}`);
+  }
   
   // Define route categories
   const publicRoutes = [
@@ -67,7 +47,9 @@ export async function middleware(request: NextRequest) {
   
   // Allow public routes without authentication check
   if (publicRoutes.includes(path)) {
-    console.log(`[MIDDLEWARE] ✅ Public route allowed: ${path}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[MIDDLEWARE] ✅ Public route allowed: ${path}`);
+    }
     return NextResponse.next();
   }
 
@@ -103,15 +85,21 @@ export async function middleware(request: NextRequest) {
   // Handle verification page access
   if (path === verificationRoute) {
     if (!isAuthenticated) {
-      console.log(`[MIDDLEWARE] 🔒 Unauthenticated user trying to access verify page`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] 🔒 Unauthenticated user trying to access verify page`);
+      }
       return NextResponse.redirect(new URL('/auth/login', request.url));
     }
     if (isEmailVerified) {
       const dashboardUrl = getDashboardUrl();
-      console.log(`[MIDDLEWARE] ✅ Email verified, redirecting to dashboard`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] ✅ Email verified, redirecting to dashboard`);
+      }
       return NextResponse.redirect(new URL(dashboardUrl, request.url));
     }
-    console.log(`[MIDDLEWARE] ✅ Authenticated unverified user accessing verify page`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[MIDDLEWARE] ✅ Authenticated unverified user accessing verify page`);
+    }
     return NextResponse.next();
   }
   
@@ -119,15 +107,21 @@ export async function middleware(request: NextRequest) {
   if (authRoutes.includes(path)) {
     if (isAuthenticated) {
       if (isEmailVerified) {
-        console.log(`[MIDDLEWARE] ✅ Authenticated verified user, redirecting to dashboard`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[MIDDLEWARE] ✅ Authenticated verified user, redirecting to dashboard`);
+        }
         const dashboardUrl = getDashboardUrl();
         return NextResponse.redirect(new URL(dashboardUrl, request.url));
       } else {
-        console.log(`[MIDDLEWARE] ⚠️ Authenticated unverified user, redirecting to verify`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[MIDDLEWARE] ⚠️ Authenticated unverified user, redirecting to verify`);
+        }
         return NextResponse.redirect(new URL('/auth/verify', request.url));
       }
     }
-    console.log(`[MIDDLEWARE] ✅ Unauthenticated user accessing auth page: ${path}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[MIDDLEWARE] ✅ Unauthenticated user accessing auth page: ${path}`);
+    }
     return NextResponse.next();
   }
   
@@ -138,34 +132,38 @@ export async function middleware(request: NextRequest) {
 
   if (needsProtection) {
     if (!isAuthenticated) {
-      console.log(`[MIDDLEWARE] 🔒 Unauthenticated access to protected route: ${path}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] 🔒 Unauthenticated access to protected route: ${path}`);
+      }
       return NextResponse.redirect(new URL('/auth/login', request.url));
     }
 
     if (!isEmailVerified) {
-      console.log(`[MIDDLEWARE] ⚠️ Unverified email accessing protected route: ${path}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] ⚠️ Unverified email accessing protected route: ${path}`);
+      }
       // Only redirect to verify if we're not already in a verification flow
       if (!request.headers.get('referer')?.includes('/auth/verify')) {
         return NextResponse.redirect(new URL('/auth/verify', request.url));
       }
       // If coming from verify page, allow access (user might be in verification process)
-      console.log(`[MIDDLEWARE] ⚠️ User coming from verify page, allowing temporary access`);
-    }
-
-    // Check if session requires 2FA verification
-    if (user?.id) {
-      const { requires2FA, isVerified } = await checkSessionRequires2FA(user.id);
-      if (requires2FA && !isVerified) {
-        console.log(`[MIDDLEWARE] 🔒 2FA verification required for: ${path}`);
-        return NextResponse.redirect(new URL('/auth/2fa-verify', request.url));
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] ⚠️ User coming from verify page, allowing temporary access`);
       }
     }
 
-    console.log(`[MIDDLEWARE] ✅ Authorized access to: ${path}`);
+    // Note: 2FA verification is now handled by the protected pages themselves
+    // This reduces database queries in middleware and improves performance
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[MIDDLEWARE] ✅ Authorized access to: ${path}`);
+    }
     return NextResponse.next();
   }
   
-  console.log(`[MIDDLEWARE] ✅ Allowing access to: ${path}`);
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[MIDDLEWARE] ✅ Allowing access to: ${path}`);
+  }
   return NextResponse.next();
 }
 

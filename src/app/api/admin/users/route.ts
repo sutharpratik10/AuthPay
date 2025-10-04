@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS, requireAdmin } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { users, subscriptionPlans, roles, userSubscriptions } from '@/db/schema';
+import { withPermission, API_PERMISSIONS, requireAdmin } from '@/lib/api/permissions';
+import { db } from '@/server/db';
+import { users, subscriptionPlans, roles, userSubscriptions } from '@/server/db/schema';
 import { eq, or, ilike, count } from 'drizzle-orm';
 
 /**
@@ -133,7 +133,7 @@ async function updateUserRole(req: NextRequest) {
     }
 
     // Update user role using the permission service
-    const success = await import('@/services/permissions').then(({ PermissionService }) => 
+    const success = await import('@/server/services/permissions').then(({ PermissionService }) => 
       PermissionService.setUserRole(adminCheck.userId!, userId, roleRecord.id)
     );
 

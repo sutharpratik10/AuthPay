@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { subscriptionPlans, userSubscriptions, subscriptionStatuses } from '@/db/schema';
+import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { db } from '@/server/db';
+import { subscriptionPlans, userSubscriptions, subscriptionStatuses } from '@/server/db/schema';
 import { eq, inArray, and } from 'drizzle-orm';
 
 async function updateSubscriptionPlan(req: NextRequest, context?: unknown) {

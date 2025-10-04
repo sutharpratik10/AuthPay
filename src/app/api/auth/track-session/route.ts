@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { SessionService } from '@/services/session';
-import { getClientInfo } from '@/lib/client-info';
+import { auth } from '@/config/auth';
+import { SessionService } from '@/server/services/session';
+import { getClientInfo } from '@/lib/utils/client-info';
 
 export async function POST(request: NextRequest) {
   try {

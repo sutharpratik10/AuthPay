@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db';
-import { userSubscriptions, subscriptionStatuses } from '@/db/schema';
+import { db } from '@/server/db';
+import { userSubscriptions, subscriptionStatuses } from '@/server/db/schema';
 import { eq, inArray, and, count } from 'drizzle-orm';
 
 // /api/admin/subscription-plans/[planId]/active-user-count

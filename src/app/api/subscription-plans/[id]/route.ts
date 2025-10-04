@@ -1,5 +1,5 @@
-import { subscriptionPlanService } from '@/services/subscription-plans';
-import { withDynamicApiHandler, successResponse, errorResponse } from '@/lib/api-helpers';
+import { subscriptionPlanService } from '@/server/services/subscription-plans';
+import { withDynamicApiHandler, successResponse, errorResponse } from '@/lib/api/helpers';
 
 /**
  * GET /api/subscription-plans/[id] - Get subscription plan by ID

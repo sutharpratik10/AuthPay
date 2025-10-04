@@ -3,7 +3,7 @@
 import React from 'react';
 import { Shield, Lock, Eye, Users, Mail, Phone } from 'lucide-react';
 import Link from 'next/link';
-import { APP_CONFIG } from '@/lib/constants';
+import { APP_CONFIG } from '@/lib/utils/constants';
 
 export default function PrivacyPolicyPage() {
   return (

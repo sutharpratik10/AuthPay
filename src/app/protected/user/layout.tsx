@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
-import { PermissionService } from '@/services/permissions';
+import { auth } from '@/config/auth';
+import { PermissionService } from '@/server/services/permissions';
 
 export default async function UserLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();

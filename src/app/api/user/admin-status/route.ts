@@ -16,8 +16,8 @@ import {
   withApiHandler, 
   successResponse,
   createPerformanceLogger 
-} from '@/lib/api-helpers';
-import { PermissionService } from '@/services/permissions';
+} from '@/lib/api/helpers';
+import { PermissionService } from '@/server/services/permissions';
 
 /**
  * GET /api/user/admin-status - Check if current user is admin

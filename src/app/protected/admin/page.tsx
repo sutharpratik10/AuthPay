@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
-import { PermissionService } from '@/services/permissions';
+import { auth } from '@/config/auth';
+import { PermissionService } from '@/server/services/permissions';
 import AdminUsersPage from '@/components/admin/AdminUsersPage';
 
 export default async function AdminPage() {

@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Search, Plus, Edit, Trash2, Shield, User, Mail, Calendar, Activity, AlertTriangle, Clock } from 'lucide-react';
-import { getExpiryStatus } from '@/lib/subscription-utils';
+import { getExpiryStatus } from '@/lib/utils/subscription-utils';
 
 interface User {
   id: string;

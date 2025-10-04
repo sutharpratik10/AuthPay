@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { roles, users } from '@/db/schema';
+import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { db } from '@/server/db';
+import { roles, users } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { auth } from '@/auth';
+import { auth } from '@/config/auth';
 
 /**
  * PUT /api/admin/roles/[roleId] - Update role (Admin only)
