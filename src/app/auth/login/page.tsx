@@ -11,6 +11,7 @@ export default function LoginPage() {  const router = useRouter()
   const searchParams = useSearchParams()
   const returnTo = searchParams.get('returnTo')
   const message = searchParams.get('message')
+  const error = searchParams.get('error')
   const { isAuthenticated, isEmailVerified, loading, user } = useAuth()
     
   // Redirect if already authenticated
@@ -45,6 +46,16 @@ export default function LoginPage() {  const router = useRouter()
         <h2 className="mt-6 text-center text-2xl font-bold leading-9 tracking-tight">
           Sign in to your account
         </h2>
+        {error && (
+          <div className="mt-4 p-3 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-900 dark:text-red-200">
+            {error === 'SessionExpired' 
+              ? 'Your session has expired. Please log in again.' 
+              : error === 'SecurityUpdate'
+              ? 'Please log in again for security reasons.'
+              : decodeURIComponent(error)
+            }
+          </div>
+        )}
         {message && (
           <div className="mt-4 p-3 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-900 dark:text-green-200">
             {decodeURIComponent(message)}

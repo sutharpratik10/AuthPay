@@ -11,7 +11,10 @@ export const {
   signIn,
   signOut,
 } = NextAuth({
-  session: { strategy: "jwt" },
+  session: { 
+    strategy: "jwt",
+    maxAge: 24 * 60 * 60, // 24 hours in seconds (86400)
+  },
   pages: {
     signIn: "/auth/login",
     error: "/auth/error",

@@ -60,6 +60,34 @@ export async function middleware(request: NextRequest) {
   });
 
   const isAuthenticated = !!token;
+  
+  // Check if this is a protected route
+  const needsProtection = protectedRoutes.some(route => 
+    path.startsWith(route) || path === route
+  );
+  
+  // SECURITY: Check if JWT token has expired
+  if (token && token.exp) {
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    if (token.exp < currentTimestamp) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] ⚠️ JWT token expired at ${new Date(token.exp * 1000).toISOString()}`);
+      }
+      // Token has expired - redirect to login with session expired message
+      if (needsProtection || authRoutes.includes(path)) {
+        return NextResponse.redirect(new URL('/auth/login?error=SessionExpired', request.url));
+      }
+    }
+  } else if (token && !token.exp) {
+    // SECURITY: Token without expiration claim - this is a legacy/invalid token
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[MIDDLEWARE] ⚠️ JWT token missing expiration claim - forcing re-login`);
+    }
+    if (needsProtection || authRoutes.includes(path)) {
+      return NextResponse.redirect(new URL('/auth/login?error=SecurityUpdate', request.url));
+    }
+  }
+  
   const user = token ? {
     id: token.sub as string,
     email: token.email as string,
@@ -126,9 +154,7 @@ export async function middleware(request: NextRequest) {
   }
   
   // Handle protected routes
-  const needsProtection = protectedRoutes.some(route => 
-    path.startsWith(route) || path === route
-  );
+  // needsProtection already declared above for expiration check
 
   if (needsProtection) {
     if (!isAuthenticated) {
