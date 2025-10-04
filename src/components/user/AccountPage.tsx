@@ -7,7 +7,7 @@ import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { User, Mail, Key, Trash2, Upload, Eye, EyeOff, X, Shield, CheckCircle } from "lucide-react"
+import { User, Mail, Key, Trash2, Upload, Eye, EyeOff, X, Shield, CheckCircle, Loader2, XCircle } from "lucide-react"
 import { DeleteAccountModal } from "@/components/user/DeleteAccountModal"
 import { calculatePasswordStrength, getPasswordStrengthWidth, type PasswordStrength } from "@/lib/auth/password-strength"
 
@@ -79,6 +79,12 @@ export default function AccountPage() {
     suggestions: []
   })
 
+  // Current password validation state
+  const [currentPasswordValidation, setCurrentPasswordValidation] = useState<{
+    status: 'idle' | 'checking' | 'valid' | 'invalid'
+    message?: string
+  }>({ status: 'idle' })
+
   // OTP Timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout
@@ -142,6 +148,56 @@ export default function AccountPage() {
     const strength = calculatePasswordStrength(passwordForm.newPassword)
     setPasswordStrength(strength)
   }, [passwordForm.newPassword])
+
+  // Validate current password with debouncing
+  useEffect(() => {
+    // Only validate if user has a password and is changing it
+    if (hasPassword === false || !showChangePassword) {
+      setCurrentPasswordValidation({ status: 'idle' })
+      return
+    }
+
+    const currentPassword = passwordForm.currentPassword
+    
+    // Reset if password is empty or too short
+    if (!currentPassword || currentPassword.length < 3) {
+      setCurrentPasswordValidation({ status: 'idle' })
+      return
+    }
+
+    // Debounce the validation - reduced to 500ms for faster feedback
+    const timeoutId = setTimeout(async () => {
+      setCurrentPasswordValidation({ status: 'checking' })
+      
+      try {
+        // Use lightweight validation endpoint (no OTP sending)
+        const response = await fetch('/api/auth/validate-current-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentPassword })
+        })
+
+        if (response.ok) {
+          setCurrentPasswordValidation({ 
+            status: 'valid', 
+            message: 'Password verified' 
+          })
+        } else {
+          setCurrentPasswordValidation({ 
+            status: 'invalid', 
+            message: 'Incorrect password' 
+          })
+        }
+      } catch (error) {
+        console.error('Password validation error:', error)
+        setCurrentPasswordValidation({ 
+          status: 'idle'
+        })
+      }
+    }, 500) // Reduced from 800ms to 500ms for faster response
+
+    return () => clearTimeout(timeoutId)
+  }, [passwordForm.currentPassword, hasPassword, showChangePassword])
 
   const getInitials = (name?: string | null) => {
     if (!name) return "U"
@@ -811,10 +867,35 @@ export default function AccountPage() {
                               id="current-password"
                               type={showPasswords.current ? "text" : "password"}
                               value={passwordForm.currentPassword}
-                              onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                              onChange={(e) => {
+                                setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))
+                                // Reset validation when user types
+                                if (currentPasswordValidation.status !== 'checking') {
+                                  setCurrentPasswordValidation({ status: 'idle' })
+                                }
+                              }}
                               placeholder="Enter your current password"
+                              className={`pr-20 ${
+                                currentPasswordValidation.status === 'valid' ? 'border-green-500 focus:border-green-500' :
+                                currentPasswordValidation.status === 'invalid' ? 'border-red-500 focus:border-red-500' : ''
+                              }`}
                               required
                             />
+                            
+                            {/* Validation indicator */}
+                            <div className="absolute right-12 top-1/2 -translate-y-1/2">
+                              {currentPasswordValidation.status === 'checking' && (
+                                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                              )}
+                              {currentPasswordValidation.status === 'valid' && (
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                              )}
+                              {currentPasswordValidation.status === 'invalid' && (
+                                <XCircle className="w-4 h-4 text-red-500" />
+                              )}
+                            </div>
+                            
+                            {/* Password visibility toggle */}
                             <Button
                               type="button"
                               variant="ghost"
@@ -825,6 +906,16 @@ export default function AccountPage() {
                               {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </Button>
                           </div>
+                          
+                          {/* Validation message */}
+                          {currentPasswordValidation.message && (
+                            <p className={`text-xs mt-1 ${
+                              currentPasswordValidation.status === 'valid' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {currentPasswordValidation.status === 'valid' ? '✓ ' : '✗ '}
+                              {currentPasswordValidation.message}
+                            </p>
+                          )}
                         </div>
                       )}
 

@@ -128,6 +128,15 @@ export function ProtectedRoute({
   }, [authState.isAuthenticated, authState.user?.id, authState.loading, logout, userValidated, pathname]);
 
   useEffect(() => {
+    console.log('[PROTECTED_ROUTE] useEffect triggered:', {
+      pathname,
+      loading: authState.loading,
+      isAuthenticated: authState.isAuthenticated,
+      isEmailVerified: authState.isEmailVerified,
+      userValidated,
+      validationError
+    });
+    
     // Only process redirects when loading is complete and user is validated
     // Add extra check to prevent loops
     if (!authState.loading && userValidated !== null && !validationError) {
@@ -147,6 +156,8 @@ export function ProtectedRoute({
         router.replace('/auth/verify')
         return
       }
+      
+      console.log('[PROTECTED_ROUTE] All checks passed, rendering children');
     }
   }, [authState.isAuthenticated, authState.isEmailVerified, authState.loading, userValidated, validationError, router, pathname])
 

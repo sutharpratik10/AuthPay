@@ -147,6 +147,23 @@ export function InvoiceDialog({ invoiceId, open, onOpenChange }: InvoiceDialogPr
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" hideClose>
+        <DialogHeader>
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <DialogTitle className="flex items-center gap-2 text-2xl">
+                <FileText className="h-6 w-6" />
+                Invoice
+              </DialogTitle>
+              {invoice && (
+                <p className="text-sm text-muted-foreground">
+                  {invoice.invoice_number || invoice.id}
+                </p>
+              )}
+            </div>
+            {invoice && getStatusBadge(invoice.status)}
+          </div>
+        </DialogHeader>
+
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -160,23 +177,7 @@ export function InvoiceDialog({ invoiceId, open, onOpenChange }: InvoiceDialogPr
             </Button>
           </div>
         ) : invoice ? (
-          <>
-            <DialogHeader>
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <DialogTitle className="flex items-center gap-2 text-2xl">
-                    <FileText className="h-6 w-6" />
-                    Invoice
-                  </DialogTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {invoice.invoice_number || invoice.id}
-                  </p>
-                </div>
-                {getStatusBadge(invoice.status)}
-              </div>
-            </DialogHeader>
-
-            <div className="space-y-6 pt-4">
+          <div className="space-y-6 pt-4">
               {/* Invoice Details Section */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Left Column - Customer Details */}
@@ -372,7 +373,6 @@ export function InvoiceDialog({ invoiceId, open, onOpenChange }: InvoiceDialogPr
                 )}
               </div>
             </div>
-          </>
         ) : null}
       </DialogContent>
     </Dialog>

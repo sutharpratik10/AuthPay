@@ -48,6 +48,12 @@ export default function ManageSubscriptionPage() {
   const [showInvoiceDialog, setShowInvoiceDialog] = React.useState(false);
   const { toast } = useToast();
 
+  // Debug navigation
+  React.useEffect(() => {
+    console.log('[MANAGE-SUBSCRIPTION] Component mounted');
+    console.log('[MANAGE-SUBSCRIPTION] Current URL:', window.location.href);
+  }, []);
+
   // Use context subscription status and enrich with Razorpay details
   React.useEffect(() => {
     let isMounted = true;
