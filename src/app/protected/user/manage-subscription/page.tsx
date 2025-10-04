@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { InvoiceDialog } from '@/components/user/InvoiceDialog';
 
 interface SubscriptionStatus {
   planName: string;
@@ -32,7 +33,7 @@ interface SubscriptionHistoryItem {
   expiryDate?: string;
   endDate?: string;
   amount?: string;
-  invoiceUrl?: string;
+  invoiceId?: string;
   razorpaySubscriptionId?: string;
 }
 
@@ -43,6 +44,8 @@ export default function ManageSubscriptionPage() {
   const [loading, setLoading] = React.useState(true);
   const [cancelling, setCancelling] = React.useState(false);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = React.useState<string | null>(null);
+  const [showInvoiceDialog, setShowInvoiceDialog] = React.useState(false);
   const { toast } = useToast();
 
   // Use context subscription status and enrich with Razorpay details
@@ -140,7 +143,7 @@ export default function ManageSubscriptionPage() {
         if (historyData.success) {
           const history = historyData.data.history || [];
 
-          // Enrich history items with Razorpay plan details when available
+          // Enrich history items with Razorpay plan details and invoices when available
           const enriched = await Promise.all(history.map(async (item: unknown) => {
             const row = item as Record<string, unknown>;
             try {
@@ -150,8 +153,20 @@ export default function ManageSubscriptionPage() {
                   const subJson = await subRes.json();
                   const planId = subJson?.plan_id || subJson?.plan?.id;
                   
-                  // Get invoice URL if available
-                  const invoiceUrl = subJson?.short_url || null;
+                  // Fetch invoices for this subscription
+                  let latestInvoiceId = null;
+                  try {
+                    const invoicesRes = await fetch(`/api/payments/razorpay-invoices?subscription_id=${encodeURIComponent(String(row.razorpaySubscriptionId))}`);
+                    if (invoicesRes.ok) {
+                      const invoicesJson = await invoicesRes.json();
+                      // Get the most recent invoice (first in the items array)
+                      if (invoicesJson?.items && invoicesJson.items.length > 0) {
+                        latestInvoiceId = invoicesJson.items[0]?.id;
+                      }
+                    }
+                  } catch (err) {
+                    console.error('Error fetching invoices:', err);
+                  }
                   
                   if (planId) {
                     const planRes = await fetch(`/api/payments/razorpay-plans/${encodeURIComponent(String(planId))}`);
@@ -164,7 +179,7 @@ export default function ManageSubscriptionPage() {
                         ...row, 
                         planName: planName || row.planName, 
                         amount: amount ?? row.amount,
-                        invoiceUrl: invoiceUrl,
+                        invoiceId: latestInvoiceId,
                         razorpaySubscriptionId: row.razorpaySubscriptionId
                       };
                     }
@@ -172,7 +187,7 @@ export default function ManageSubscriptionPage() {
                   
                   return {
                     ...row,
-                    invoiceUrl: invoiceUrl,
+                    invoiceId: latestInvoiceId,
                     razorpaySubscriptionId: row.razorpaySubscriptionId
                   };
                 }
@@ -467,19 +482,22 @@ export default function ManageSubscriptionPage() {
                         <td className="px-4 py-2">{sub.startDate ? formatDate(sub.startDate) : 'N/A'}</td>
                         <td className="px-4 py-2">{sub.expiryDate ? formatDate(sub.expiryDate) : (sub.endDate ? formatDate(sub.endDate) : 'N/A')}</td>
                         <td className="px-4 py-2">
-                          {sub.invoiceUrl ? (
-                            <a
-                              href={sub.invoiceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                          {sub.invoiceId ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedInvoiceId(sub.invoiceId || null);
+                                setShowInvoiceDialog(true);
+                              }}
+                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium h-auto p-0 hover:bg-transparent"
                             >
-                              View
+                              View Invoice
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-                                <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                                <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
                               </svg>
-                            </a>
+                            </Button>
                           ) : (
                             <span className="text-muted-foreground">N/A</span>
                           )}
@@ -534,6 +552,13 @@ export default function ManageSubscriptionPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Dialog */}
+      <InvoiceDialog
+        invoiceId={selectedInvoiceId}
+        open={showInvoiceDialog}
+        onOpenChange={setShowInvoiceDialog}
+      />
     </div>
   );
 }
