@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +10,6 @@ import { AlertCircle, CheckCircle, ArrowLeft } from "lucide-react"
 type Step = 'email' | 'verify' | 'reset' | 'success'
 
 export default function ForgotPasswordPage() {
-  const searchParams = useSearchParams()
   const [currentStep, setCurrentStep] = useState<Step>('email')
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
@@ -22,20 +20,26 @@ export default function ForgotPasswordPage() {
   const [success, setSuccess] = useState("")
   const [resendDisabled, setResendDisabled] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  
+  // Security: Track which steps have been validated
+  const [validatedSteps, setValidatedSteps] = useState<Set<Step>>(new Set(['email']))
+  const [verifiedCode, setVerifiedCode] = useState<string | null>(null)
 
-  // Initialize from URL params
+  // SECURITY: Prevent URL manipulation by NOT reading from URL params
+  // Users must go through the proper flow
+  
+  // SECURITY WARNING: Prevent page refresh from bypassing validation
   useEffect(() => {
-    const step = searchParams.get('step') as Step
-    const emailParam = searchParams.get('email')
-    
-    if (step && ['email', 'verify', 'reset', 'success'].includes(step)) {
-      setCurrentStep(step)
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (currentStep !== 'email' && currentStep !== 'success') {
+        e.preventDefault()
+        e.returnValue = 'Your password reset progress will be lost. Are you sure you want to leave?'
+      }
     }
     
-    if (emailParam) {
-      setEmail(decodeURIComponent(emailParam))
-    }
-  }, [searchParams])
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [currentStep])
 
   // Handle countdown for resend button
   useEffect(() => {
@@ -65,11 +69,8 @@ export default function ForgotPasswordPage() {
       if (response.ok) {
         setSuccess("Password reset code sent to your email")
         setCurrentStep('verify')
-        // Update URL without page reload
-        const newUrl = new URL(window.location.href)
-        newUrl.searchParams.set('step', 'verify')
-        newUrl.searchParams.set('email', encodeURIComponent(email))
-        window.history.pushState({}, '', newUrl.toString())
+        setValidatedSteps(prev => new Set(prev).add('verify'))
+        // NO URL manipulation - keep the URL clean
       } else {
         setError(data.error || 'Failed to send reset code')
       }
@@ -83,6 +84,14 @@ export default function ForgotPasswordPage() {
 
   const handleCodeVerification = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // SECURITY: Ensure user came from email step
+    if (!validatedSteps.has('verify')) {
+      setError('Please start the password reset process from the beginning')
+      setCurrentStep('email')
+      return
+    }
+    
     setIsLoading(true)
     setError("")
       try {
@@ -96,11 +105,10 @@ export default function ForgotPasswordPage() {
       
       if (response.ok) {
         setSuccess("Code verified successfully")
+        setVerifiedCode(code) // Store verified code
         setCurrentStep('reset')
-        // Update URL
-        const newUrl = new URL(window.location.href)
-        newUrl.searchParams.set('step', 'reset')
-        window.history.pushState({}, '', newUrl.toString())
+        setValidatedSteps(prev => new Set(prev).add('reset'))
+        // NO URL manipulation
       } else {
         setError(data.error || 'Invalid or expired code')
       }
@@ -114,6 +122,14 @@ export default function ForgotPasswordPage() {
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // SECURITY: Ensure user came from verify step with valid code
+    if (!validatedSteps.has('reset') || !verifiedCode) {
+      setError('Please verify your code first')
+      setCurrentStep('verify')
+      return
+    }
+    
     setIsLoading(true)
     setError("")
     
@@ -130,10 +146,11 @@ export default function ForgotPasswordPage() {
     }
     
     try {
+      // Use the verified code, not user input
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, newPassword })
+        body: JSON.stringify({ code: verifiedCode, newPassword })
       })
       
       const data = await response.json()
@@ -141,10 +158,13 @@ export default function ForgotPasswordPage() {
       if (response.ok) {
         setSuccess("Password reset successfully")
         setCurrentStep('success')
-        // Update URL
-        const newUrl = new URL(window.location.href)
-        newUrl.searchParams.set('step', 'success')
-        window.history.pushState({}, '', newUrl.toString())
+        setValidatedSteps(prev => new Set(prev).add('success'))
+        // Clear sensitive data
+        setCode("")
+        setVerifiedCode(null)
+        setNewPassword("")
+        setConfirmPassword("")
+        // NO URL manipulation
       } else {
         setError(data.error || 'Failed to reset password')
       }
@@ -189,13 +209,11 @@ export default function ForgotPasswordPage() {
   const handleBackToEmail = () => {
     setCurrentStep('email')
     setCode("")
+    setVerifiedCode(null)
     setError("")
     setSuccess("")
-    // Update URL
-    const newUrl = new URL(window.location.href)
-    newUrl.searchParams.delete('step')
-    newUrl.searchParams.delete('email')
-    window.history.pushState({}, '', newUrl.toString())
+    setValidatedSteps(new Set(['email']))
+    // NO URL manipulation - URL stays clean
   }
 
   const renderEmailStep = () => (
