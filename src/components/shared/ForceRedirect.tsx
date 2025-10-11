@@ -7,6 +7,8 @@ interface ForceRedirectProps {
   redirectTo?: string;
 }
 
+import Loading from '@/components/Loading'
+
 export function ForceRedirect({ userId, redirectTo = '/auth/login' }: ForceRedirectProps) {
   useEffect(() => {
     const forceLogout = async () => {
@@ -48,23 +50,5 @@ export function ForceRedirect({ userId, redirectTo = '/auth/login' }: ForceRedir
     forceLogout();
   }, [userId, redirectTo]);
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="text-center max-w-md mx-auto p-6">
-        <div className="mb-4">
-          <div className="h-12 w-12 border-t-2 border-red-500 animate-spin rounded-full mx-auto" />
-        </div>
-        <h2 className="text-xl font-semibold text-gray-800 mb-2">Account Invalid</h2>
-        <p className="text-gray-600 mb-4">
-          Your account was not found. Redirecting to login...
-        </p>
-        <div className="text-sm text-gray-500">
-          If you&apos;re not redirected automatically, 
-          <a href="/auth/login" className="text-blue-600 hover:underline ml-1">
-            click here
-          </a>
-        </div>
-      </div>
-    </div>
-  );
+  return <Loading text="Account invalid. Redirecting..." />;
 }

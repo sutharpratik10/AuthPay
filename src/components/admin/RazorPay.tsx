@@ -18,6 +18,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import Loading from '@/components/Loading'
 import { 
   Plus, 
   Edit, 
@@ -817,14 +818,7 @@ export default function RazorPay() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading subscription plans...</p>
-        </div>
-      </div>
-    );
+  return <Loading text="Loading subscription plans..." size="lg" />;
   }
 
   return (

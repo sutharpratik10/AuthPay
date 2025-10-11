@@ -1,6 +1,7 @@
 "use client"
 
 import { ReactNode, useEffect } from "react"
+import Loading from "@/components/Loading"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { getRoleName } from "@/lib/auth/role-utils"
@@ -66,26 +67,12 @@ export function AuthRoute({
   
   // Show loading while checking authentication
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    )
+    return <Loading text="Loading..." />
   }
   
   // If authenticated and verified, and should redirect, show loading while redirect happens
   if (isAuthenticated && isEmailVerified && redirectIfAuthenticated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">Redirecting to dashboard...</p>
-        </div>
-      </div>
-    )
+    return <Loading text="Redirecting to dashboard..." />
   }
   
   // Otherwise, render the auth page content

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Loading from '@/components/Loading'
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Bell, Check } from "lucide-react"
@@ -86,16 +87,7 @@ export default function SettingsPage() {
   };
 
   if (!mounted || isLoadingData) {
-    return (
-      <div className="container mx-auto py-8 px-4 max-w-4xl">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-            <p className="text-muted-foreground">Loading settings...</p>
-          </div>
-        </div>
-      </div>
-    )
+    return <Loading text="Loading settings..." />
   }
 
   return (

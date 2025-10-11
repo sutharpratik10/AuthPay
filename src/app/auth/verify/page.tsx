@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import Loading from '@/components/Loading'
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import EmailVerificationForm from "@/components/auth/EmailVerificationForm"
@@ -41,26 +42,12 @@ export default function VerifyPage() {
 
   // Show loading while checking authentication state
   if (!mounted || loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="h-10 w-10 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
-          <p>Loading...</p>
-        </div>
-      </div>
-    )
+    return <Loading text="Loading..." />
   }
 
   // If user is verified but we haven't redirected yet, show loading
   if (isAuthenticated && isEmailVerified && !hasRedirected.current) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="h-10 w-10 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
-          <p>Redirecting to dashboard...</p>
-        </div>
-      </div>
-    )
+    return <Loading text="Redirecting to dashboard..." />
   }
   
   return (

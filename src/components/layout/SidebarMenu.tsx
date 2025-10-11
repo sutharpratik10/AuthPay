@@ -1,7 +1,6 @@
 "use client"
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ROUTES } from "@/routes/routeUtils";
 import { 
   Sidebar, 
   SidebarTrigger, 
@@ -13,7 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuSub,
 } from "@/components/ui/sidebar";
-import { getAppName } from "@/lib/utils/config";
+import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils/helpers";
 import { useSession } from "next-auth/react";
 import { useEffect, useState, useMemo } from "react";
@@ -182,14 +181,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex h-16 items-center px-4">
-          <Link href={ROUTES.PUBLIC.HOME} className="flex items-center gap-3 transition-opacity hover:opacity-80">
-            <div className="w-8 h-8 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 rounded-lg flex items-center justify-center shrink-0 shadow-sm">
-              <span className="text-white font-bold text-sm">{(getAppName() ?? "").charAt(0)}</span>
-            </div>
-            <h2 className="text-lg font-semibold tracking-tight text-sidebar-foreground group-data-[collapsible=icon]:hidden">
-              {getAppName()}
-            </h2>
-          </Link>
+          <Logo />
         </div>      
       </SidebarHeader>
       <SidebarContent className={cn(
@@ -355,10 +347,7 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 lg:hidden">
           <SidebarTrigger className="h-8 w-8 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-0 focus-visible:outline-none" />
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 rounded-md flex items-center justify-center shadow-sm">
-              <span className="text-white font-bold text-xs">{(getAppName() ?? "").charAt(0)}</span>
-            </div>
-            <span className="text-sm font-semibold">{getAppName()}</span>
+            <Logo showName={false} size="sm" />
           </div>
         </header>
         

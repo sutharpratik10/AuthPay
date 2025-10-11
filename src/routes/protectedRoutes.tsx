@@ -1,6 +1,7 @@
 "use client"
 
 import { ReactNode, useEffect, useMemo, useState } from "react"
+import Loading from '@/components/Loading';
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { ForceRedirect } from "@/components/shared/ForceRedirect"
@@ -162,47 +163,24 @@ export function ProtectedRoute({
   }, [authState.isAuthenticated, authState.isEmailVerified, authState.loading, userValidated, validationError, router, pathname])
 
   // Show loading state if still checking authentication or validating user
-  if (authState.loading || (authState.isAuthenticated && userValidated === null)) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">
-            {authState.loading ? 'Loading...' : 'Validating account...'}
-          </p>
-        </div>
-      </div>
-    )
-  }
+    if (authState.loading || (authState.isAuthenticated && userValidated === null)) {
+      return <Loading text={authState.loading ? 'Loading...' : 'Validating account...'} />
+    }
 
   // Show force redirect component for invalid users
-  if (!authState.loading && userValidated === false && authState.user?.id) {
-    return <ForceRedirect userId={authState.user.id} />;
-  }
+    if (!authState.loading && userValidated === false && authState.user?.id) {
+      return <ForceRedirect userId={authState.user.id} />;
+    }
 
   // If not authenticated or user validation failed, show loading while redirect happens
-  if (!authState.isAuthenticated || userValidated === false) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">Redirecting to login...</p>
-        </div>
-      </div>
-    )
-  }
+    if (!authState.isAuthenticated || userValidated === false) {
+      return <Loading text="Redirecting to login..." />
+    }
 
   // If email not verified and NOT on verify page, show loading while redirect happens
-  if (!authState.isEmailVerified && pathname !== '/auth/verify') {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="h-10 w-10 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
-          <p>Redirecting to verification...</p>
-        </div>
-      </div>
-    )
-  }
+    if (!authState.isEmailVerified && pathname !== '/auth/verify') {
+      return <Loading text="Redirecting to verification..." />
+    }
   
   // If authenticated, email verified, and user validated, render children
   return <>{children}</>

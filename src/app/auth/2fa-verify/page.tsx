@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Loading from '@/components/Loading'
 import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -120,14 +121,7 @@ export default function TwoFactorVerifyPage() {
   }
 
   if (!email || !tempToken) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">Redirecting...</p>
-        </div>
-      </div>
-    )
+    return <Loading text="Redirecting..." />
   }
 
   return (
