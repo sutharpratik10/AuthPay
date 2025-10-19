@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withSessionValidation } from '@/lib/session-validation';
-import { SessionService } from '@/services/session';
+import { withSessionValidation } from '@/lib/auth/session-validation';
+import { SessionService } from '@/server/services/session';
 
 // Example: Get user's active sessions
 export async function GET(request: NextRequest) {

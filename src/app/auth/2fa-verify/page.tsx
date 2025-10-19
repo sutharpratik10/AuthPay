@@ -1,13 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
+import Loading from '@/components/Loading'
 import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { AlertCircle, Shield, ArrowLeft } from "lucide-react"
 
-export default function TwoFactorVerifyPage() {
+function TwoFactorVerifyContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const email = searchParams.get('email')
@@ -120,14 +121,7 @@ export default function TwoFactorVerifyPage() {
   }
 
   if (!email || !tempToken) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 border-t-2 border-primary animate-spin rounded-full mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">Redirecting...</p>
-        </div>
-      </div>
-    )
+    return <Loading text="Redirecting..." />
   }
 
   return (
@@ -213,5 +207,13 @@ export default function TwoFactorVerifyPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function TwoFactorVerifyPage() {
+  return (
+    <Suspense fallback={<Loading text="Loading verification..." />}>
+      <TwoFactorVerifyContent />
+    </Suspense>
   )
 }

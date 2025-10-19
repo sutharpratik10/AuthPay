@@ -1,45 +1,67 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateSessionFromRequest, createUnauthorizedResponse, trackSessionActivity } from "@/lib/session-validation";
-import { db } from "@/db";
-import { userPreferences } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { getToken } from "next-auth/jwt";
+
+// Policy-based route protection mapping
+const ROUTE_POLICY_MAP: Record<string, string> = {
+  // Admin routes require admin policies
+  '/protected/admin': 'admin:access',
+  
+  // User profile and settings
+  '/protected/profile': 'profile:view',
+  '/protected/account': 'account:manage',
+  '/protected/settings': 'settings:manage',
+  
+  // Regular user routes
+  '/protected/user': 'user:access',
+};
 
 /**
- * Check if user requires 2FA verification for this session
+ * Check if user has required policy for a route
  */
-async function checkSessionRequires2FA(userId: string): Promise<{ requires2FA: boolean; isVerified: boolean }> {
+async function hasRequiredPolicy(userId: string, path: string): Promise<boolean> {
   try {
-    const preferences = await db.query.userPreferences.findFirst({
-      where: eq(userPreferences.userId, userId),
-      columns: { twoFactorAuth: true }
-    });
-
-    const has2FA = preferences?.twoFactorAuth === true;
+    const { RBACService } = await import("./src/lib/rbac");
     
-    if (!has2FA) {
-      return { requires2FA: false, isVerified: true };
+    // Check if path matches any policy-protected route
+    for (const [route, requiredPolicy] of Object.entries(ROUTE_POLICY_MAP)) {
+      if (path.startsWith(route) || path === route) {
+        // Check if user has the required policy
+        const hasPolicy = await RBACService.hasPolicy(userId, requiredPolicy);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[MIDDLEWARE] 🔐 Policy check: ${requiredPolicy} for ${path} = ${hasPolicy}`);
+        }
+        return hasPolicy;
+      }
     }
-
-    return { requires2FA: true, isVerified: true };
+    
+    // No specific policy required - allow access
+    return true;
   } catch (error) {
-    console.error('Error checking 2FA requirements:', error);
-    return { requires2FA: false, isVerified: true };
+    console.error('[MIDDLEWARE] Error checking policy:', error);
+    // Fail secure - deny access on error
+    return false;
   }
 }
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   
-  // Skip middleware for static assets and API routes (except auth)
+  // Skip middleware for:
+  // 1. Static assets and Next.js internals
+  // 2. ALL API routes (including /api/auth/* - NextAuth handles its own auth)
+  // 3. Image files
   if (
     path.startsWith('/_next/') ||
-    path.startsWith('/api/') && !path.startsWith('/api/auth') ||
-    path.match(/\.(ico|png|jpg|jpeg|svg|css|js)$/)
+    path.startsWith('/api/') ||  // Skip ALL API routes
+    path.match(/\.(ico|png|jpg|jpeg|svg|css|js|gif|webp|woff|woff2|ttf)$/)
   ) {
     return NextResponse.next();
   }
 
-  console.log(`[MIDDLEWARE] ⚡ Processing: ${request.method} ${path}`);
+  // Only log in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[MIDDLEWARE] ⚡ Processing: ${request.method} ${path}`);
+  }
   
   // Define route categories
   const publicRoutes = [
@@ -67,39 +89,58 @@ export async function middleware(request: NextRequest) {
   
   // Allow public routes without authentication check
   if (publicRoutes.includes(path)) {
-    console.log(`[MIDDLEWARE] ✅ Public route allowed: ${path}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[MIDDLEWARE] ✅ Public route allowed: ${path}`);
+    }
     return NextResponse.next();
   }
 
-  // For all other routes, validate session using the new system
-  const sessionValidation = await validateSessionFromRequest(request, {
-    extendSession: true,
-    requireVerifiedEmail: false, // We'll handle this per route
-    requireActiveUser: true,
+  // Use NextAuth's JWT check for fast authentication (no database query)
+  const token = await getToken({ 
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET 
   });
 
-  const isAuthenticated = sessionValidation.isValid;
-  const user = sessionValidation.user;
+  const isAuthenticated = !!token;
+  
+  // Check if this is a protected route
+  const needsProtection = protectedRoutes.some(route => 
+    path.startsWith(route) || path === route
+  );
+  
+  // SECURITY: Check if JWT token has expired
+  if (token && token.exp) {
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    if (token.exp < currentTimestamp) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] ⚠️ JWT token expired at ${new Date(token.exp * 1000).toISOString()}`);
+      }
+      // Token has expired - redirect to login with session expired message
+      if (needsProtection || authRoutes.includes(path)) {
+        return NextResponse.redirect(new URL('/auth/login?error=SessionExpired', request.url));
+      }
+    }
+  } else if (token && !token.exp) {
+    // SECURITY: Token without expiration claim - this is a legacy/invalid token
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[MIDDLEWARE] ⚠️ JWT token missing expiration claim - forcing re-login`);
+    }
+    if (needsProtection || authRoutes.includes(path)) {
+      return NextResponse.redirect(new URL('/auth/login?error=SecurityUpdate', request.url));
+    }
+  }
+  
+  const user = token ? {
+    id: token.sub as string,
+    email: token.email as string,
+    isEmailVerified: token.isEmailVerified as boolean,
+    role: token.role as string,
+  } : null;
   const isEmailVerified = user?.isEmailVerified === true;
-
-  // Track user activity if session is valid
-  if (isAuthenticated) {
-    trackSessionActivity(request).catch(error => {
-      console.error('Failed to track session activity:', error);
-    });
-  }
-
-
-  // Helper to get role name from user data
-  function getUserRole(): string {
-    if (!user?.roleId) return "user";
-    // You might want to fetch role name from roleId here if needed
-    return "user"; // Simplified for now
-  }
 
   // Helper to get dashboard URL based on user role
   function getDashboardUrl(): string {
-    const userRole = getUserRole();
+    const userRole = user?.role || 'user';
     return userRole === 'admin'
       ? '/protected/admin/dashboard'
       : '/protected/user/dashboard';
@@ -108,15 +149,21 @@ export async function middleware(request: NextRequest) {
   // Handle verification page access
   if (path === verificationRoute) {
     if (!isAuthenticated) {
-      console.log(`[MIDDLEWARE] 🔒 Unauthenticated user trying to access verify page`);
-      return createUnauthorizedResponse(request, 'Authentication required', '/auth/login');
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] 🔒 Unauthenticated user trying to access verify page`);
+      }
+      return NextResponse.redirect(new URL('/auth/login', request.url));
     }
     if (isEmailVerified) {
       const dashboardUrl = getDashboardUrl();
-      console.log(`[MIDDLEWARE] ✅ Email verified, redirecting to dashboard`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] ✅ Email verified, redirecting to dashboard`);
+      }
       return NextResponse.redirect(new URL(dashboardUrl, request.url));
     }
-    console.log(`[MIDDLEWARE] ✅ Authenticated unverified user accessing verify page`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[MIDDLEWARE] ✅ Authenticated unverified user accessing verify page`);
+    }
     return NextResponse.next();
   }
   
@@ -124,53 +171,67 @@ export async function middleware(request: NextRequest) {
   if (authRoutes.includes(path)) {
     if (isAuthenticated) {
       if (isEmailVerified) {
-        console.log(`[MIDDLEWARE] ✅ Authenticated verified user, redirecting to dashboard`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[MIDDLEWARE] ✅ Authenticated verified user, redirecting to dashboard`);
+        }
         const dashboardUrl = getDashboardUrl();
         return NextResponse.redirect(new URL(dashboardUrl, request.url));
       } else {
-        console.log(`[MIDDLEWARE] ⚠️ Authenticated unverified user, redirecting to verify`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[MIDDLEWARE] ⚠️ Authenticated unverified user, redirecting to verify`);
+        }
         return NextResponse.redirect(new URL('/auth/verify', request.url));
       }
     }
-    console.log(`[MIDDLEWARE] ✅ Unauthenticated user accessing auth page: ${path}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[MIDDLEWARE] ✅ Unauthenticated user accessing auth page: ${path}`);
+    }
     return NextResponse.next();
   }
   
-  // Handle protected routes
-  const needsProtection = protectedRoutes.some(route => 
-    path.startsWith(route) || path === route
-  );
-
+  // Handle protected routes with POLICY-BASED ACCESS CONTROL
   if (needsProtection) {
     if (!isAuthenticated) {
-      console.log(`[MIDDLEWARE] 🔒 Unauthenticated access to protected route: ${path}`);
-      return createUnauthorizedResponse(request, 'Authentication required', '/auth/login');
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] 🔒 Unauthenticated access to protected route: ${path}`);
+      }
+      return NextResponse.redirect(new URL('/auth/login', request.url));
     }
 
     if (!isEmailVerified) {
-      console.log(`[MIDDLEWARE] ⚠️ Unverified email accessing protected route: ${path}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] ⚠️ Unverified email accessing protected route: ${path}`);
+      }
       // Only redirect to verify if we're not already in a verification flow
       if (!request.headers.get('referer')?.includes('/auth/verify')) {
         return NextResponse.redirect(new URL('/auth/verify', request.url));
       }
       // If coming from verify page, allow access (user might be in verification process)
-      console.log(`[MIDDLEWARE] ⚠️ User coming from verify page, allowing temporary access`);
-    }
-
-    // Check if session requires 2FA verification
-    if (user?.id) {
-      const { requires2FA, isVerified } = await checkSessionRequires2FA(user.id);
-      if (requires2FA && !isVerified) {
-        console.log(`[MIDDLEWARE] 🔒 2FA verification required for: ${path}`);
-        return NextResponse.redirect(new URL('/auth/2fa-verify', request.url));
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] ⚠️ User coming from verify page, allowing temporary access`);
       }
     }
 
-    console.log(`[MIDDLEWARE] ✅ Authorized access to: ${path}`);
+    // POLICY-BASED ACCESS CONTROL: Check if user has required policy
+    const hasAccess = await hasRequiredPolicy(user!.id, path);
+    
+    if (!hasAccess) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] 🚫 Policy check failed for ${path}`);
+      }
+      // User doesn't have required policy - redirect to forbidden page or user dashboard
+      return NextResponse.redirect(new URL('/protected/user/dashboard?error=Forbidden', request.url));
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[MIDDLEWARE] ✅ Authorized access to: ${path}`);
+    }
     return NextResponse.next();
   }
   
-  console.log(`[MIDDLEWARE] ✅ Allowing access to: ${path}`);
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[MIDDLEWARE] ✅ Allowing access to: ${path}`);
+  }
   return NextResponse.next();
 }
 

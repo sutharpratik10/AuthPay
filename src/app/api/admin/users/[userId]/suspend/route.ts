@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { users } from '@/db/schema';
+import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { db } from '@/server/db';
+import { users } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 async function updateSuspension(req: NextRequest) {

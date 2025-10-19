@@ -1,6 +1,6 @@
 import type { Config } from "drizzle-kit";
 import * as dotenv from "dotenv";
-import { getDrizzleSSLConfig } from "./src/db/ssl-config";
+import { getDrizzleSSLConfig } from "./src/server/db/ssl-config";
 
 dotenv.config();
 
@@ -20,8 +20,8 @@ if (process.env.NODE_ENV === "development" || process.env.DEBUG_DB === "true") {
 }
 
 export default {
-  schema: "./src/db/schema/*",
-  out: "./drizzle",
+  schema: "./src/server/db/schema/*",
+  out: "./src/server/db/migrations",
   dialect: "postgresql",
   dbCredentials: {
     host: u.hostname,

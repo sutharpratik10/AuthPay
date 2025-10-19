@@ -1,6 +1,7 @@
 import * as React from "react"
+import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils/helpers"
 
 const Table = React.forwardRef<
   HTMLTableElement,
@@ -105,6 +106,215 @@ const TableCaption = React.forwardRef<
 ))
 TableCaption.displayName = "TableCaption"
 
+// Sortable Table Head with sorting indicators
+interface TableHeadSortableProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
+  sortable?: boolean
+  sortDirection?: "asc" | "desc" | null
+  onSort?: () => void
+}
+
+const TableHeadSortable = React.forwardRef<
+  HTMLTableCellElement,
+  TableHeadSortableProps
+>(({ className, sortable = false, sortDirection, onSort, children, ...props }, ref) => (
+  <th
+    ref={ref}
+    className={cn(
+      "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+      sortable && "cursor-pointer select-none hover:bg-muted/50",
+      className
+    )}
+    onClick={sortable ? onSort : undefined}
+    {...props}
+  >
+    <div className="flex items-center gap-2">
+      {children}
+      {sortable && (
+        <span className="inline-flex">
+          {sortDirection === "asc" && <ChevronUp className="h-4 w-4" />}
+          {sortDirection === "desc" && <ChevronDown className="h-4 w-4" />}
+          {sortDirection === null && <ChevronsUpDown className="h-4 w-4 text-muted-foreground/50" />}
+        </span>
+      )}
+    </div>
+  </th>
+))
+TableHeadSortable.displayName = "TableHeadSortable"
+
+// Column Search Input
+interface TableColumnSearchProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  onSearch?: (value: string) => void
+}
+
+const TableColumnSearch = React.forwardRef<
+  HTMLInputElement,
+  TableColumnSearchProps
+>(({ className, onSearch, ...props }, ref) => {
+  const [value, setValue] = React.useState("")
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    setValue(newValue)
+    onSearch?.(newValue)
+  }
+
+  return (
+    <input
+      ref={ref}
+      type="text"
+      value={value}
+      onChange={handleChange}
+      className={cn(
+        "w-full px-2 py-1 text-sm border border-input rounded bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent",
+        className
+      )}
+      {...props}
+    />
+  )
+})
+TableColumnSearch.displayName = "TableColumnSearch"
+
+// Pagination Controls
+interface TablePaginationProps {
+  currentPage: number
+  totalPages: number
+  pageSize: number
+  totalItems: number
+  onPageChange: (page: number) => void
+  onPageSizeChange?: (pageSize: number) => void
+  pageSizeOptions?: number[]
+  className?: string
+}
+
+const TablePagination = React.forwardRef<HTMLDivElement, TablePaginationProps>(
+  (
+    {
+      currentPage,
+      totalPages,
+      pageSize,
+      totalItems,
+      onPageChange,
+      onPageSizeChange,
+      pageSizeOptions = [10, 25, 50, 100],
+      className,
+    },
+    ref
+  ) => {
+    const startItem = Math.min((currentPage - 1) * pageSize + 1, totalItems)
+    const endItem = Math.min(currentPage * pageSize, totalItems)
+
+    const handlePrevious = () => {
+      if (currentPage > 1) {
+        onPageChange(currentPage - 1)
+      }
+    }
+
+    const handleNext = () => {
+      if (currentPage < totalPages) {
+        onPageChange(currentPage + 1)
+      }
+    }
+
+    const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      onPageSizeChange?.(Number(e.target.value))
+    }
+
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          "flex items-center justify-between px-4 py-3 border-t bg-background",
+          className
+        )}
+      >
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span>
+            Showing {startItem} to {endItem} of {totalItems} results
+          </span>
+          {onPageSizeChange && (
+            <div className="flex items-center gap-2">
+              <label htmlFor="page-size">Rows per page:</label>
+              <select
+                id="page-size"
+                value={pageSize}
+                onChange={handlePageSizeChange}
+                className="border border-input rounded px-2 py-1 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {pageSizeOptions.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handlePrevious}
+            disabled={currentPage === 1}
+            className="px-3 py-1 text-sm border border-input rounded bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={handleNext}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 text-sm border border-input rounded bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    )
+  }
+)
+TablePagination.displayName = "TablePagination"
+
+// Selection Checkbox
+interface TableSelectionCheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  checked?: boolean
+  onCheckedChange?: (checked: boolean) => void
+  indeterminate?: boolean
+}
+
+const TableSelectionCheckbox = React.forwardRef<
+  HTMLInputElement,
+  TableSelectionCheckboxProps
+>(({ className, checked, onCheckedChange, indeterminate, ...props }, ref) => {
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  React.useImperativeHandle(ref, () => inputRef.current!)
+
+  React.useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.indeterminate = indeterminate ?? false
+    }
+  }, [indeterminate])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onCheckedChange?.(e.target.checked)
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type="checkbox"
+      checked={checked}
+      onChange={handleChange}
+      className={cn(
+        "h-4 w-4 rounded border-input cursor-pointer focus:ring-2 focus:ring-ring focus:ring-offset-2",
+        className
+      )}
+      {...props}
+    />
+  )
+})
+TableSelectionCheckbox.displayName = "TableSelectionCheckbox"
+
 export {
   Table,
   TableHeader,
@@ -114,4 +324,8 @@ export {
   TableRow,
   TableCell,
   TableCaption,
+  TableHeadSortable,
+  TableColumnSearch,
+  TablePagination,
+  TableSelectionCheckbox,
 }

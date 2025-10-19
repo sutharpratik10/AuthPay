@@ -1,31 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withSessionValidation } from '@/lib/session-validation';
-import { SessionService } from '@/services/session';
-import { db } from '@/db';
-import { users, roles } from '@/db/schema';
-import { eq } from 'drizzle-orm';
-
-// Helper function to check if user is admin
-async function isUserAdmin(userId: string): Promise<boolean> {
-  try {
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, userId),
-      columns: { roleId: true }
-    });
-    
-    if (!user?.roleId) return false;
-    
-    const role = await db.query.roles.findFirst({
-      where: eq(roles.id, user.roleId),
-      columns: { name: true }
-    });
-    
-    return role?.name === 'admin';
-  } catch (error) {
-    console.error('Error checking admin status:', error);
-    return false;
-  }
-}
+import { withSessionValidation } from '@/lib/auth/session-validation';
+import { SessionService } from '@/server/services/session';
+import { RBACService } from '@/lib/rbac/rbac-service';
 
 // Get session statistics (admin only)
 export async function GET(request: NextRequest) {
@@ -33,8 +9,8 @@ export async function GET(request: NextRequest) {
     request,
     async (req, sessionData) => {
       try {
-        // Check if user is admin
-        const isAdmin = await isUserAdmin(sessionData.userId!);
+        // Check if user is admin using RBAC service
+        const isAdmin = await RBACService.isAdmin(sessionData.userId!);
         if (!isAdmin) {
           return NextResponse.json(
             { success: false, error: 'Insufficient permissions' },
@@ -70,8 +46,8 @@ export async function POST(request: NextRequest) {
     request,
     async (req, sessionData) => {
       try {
-        // Check if user is admin
-        const isAdmin = await isUserAdmin(sessionData.userId!);
+        // Check if user is admin using RBAC service
+        const isAdmin = await RBACService.isAdmin(sessionData.userId!);
         if (!isAdmin) {
           return NextResponse.json(
             { success: false, error: 'Insufficient permissions' },

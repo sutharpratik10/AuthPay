@@ -1,19 +1,38 @@
 "use client"
 
 import { useEffect, useState, Suspense } from 'react';
+import Loading from '@/components/Loading';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/lib/auth-context';
-import { getRoleDashboard } from '@/routes/authRoutes';
+import { useAuth } from '@/contexts/auth-context';
+import { ROUTE_POLICIES } from '@/lib/rbac/routing-utils';
 
 function PaymentSuccessContent() {
   const [loading, setLoading] = useState(true);
+  const [dashboardPath, setDashboardPath] = useState(ROUTE_POLICIES.USER_DASHBOARD.path);
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
+
+  useEffect(() => {
+    async function fetchDashboard() {
+      if (user?.id) {
+        try {
+          const response = await fetch('/api/rbac/user/dashboard');
+          const data = await response.json();
+          if (data.dashboardUrl) {
+            setDashboardPath(data.dashboardUrl);
+          }
+        } catch (error) {
+          console.error('Error fetching dashboard URL:', error);
+        }
+      }
+    }
+    fetchDashboard();
+  }, [user]);
 
   useEffect(() => {
     // Since we're now using internal subscription assignment,
@@ -23,7 +42,7 @@ function PaymentSuccessContent() {
       toast({
         title: "Subscription Activated",
         description: "Your subscription has been successfully activated!",
-        variant: "default"
+        variant: "success"
       });
     }, 1000);
 
@@ -34,21 +53,11 @@ function PaymentSuccessContent() {
     router.push('/protected/user/manage-subscription');
   };
   const handleGoToDashboard = () => {
-    router.push(getRoleDashboard(user));
+    router.push(dashboardPath);
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-8 text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
-            <h2 className="text-xl font-semibold mb-2">Processing Subscription</h2>
-            <p className="text-gray-600">Please wait while we activate your subscription...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <Loading text="Processing Subscription" size="lg" />;
   }
 
   return (
@@ -89,17 +98,7 @@ function PaymentSuccessContent() {
 
 export default function PaymentSuccessPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-8 text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
-            <h2 className="text-xl font-semibold mb-2">Loading...</h2>
-            <p className="text-gray-600">Please wait...</p>
-          </CardContent>
-        </Card>
-      </div>
-    }>
+    <Suspense fallback={<Loading text="Loading..." size="lg" />}>
       <PaymentSuccessContent />
     </Suspense>
   );

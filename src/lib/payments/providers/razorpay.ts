@@ -45,13 +45,26 @@ class RazorpayProvider implements PaymentProvider {
   }
 
   async verifyPayment(options: {
-    razorpay_order_id: string;
+    razorpay_order_id?: string;
+    razorpay_subscription_id?: string;
     razorpay_payment_id: string;
     razorpay_signature: string;
   }): Promise<boolean> {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = options;
+    const { razorpay_order_id, razorpay_subscription_id, razorpay_payment_id, razorpay_signature } = options;
+
+    let signedString: string;
+    if (razorpay_order_id) {
+      // standard order payment signature: order_id|payment_id
+      signedString = `${razorpay_order_id}|${razorpay_payment_id}`;
+    } else if (razorpay_subscription_id) {
+      // subscription checkout signature: payment_id|subscription_id
+      signedString = `${razorpay_payment_id}|${razorpay_subscription_id}`;
+    } else {
+      throw new Error('Either razorpay_order_id or razorpay_subscription_id must be provided for verification');
+    }
+
     const hmac = createHmac("sha256", this.keySecret);
-    hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+    hmac.update(signedString);
     const expected = hmac.digest("hex");
     return expected === razorpay_signature;
   }

@@ -1,5 +1,5 @@
-import { db } from '@/db';
-import { users, subscriptionPlans } from '@/db/schema';
+import { db } from '@/server/db';
+import { users, subscriptionPlans } from '@/server/db/schema';
 import { eq, count, sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 

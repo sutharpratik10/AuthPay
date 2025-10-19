@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { subscriptionPlans } from '@/db/schema';
+import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { db } from '@/server/db';
+import { subscriptionPlans } from '@/server/db/schema';
 
 async function createSubscriptionPlan(req: NextRequest) {
   try {

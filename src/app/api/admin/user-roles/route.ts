@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { users } from '@/db/schema';
+import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { db } from '@/server/db';
+import { users, userRoles, roles } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { auth } from '@/auth';
+import { auth } from '@/config/auth';
 
 /**
  * GET /api/admin/user-roles - List all user role assignments (Admin only)
@@ -18,16 +18,20 @@ async function getUserRoles() {
       );
     }
 
-    // List all users and their roles
+    // List all users and their roles via user_roles table
     const userRoleAssignments = await db
       .select({
-        id: users.id,
+        id: userRoles.id,
         userId: users.id,
         userName: users.name,
         userEmail: users.email,
-        roleId: users.roleId
+        roleId: roles.id,
+        roleName: roles.name,
+        assignedAt: userRoles.assignedAt,
       })
-      .from(users);
+      .from(userRoles)
+      .innerJoin(users, eq(userRoles.userId, users.id))
+      .innerJoin(roles, eq(userRoles.roleId, roles.id));
 
     return NextResponse.json({
       success: true,
@@ -68,15 +72,32 @@ async function assignUserRole(req: NextRequest) {
       );
     }
 
-    // Update user's roleId
-    await db.update(users)
-      .set({ roleId, updatedAt: new Date().toISOString() })
-      .where(eq(users.id, userId));
+    // Check if assignment already exists
+    const existing = await db.query.userRoles.findFirst({
+      where: (userRoles, { and, eq }) => 
+        and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId))
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        { error: 'User already has this role' },
+        { status: 400 }
+      );
+    }
+
+    // Assign role via user_roles table
+    const [assignment] = await db.insert(userRoles)
+      .values({
+        userId,
+        roleId,
+        assignedBy: session.user.id,
+      })
+      .returning();
 
     return NextResponse.json({
       success: true,
       message: 'Role assigned successfully',
-      data: { userId, roleId }
+      data: { assignment }
     });
 
   } catch (error) {
@@ -102,19 +123,20 @@ async function removeUserRole(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { userId } = body;
+    const { userId, roleId } = body;
 
-    if (!userId) {
+    if (!userId || !roleId) {
       return NextResponse.json(
-        { error: 'User ID is required' },
+        { error: 'User ID and Role ID are required' },
         { status: 400 }
       );
     }
 
-    // Remove user's roleId
-    await db.update(users)
-      .set({ roleId: null, updatedAt: new Date().toISOString() })
-      .where(eq(users.id, userId));
+    // Remove role assignment from user_roles table
+    await db.delete(userRoles)
+      .where(
+        eq(userRoles.userId, userId) && eq(userRoles.roleId, roleId)
+      );
 
     return NextResponse.json({
       success: true,

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./style/globals.css";
-import { ClientLayout } from "@/components/client-layout";
-import { APP_CONFIG } from "@/lib/constants";
+import { ClientLayout } from "@/components/layout/client-layout";
+import { APP_CONFIG } from "@/lib/utils/constants";
 import AuthLayout from "./auth/layout";
 import ProtectedLayout from "./protected/layout";
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService } from '@/services/auth';
-import { auth, signOut } from '@/auth';
+import { AuthService } from '@/server/services/auth';
+import { auth, signOut } from '@/config/auth';
 import { BaseRouteHandler, IRouteHandler } from './BaseRouteHandler';
 
 /**
@@ -165,7 +165,8 @@ class InitiatePasswordResetRouteHandler extends BaseRouteHandler {
       }
 
       return this.createSuccessResponse({
-        message: result.message || 'Password reset code sent successfully'
+        message: result.message || 'Password reset code sent successfully',
+        sessionToken: result.sessionToken // SECURITY: Return session token for secure flow
       });
     } catch (error) {
       return this.handleError(error, 'Password reset initiation error');

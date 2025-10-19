@@ -1,0 +1,159 @@
+
+> AuthPay@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.3
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 10.3s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/69) ...
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+   Generating static pages (17/69) 
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+shouldShowBanner: { consent: null, show: true }
+CookieBanner render: { isLoading: true, shouldShowBanner: true }
+   Generating static pages (34/69) 
+   Generating static pages (51/69) 
+ ✓ Generating static pages (69/69)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                                      Size  First Load JS
+┌ ○ /                                                         6.92 kB         117 kB
+├ ○ /_not-found                                                 279 B         102 kB
+├ ƒ /api/admin/dashboard-stats                                  279 B         102 kB
+├ ƒ /api/admin/roles                                            279 B         102 kB
+├ ƒ /api/admin/roles/[roleId]                                   279 B         102 kB
+├ ƒ /api/admin/sessions                                         279 B         102 kB
+├ ƒ /api/admin/subscription-plans                               279 B         102 kB
+├ ƒ /api/admin/subscription-plans/[planId]                      279 B         102 kB
+├ ƒ /api/admin/subscription-plans/[planId]/active-user-count    279 B         102 kB
+├ ƒ /api/admin/subscription-plans/create                        279 B         102 kB
+├ ƒ /api/admin/user-roles                                       279 B         102 kB
+├ ƒ /api/admin/users                                            279 B         102 kB
+├ ƒ /api/admin/users/[userId]                                   279 B         102 kB
+├ ƒ /api/admin/users/[userId]/assign-subscription               279 B         102 kB
+├ ƒ /api/admin/users/[userId]/remove-subscription               279 B         102 kB
+├ ƒ /api/admin/users/[userId]/suspend                           279 B         102 kB
+├ ƒ /api/admin/users/create                                     279 B         102 kB
+├ ƒ /api/auth/[...nextauth]                                     279 B         102 kB
+├ ƒ /api/auth/change-password                                   279 B         102 kB
+├ ƒ /api/auth/check-2fa-status                                  279 B         102 kB
+├ ƒ /api/auth/check-email                                       279 B         102 kB
+├ ƒ /api/auth/check-suspension                                  279 B         102 kB
+├ ƒ /api/auth/force-logout                                      279 B         102 kB
+├ ƒ /api/auth/forgot-password                                   279 B         102 kB
+├ ƒ /api/auth/generate-temp-token                               279 B         102 kB
+├ ƒ /api/auth/register                                          279 B         102 kB
+├ ƒ /api/auth/resend-2fa                                        279 B         102 kB
+├ ƒ /api/auth/reset-password                                    279 B         102 kB
+├ ƒ /api/auth/send-otp                                          279 B         102 kB
+├ ƒ /api/auth/track-session                                     279 B         102 kB
+├ ƒ /api/auth/validate-password                                 279 B         102 kB
+├ ƒ /api/auth/validate-user                                     279 B         102 kB
+├ ƒ /api/auth/verify                                            279 B         102 kB
+├ ƒ /api/auth/verify-2fa                                        279 B         102 kB
+├ ƒ /api/auth/verify-password                                   279 B         102 kB
+├ ƒ /api/payments/razorpay-create-order                         279 B         102 kB
+├ ƒ /api/payments/razorpay-invoices                             279 B         102 kB
+├ ƒ /api/payments/razorpay-invoices/[id]                        279 B         102 kB
+├ ƒ /api/payments/razorpay-payments                             279 B         102 kB
+├ ƒ /api/payments/razorpay-payments/[id]                        279 B         102 kB
+├ ƒ /api/payments/razorpay-plans                                279 B         102 kB
+├ ƒ /api/payments/razorpay-plans/[id]                           279 B         102 kB
+├ ƒ /api/payments/razorpay-subscriptions                        279 B         102 kB
+├ ƒ /api/payments/razorpay-subscriptions/[id]                   279 B         102 kB
+├ ƒ /api/payments/razorpay-subscriptions/[id]/cancel            279 B         102 kB
+├ ƒ /api/payments/razorpay-subscriptions/[id]/pause             279 B         102 kB
+├ ƒ /api/payments/razorpay-subscriptions/[id]/resume            279 B         102 kB
+├ ƒ /api/payments/razorpay-subscriptions/create                 279 B         102 kB
+├ ƒ /api/subscription-plans                                     279 B         102 kB
+├ ƒ /api/subscription-plans/[id]                                279 B         102 kB
+├ ƒ /api/subscription-plans/purchase                            279 B         102 kB
+├ ƒ /api/user/admin-status                                      279 B         102 kB
+├ ƒ /api/user/delete-account                                    279 B         102 kB
+├ ƒ /api/user/password-status                                   279 B         102 kB
+├ ƒ /api/user/preferences                                       279 B         102 kB
+├ ƒ /api/user/profile                                           279 B         102 kB
+├ ƒ /api/user/sessions                                          279 B         102 kB
+├ ƒ /api/user/set-password                                      279 B         102 kB
+├ ƒ /api/user/subscription-history                              279 B         102 kB
+├ ƒ /api/user/subscription-status                               279 B         102 kB
+├ ○ /auth/2fa-verify                                          4.66 kB         118 kB
+├ ○ /auth/error                                               4.89 kB         118 kB
+├ ○ /auth/forgot-password                                     5.35 kB         119 kB
+├ ○ /auth/login                                               2.96 kB         124 kB
+├ ○ /auth/signup                                              3.95 kB         125 kB
+├ ○ /auth/verify                                              6.21 kB         119 kB
+├ ○ /cookies                                                  7.96 kB         121 kB
+├ ○ /jobs                                                     1.31 kB         116 kB
+├ ○ /payment/success                                          4.13 kB         119 kB
+├ ○ /privacy                                                  6.01 kB         111 kB
+├ ○ /protected/account                                        8.95 kB         133 kB
+├ ƒ /protected/admin                                            144 B         154 kB
+├ ƒ /protected/admin/dashboard                                3.41 kB         116 kB
+├ ƒ /protected/admin/paymentgateway/razorpay                  8.99 kB         137 kB
+├ ƒ /protected/admin/roles                                    3.13 kB         131 kB
+├ ƒ /protected/admin/transactions                               34 kB         175 kB
+├ ƒ /protected/admin/user-roles                               3.82 kB         149 kB
+├ ƒ /protected/admin/users                                      146 B         154 kB
+├ ○ /protected/profile                                        1.62 kB         123 kB
+├ ○ /protected/settings                                       3.66 kB         116 kB
+├ ƒ /protected/user/dashboard                                 11.4 kB         129 kB
+└ ƒ /protected/user/manage-subscription                       6.61 kB         133 kB
++ First Load JS shared by all                                  102 kB
+  ├ chunks/3636-365d48cdc42175cb.js                           45.7 kB
+  ├ chunks/4bd1b696-f785427dddbba9fb.js                       54.2 kB
+  └ other shared chunks (total)                               2.01 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

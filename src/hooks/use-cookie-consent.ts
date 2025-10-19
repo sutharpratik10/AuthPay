@@ -76,7 +76,10 @@ export const useCookieConsent = () => {
   // Check if consent banner should be shown
   const shouldShowBanner = useCallback(() => {
     const show = !consent;
-    console.log('shouldShowBanner:', { consent, show });
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('shouldShowBanner:', { consent, show });
+    }
     return show;
   }, [consent]);
 

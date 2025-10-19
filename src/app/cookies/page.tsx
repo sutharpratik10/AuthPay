@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Cookie, Settings, CheckCircle, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { APP_CONFIG } from '@/lib/constants';
+import { APP_CONFIG } from '@/lib/utils/constants';
 import {Button} from '@/components/ui/button';
 
 interface CookieSettings {

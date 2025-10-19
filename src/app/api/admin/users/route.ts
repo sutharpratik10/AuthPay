@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS, requireAdmin } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { users, subscriptionPlans, roles, userSubscriptions } from '@/db/schema';
+import { withPermission, API_PERMISSIONS, requireAdmin } from '@/lib/api/permissions';
+import { db } from '@/server/db';
+import { users, subscriptionPlans, roles, userSubscriptions, userRoles } from '@/server/db/schema';
 import { eq, or, ilike, count } from 'drizzle-orm';
 
 /**
@@ -23,31 +23,64 @@ async function getUsers(req: NextRequest) {
           ilike(users.email, `%${search}%`)
         )
       : undefined;
+
     // Get users with pagination and search
-    const userList = await db.select({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      roleId: users.roleId,
-      role: roles.name, // alias as role for frontend
-      isEmailVerified: users.isEmailVerified,
-      isActive: users.isActive,
-      isSuspended: users.isSuspended,
-      lastLoginAt: users.lastLoginAt,
-      createdAt: users.createdAt,
-      // Subscription info (joined)
-      subscriptionName: subscriptionPlans.name,
-      subscriptionBillingCycle: subscriptionPlans.billingCycle,
-      subscriptionStartDate: userSubscriptions.startDate,
-      subscriptionExpiryDate: userSubscriptions.expiryDate,
-    })
-    .from(users)
-    .leftJoin(userSubscriptions, eq(users.id, userSubscriptions.userId))
-    .leftJoin(subscriptionPlans, eq(userSubscriptions.planId, subscriptionPlans.id))
-    .leftJoin(roles, eq(users.roleId, roles.id))
-    .where(whereCondition)
-    .limit(limit)
-    .offset(offset);
+    const userList = await db.query.users.findMany({
+      where: whereCondition,
+      limit,
+      offset,
+      columns: {
+        id: true,
+        email: true,
+        name: true,
+        isEmailVerified: true,
+        isActive: true,
+        isSuspended: true,
+        lastLoginAt: true,
+        createdAt: true
+      }
+    });
+
+    // Get roles for each user separately to avoid relation ambiguity
+    const usersWithData = await Promise.all(userList.map(async (user) => {
+      // Get user roles
+      const userRolesList = await db.query.userRoles.findMany({
+        where: eq(userRoles.userId, user.id),
+        with: {
+          role: {
+            columns: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      });
+
+      // Get subscription using raw query to avoid relation issues
+      const subscriptionResult = await db
+        .select({
+          planName: subscriptionPlans.name,
+          billingCycle: subscriptionPlans.billingCycle,
+          startDate: userSubscriptions.startDate,
+          expiryDate: userSubscriptions.expiryDate
+        })
+        .from(userSubscriptions)
+        .leftJoin(subscriptionPlans, eq(userSubscriptions.planId, subscriptionPlans.id))
+        .where(eq(userSubscriptions.userId, user.id))
+        .limit(1);
+
+      const subscription = subscriptionResult[0];
+
+      return {
+        ...user,
+        roles: userRolesList.map(ur => ur.role.name),
+        role: userRolesList[0]?.role.name || 'user', // For backward compatibility
+        subscriptionName: subscription?.planName || null,
+        subscriptionBillingCycle: subscription?.billingCycle || null,
+        subscriptionStartDate: subscription?.startDate || null,
+        subscriptionExpiryDate: subscription?.expiryDate || null
+      };
+    }));
 
     // Get total count for pagination
     const totalCountResult = await db.select({ count: count() })
@@ -59,7 +92,7 @@ async function getUsers(req: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        users: userList,
+        users: usersWithData,
         pagination: {
           page,
           limit,
@@ -79,24 +112,21 @@ async function getUsers(req: NextRequest) {
 }
 
 /**
- * PATCH /api/admin/users/[userId] - Update user role (Admin only)
+ * PATCH /api/admin/users - Update user roles (Admin only)
+ * Supports both single role (roleName) and multiple roles (roleNames)
  */
 async function updateUserRole(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, role } = body;
+    const { userId, roleName, roleNames } = body;
+
+    // Support both single role and multiple roles
+    const rolesToAssign = roleNames || (roleName ? [roleName] : []);
 
     // Validate input
-    if (!userId || !role) {
+    if (!userId || !rolesToAssign || rolesToAssign.length === 0) {
       return NextResponse.json(
-        { error: 'User ID and role are required' },
-        { status: 400 }
-      );
-    }
-
-    if (!['admin', 'user'].includes(role)) {
-      return NextResponse.json(
-        { error: 'Invalid role. Must be "admin" or "user"' },
+        { error: 'User ID and at least one role are required' },
         { status: 400 }
       );
     }
@@ -104,7 +134,7 @@ async function updateUserRole(req: NextRequest) {
     // Check if user exists
     const existingUser = await db.query.users.findFirst({
       where: eq(users.id, userId),
-      columns: { id: true, email: true, roleId: true }
+      columns: { id: true, email: true }
     });
 
     if (!existingUser) {
@@ -123,41 +153,52 @@ async function updateUserRole(req: NextRequest) {
       );
     }
 
-    // Find the roleId for the requested role name
-    const roleRecord = await db.query.roles.findFirst({ where: eq(roles.name, role) });
-    if (!roleRecord) {
+    // Find all roles by name
+    const roleRecords = await db.query.roles.findMany({ 
+      where: or(...rolesToAssign.map((name: string) => eq(roles.name, name)))
+    });
+    
+    if (roleRecords.length !== rolesToAssign.length) {
+      const foundRoles = roleRecords.map(r => r.name);
+      const missingRoles = rolesToAssign.filter((r: string) => !foundRoles.includes(r));
       return NextResponse.json(
-        { error: 'Role not found in roles table' },
+        { error: `Role(s) not found: ${missingRoles.join(', ')}` },
         { status: 400 }
       );
     }
 
-    // Update user role using the permission service
-    const success = await import('@/services/permissions').then(({ PermissionService }) => 
-      PermissionService.setUserRole(adminCheck.userId!, userId, roleRecord.id)
-    );
+    // Get user's current roles
+    const currentRoles = await db.query.userRoles.findMany({
+      where: eq(userRoles.userId, userId),
+      with: { role: { columns: { name: true } } }
+    });
 
-    if (!success) {
-      return NextResponse.json(
-        { error: 'Failed to update user role' },
-        { status: 500 }
-      );
-    }
+    // Remove all existing roles
+    await db.delete(userRoles).where(eq(userRoles.userId, userId));
+
+    // Assign new roles via user_roles table
+    await db.insert(userRoles).values(
+      roleRecords.map(roleRecord => ({
+        userId,
+        roleId: roleRecord.id,
+        assignedBy: adminCheck.userId,
+      }))
+    );
 
     return NextResponse.json({
       success: true,
-      message: `User role updated to ${role}`,
+      message: `User roles updated to: ${rolesToAssign.join(', ')}`,
       data: {
         userId,
-        oldRole: existingUser.roleId || existingUser.roleId,
-        newRole: roleRecord.id
+        oldRoles: currentRoles.map(r => r.role.name),
+        newRoles: rolesToAssign
       }
     });
 
   } catch (error) {
     console.error('Update user role error:', error);
     return NextResponse.json(
-      { error: 'Failed to update user role' },
+      { error: 'Failed to update user roles' },
       { status: 500 }
     );
   }

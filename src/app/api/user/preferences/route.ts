@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { db } from '@/db';
-import { userPreferences } from '@/db/schema';
+import { auth } from '@/config/auth';
+import { db } from '@/server/db';
+import { userPreferences } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 // Fixed variable name issue in debugging logs.

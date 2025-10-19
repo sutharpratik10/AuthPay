@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db';
-import { users, otpCodes } from '@/db/schema';
+import { db } from '@/server/db';
+import { users, otpCodes } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { emailService } from '@/services/email';
+import { emailService } from '@/server/services/email';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { users, subscriptionPlans, userSubscriptions } from '@/db/schema';
+import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { db } from '@/server/db';
+import { users, subscriptionPlans, userSubscriptions } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { calculateSubscriptionExpiryDate } from '@/lib/subscription-utils';
+import { calculateSubscriptionExpiryDate } from '@/lib/utils/subscription-utils';
 
 /**
  * POST /api/admin/users/[userId]/assign-subscription - Assign subscription plan to user (Admin only)

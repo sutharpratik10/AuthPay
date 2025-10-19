@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { users } from '@/db/schema';
+import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { db } from '@/server/db';
+import { users, userRoles, roles } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * POST /api/admin/users/create - Create a new user (Admin only)
@@ -11,20 +12,12 @@ import bcrypt from 'bcryptjs';
 async function createUser(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, name, password, role, isActive, isEmailVerified } = body;
+    const { email, name, password, roleName, isActive, isEmailVerified } = body;
 
     // Validate required fields
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate role
-    if (role && !['admin', 'user'].includes(role)) {
-      return NextResponse.json(
-        { error: 'Invalid role. Must be "admin" or "user"' },
         { status: 400 }
       );
     }
@@ -42,15 +35,28 @@ async function createUser(req: NextRequest) {
       );
     }
 
+    // Find the role by name (default to 'User')
+    const roleToAssign = await db.query.roles.findFirst({
+      where: eq(roles.name, roleName || 'User'),
+      columns: { id: true, name: true }
+    });
+
+    if (!roleToAssign) {
+      return NextResponse.json(
+        { error: 'Role not found. Please create the role first.' },
+        { status: 400 }
+      );
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user
     const [newUser] = await db.insert(users).values({
+      id: uuidv4(),
       email: email.toLowerCase(),
       name: name || null,
       password: hashedPassword,
-      roleId: role || 'user',
       isActive: isActive !== undefined ? isActive : true,
       isEmailVerified: isEmailVerified !== undefined ? isEmailVerified : false,
       emailVerified: isEmailVerified ? new Date().toISOString() : null,
@@ -60,16 +66,26 @@ async function createUser(req: NextRequest) {
       id: users.id,
       email: users.email,
       name: users.name,
-      roleId: users.roleId,
       isActive: users.isActive,
       isEmailVerified: users.isEmailVerified,
       createdAt: users.createdAt,
     });
 
+    // Assign role via user_roles table
+    await db.insert(userRoles).values({
+      userId: newUser.id,
+      roleId: roleToAssign.id,
+    });
+
     return NextResponse.json({
       success: true,
       message: 'User created successfully',
-      data: { user: newUser }
+      data: { 
+        user: { 
+          ...newUser, 
+          role: roleToAssign.name 
+        } 
+      }
     });
 
   } catch (error) {

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
+import { auth } from '@/config/auth';
 import AdminUsersPage from '@/components/admin/AdminUsersPage';
 
 export default async function ManageUsersPage() {

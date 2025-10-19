@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { users, userSubscriptions, subscriptionStatuses } from '@/db/schema';
+import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { db } from '@/server/db';
+import { users, userSubscriptions, subscriptionStatuses } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 /**
