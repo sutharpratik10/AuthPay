@@ -54,14 +54,13 @@ async function getRoles(req: NextRequest) {
       .offset(offset)
       .orderBy(roles.createdAt);
 
-    // For each role, count users
-    // Import users from db/schema
-    const { users } = await import('@/server/db/schema');
+    // For each role, count users via user_roles table
+    const { userRoles } = await import('@/server/db/schema');
     const userCounts = Object.fromEntries(
       (await db
         .select({ roleId: roles.id, count: count() })
         .from(roles)
-        .leftJoin(users, eq(roles.id, users.roleId))
+        .leftJoin(userRoles, eq(roles.id, userRoles.roleId))
         .groupBy(roles.id)
       ).map(r => [r.roleId, Number(r.count)])
     );

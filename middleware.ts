@@ -1,6 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
+// Policy-based route protection mapping
+const ROUTE_POLICY_MAP: Record<string, string> = {
+  // Admin routes require admin policies
+  '/protected/admin': 'admin:access',
+  
+  // User profile and settings
+  '/protected/profile': 'profile:view',
+  '/protected/account': 'account:manage',
+  '/protected/settings': 'settings:manage',
+  
+  // Regular user routes
+  '/protected/user': 'user:access',
+};
+
+/**
+ * Check if user has required policy for a route
+ */
+async function hasRequiredPolicy(userId: string, path: string): Promise<boolean> {
+  try {
+    const { RBACService } = await import("./src/lib/rbac");
+    
+    // Check if path matches any policy-protected route
+    for (const [route, requiredPolicy] of Object.entries(ROUTE_POLICY_MAP)) {
+      if (path.startsWith(route) || path === route) {
+        // Check if user has the required policy
+        const hasPolicy = await RBACService.hasPolicy(userId, requiredPolicy);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[MIDDLEWARE] 🔐 Policy check: ${requiredPolicy} for ${path} = ${hasPolicy}`);
+        }
+        return hasPolicy;
+      }
+    }
+    
+    // No specific policy required - allow access
+    return true;
+  } catch (error) {
+    console.error('[MIDDLEWARE] Error checking policy:', error);
+    // Fail secure - deny access on error
+    return false;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   
@@ -92,19 +134,13 @@ export async function middleware(request: NextRequest) {
     id: token.sub as string,
     email: token.email as string,
     isEmailVerified: token.isEmailVerified as boolean,
-    roleId: token.roleId as string,
+    role: token.role as string,
   } : null;
   const isEmailVerified = user?.isEmailVerified === true;
-  // Helper to get role name from user data
-  function getUserRole(): string {
-    if (!user?.roleId) return "user";
-    // You might want to fetch role name from roleId here if needed
-    return "user"; // Simplified for now
-  }
 
   // Helper to get dashboard URL based on user role
   function getDashboardUrl(): string {
-    const userRole = getUserRole();
+    const userRole = user?.role || 'user';
     return userRole === 'admin'
       ? '/protected/admin/dashboard'
       : '/protected/user/dashboard';
@@ -153,9 +189,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   
-  // Handle protected routes
-  // needsProtection already declared above for expiration check
-
+  // Handle protected routes with POLICY-BASED ACCESS CONTROL
   if (needsProtection) {
     if (!isAuthenticated) {
       if (process.env.NODE_ENV === 'development') {
@@ -178,8 +212,16 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // Note: 2FA verification is now handled by the protected pages themselves
-    // This reduces database queries in middleware and improves performance
+    // POLICY-BASED ACCESS CONTROL: Check if user has required policy
+    const hasAccess = await hasRequiredPolicy(user!.id, path);
+    
+    if (!hasAccess) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] 🚫 Policy check failed for ${path}`);
+      }
+      // User doesn't have required policy - redirect to forbidden page or user dashboard
+      return NextResponse.redirect(new URL('/protected/user/dashboard?error=Forbidden', request.url));
+    }
 
     if (process.env.NODE_ENV === 'development') {
       console.log(`[MIDDLEWARE] ✅ Authorized access to: ${path}`);

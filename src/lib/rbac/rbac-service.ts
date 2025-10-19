@@ -9,7 +9,7 @@
  */
 
 import { db } from "@/server/db";
-import { users, roles, userRoles, rolePermissions, permissions } from "@/server/db/schema";
+import { roles, userRoles, rolePermissions, permissions } from "@/server/db/schema";
 import { eq, inArray, and } from "drizzle-orm";
 
 // Cache for user permissions to reduce database queries
@@ -93,26 +93,13 @@ export class RBACService {
    */
   static async getUserPolicies(userId: string): Promise<string[]> {
     try {
-      // Get user's roles (both from userRoles table and legacy roleId)
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-        columns: { roleId: true }
-      });
-
-      if (!user) return [];
-
-      // Get role IDs from userRoles table
+      // Get user's roles from userRoles table
       const userRolesRecords = await db.query.userRoles.findMany({
         where: eq(userRoles.userId, userId),
         columns: { roleId: true }
       });
 
       const roleIds = userRolesRecords.map(r => r.roleId);
-      
-      // Add legacy roleId if exists
-      if (user.roleId) {
-        roleIds.push(user.roleId);
-      }
 
       if (roleIds.length === 0) return [];
 
@@ -155,28 +142,13 @@ export class RBACService {
    */
   static async getUserRoles(userId: string): Promise<string[]> {
     try {
-      // Get user's legacy roleId
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-        columns: { roleId: true }
-      });
-
-      if (!user) return [];
-
-      const roleIds: string[] = [];
-
       // Get role IDs from userRoles table
       const userRolesRecords = await db.query.userRoles.findMany({
         where: eq(userRoles.userId, userId),
         columns: { roleId: true }
       });
 
-      roleIds.push(...userRolesRecords.map(r => r.roleId));
-
-      // Add legacy roleId if exists
-      if (user.roleId) {
-        roleIds.push(user.roleId);
-      }
+      const roleIds = userRolesRecords.map(r => r.roleId);
 
       if (roleIds.length === 0) return [];
 

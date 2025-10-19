@@ -22,14 +22,21 @@ export class AuthService {
       }
       // Hash the password
       const hashedPassword = await bcrypt.hash(password, 10);
-      // Get the default 'user' role id
-      const userRole = await db.query.roles.findFirst({
-        where: (roles, { eq }) => eq(roles.name, 'user'),
+      
+      // Get the default 'User' role (case-insensitive search)
+      const defaultRole = await db.query.roles.findFirst({
+        where: (rolesTable, { eq, or, sql }) => 
+          or(
+            eq(sql`LOWER(${rolesTable.name})`, 'user'),
+            eq(rolesTable.isDefault, true)
+          ),
         columns: { id: true }
       });
-      if (!userRole) {
-        return { success: false, error: 'Default user role not found' };
+      
+      if (!defaultRole) {
+        return { success: false, error: 'Default user role not found. Please contact administrator.' };
       }
+      
       // Create the user
       const [newUser] = await db.insert(users).values({
         id: uuidv4(),
@@ -37,10 +44,17 @@ export class AuthService {
         password: hashedPassword,
         name: name || null,
         isEmailVerified: false,
-        roleId: userRole.id,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }).returning();
+      
+      // Assign default role to user via user_roles table
+      const { userRoles } = await import("@/server/db/schema");
+      await db.insert(userRoles).values({
+        userId: newUser.id,
+        roleId: defaultRole.id,
+      });
+      
       // Generate verification code
       const verificationCode = this.generateVerificationCode();
       // Store verification code with 15-minute expiration

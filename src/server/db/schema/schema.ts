@@ -331,18 +331,12 @@ export const users = pgTable("users", {
 	lastLoginAt: timestamp("last_login_at", { mode: 'string' }),
 	isActive: boolean("is_active").default(true),
 	isSuspended: boolean("is_suspended").default(false),
-	roleId: uuid("role_id").references(() => roles.id), // Legacy: kept for backward compatibility
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 	emailVerified: timestamp({ mode: 'string' }),
 	avatarUrl: varchar("avatar_url", { length: 255 }),
 }, (table) => [
-	unique("users_email_unique").on(table.email),
-	foreignKey({
-		columns: [table.roleId],
-		foreignColumns: [roles.id],
-		name: "users_role_id_roles_id_fk"
-	})
+	unique("users_email_unique").on(table.email)
 ]);
 
 // Many-to-many relationship: Users can have multiple roles
@@ -353,23 +347,8 @@ export const userRoles = pgTable("user_roles", {
   assignedAt: timestamp('assigned_at').defaultNow().notNull(),
   assignedBy: uuid('assigned_by').references(() => users.id, { onDelete: 'set null' }), // Track who assigned this role
 }, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "user_roles_user_id_users_id_fk"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.roleId],
-			foreignColumns: [roles.id],
-			name: "user_roles_role_id_roles_id_fk"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.assignedBy],
-			foreignColumns: [users.id],
-			name: "user_roles_assigned_by_users_id_fk"
-		}).onDelete("set null"),
 	unique("user_roles_user_id_role_id_unique").on(table.userId, table.roleId)
-]);  
+]);
 
 export const userPreferences = pgTable("user_preferences", {
 	id: uuid().defaultRandom().primaryKey().notNull(),

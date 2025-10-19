@@ -219,21 +219,19 @@ export const {
           try {
             const userRecord = await db.query.users.findFirst({
               where: (users, { eq }) => eq(users.id, token.sub as string),
-              columns: { isEmailVerified: true, name: true, roleId: true },
+              columns: { isEmailVerified: true, name: true },
             });
 
             if (userRecord) {
               token.isEmailVerified = userRecord.isEmailVerified ?? false;
               token.name = userRecord.name;
-              if (userRecord.roleId != null) {
-                const roleRecord = await db.query.roles.findFirst({
-                  where: (roles, { eq }) => eq(roles.id, userRecord.roleId as string),
-                  columns: { name: true },
-                });
-                token.role = roleRecord?.name ?? 'user';
-              } else {
-                token.role = 'user';
-              }
+              
+              // Get user's roles from user_roles table
+              const { RBACService } = await import("@/lib/rbac");
+              const userRoles = await RBACService.getUserRoles(token.sub as string);
+              
+              // Set role to first role or 'user' if no roles
+              token.role = userRoles.length > 0 ? userRoles[0] : 'user';
               token.lastVerifiedCheck = Date.now();
             }
           } catch (error) {

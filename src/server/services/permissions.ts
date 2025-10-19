@@ -1,4 +1,4 @@
-import { users, roles, rolePermissions, permissions, userRoles } from "@/server/db/schema";
+import { roles, rolePermissions, permissions, userRoles } from "@/server/db/schema";
 import { db } from "@/server/db";
 import { eq, inArray } from "drizzle-orm";
 
@@ -19,14 +19,6 @@ export class PermissionService {
       const isAdminUser = await this.isAdmin(userId);
       if (isAdminUser) return true;
 
-      // Get user's roles (both from userRoles table and legacy roleId)
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-        columns: { roleId: true }
-      });
-
-      if (!user) return false;
-
       // Get role IDs from userRoles table
       const userRolesRecords = await db.query.userRoles.findMany({
         where: eq(userRoles.userId, userId),
@@ -34,11 +26,6 @@ export class PermissionService {
       });
 
       const roleIds = userRolesRecords.map(r => r.roleId);
-      
-      // Add legacy roleId if exists
-      if (user.roleId) {
-        roleIds.push(user.roleId);
-      }
 
       if (roleIds.length === 0) return false;
 
@@ -78,28 +65,13 @@ export class PermissionService {
    */
   static async getUserRoles(userId: string): Promise<string[]> {
     try {
-      // Get user's legacy roleId
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-        columns: { roleId: true }
-      });
-
-      if (!user) return [];
-
-      const roleIds: string[] = [];
-
       // Get role IDs from userRoles table
       const userRolesRecords = await db.query.userRoles.findMany({
         where: eq(userRoles.userId, userId),
         columns: { roleId: true }
       });
 
-      roleIds.push(...userRolesRecords.map(r => r.roleId));
-
-      // Add legacy roleId if exists
-      if (user.roleId) {
-        roleIds.push(user.roleId);
-      }
+      const roleIds = userRolesRecords.map(r => r.roleId);
 
       if (roleIds.length === 0) return [];
 
@@ -136,28 +108,13 @@ export class PermissionService {
    */
   static async getUserPermissions(userId: string): Promise<string[]> {
     try {
-      // Get user's roles
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-        columns: { roleId: true }
-      });
-
-      if (!user) return [];
-
-      const roleIds: string[] = [];
-
       // Get role IDs from userRoles table
       const userRolesRecords = await db.query.userRoles.findMany({
         where: eq(userRoles.userId, userId),
         columns: { roleId: true }
       });
 
-      roleIds.push(...userRolesRecords.map(r => r.roleId));
-
-      // Add legacy roleId if exists
-      if (user.roleId) {
-        roleIds.push(user.roleId);
-      }
+      const roleIds = userRolesRecords.map(r => r.roleId);
 
       if (roleIds.length === 0) return [];
 
@@ -178,16 +135,16 @@ export class PermissionService {
 
   /**
    * @deprecated Use RBACService.assignRole() instead
-   * Set user role (admin only) - Updates legacy roleId field
+   * Assign role to user using user_roles table
    */
   static async setUserRole(adminUserId: string, targetUserId: string, roleId: string): Promise<boolean> {
     try {
       const isAdminUser = await this.isAdmin(adminUserId);
       if (!isAdminUser) return false;
-      await db.update(users)
-        .set({ roleId, updatedAt: new Date().toISOString() })
-        .where(eq(users.id, targetUserId));
-      return true;
+      
+      // Use the new RBACService to assign role
+      const { RBACService } = await import("@/lib/rbac");
+      return await RBACService.assignRole(adminUserId, targetUserId, roleId);
     } catch (error) {
       console.error("Error setting user role:", error);
       return false;

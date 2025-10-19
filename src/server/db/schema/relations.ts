@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { subscriptionPlans, adminDashboardStats, userUsageMetrics, users, auditLogs, errorLogs, userNotifications, billings, permissions, roles, rolePermissions, otpCodes, userPreferences } from "./schema";
+import { subscriptionPlans, adminDashboardStats, userUsageMetrics, users, auditLogs, errorLogs, userNotifications, billings, permissions, roles, rolePermissions, otpCodes, userPreferences, userRoles } from "./schema";
 
 export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({
   billings: many(billings),
@@ -27,14 +27,11 @@ export const userPreferencesRelations = relations(userPreferences, ({ one }) => 
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
-  role: one(roles, {
-    fields: [users.roleId],
-    references: [roles.id],
-  }),
   userPreferences: one(userPreferences, {
     fields: [users.id],
     references: [userPreferences.userId],
   }),
+  userRoles: many(userRoles),
   userUsageMetrics: many(userUsageMetrics),
   auditLogs: many(auditLogs),
   errorLogs: many(errorLogs),
@@ -76,6 +73,23 @@ export const billingsRelations = relations(billings, ({ one }) => ({
 
 export const rolesRelations = relations(roles, ({ many }) => ({
   rolePermissions: many(rolePermissions),
+  userRoles: many(userRoles),
+}));
+
+export const userRolesRelations = relations(userRoles, ({ one }) => ({
+  user: one(users, {
+    fields: [userRoles.userId],
+    references: [users.id],
+  }),
+  role: one(roles, {
+    fields: [userRoles.roleId],
+    references: [roles.id],
+  }),
+  assignedByUser: one(users, {
+    fields: [userRoles.assignedBy],
+    references: [users.id],
+    relationName: "assignedBy"
+  }),
 }));
 
 export const rolePermissionsRelations = relations(rolePermissions, ({ one }) => ({

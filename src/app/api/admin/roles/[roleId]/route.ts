@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
 import { db } from '@/server/db';
-import { roles, users } from '@/server/db/schema';
+import { roles } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { auth } from '@/config/auth';
 
@@ -160,8 +160,9 @@ async function deleteRole(req: NextRequest) {
       );
     }
 
-    // Check if role is assigned to any users (global)
-    const assignedUsers = await db.select().from(users).where(eq(users.roleId, roleId));
+    // Check if role is assigned to any users via user_roles table
+    const { userRoles } = await import('@/server/db/schema');
+    const assignedUsers = await db.select().from(userRoles).where(eq(userRoles.roleId, roleId));
 
     if (assignedUsers.length > 0) {
       return NextResponse.json(

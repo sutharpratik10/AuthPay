@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPermission, API_PERMISSIONS, requireAdmin } from '@/lib/api/permissions';
 import { db } from '@/server/db';
-import { users, subscriptionPlans, roles, userSubscriptions } from '@/server/db/schema';
+import { users, subscriptionPlans, roles, userSubscriptions, userRoles } from '@/server/db/schema';
 import { eq, or, ilike, count } from 'drizzle-orm';
 
 /**
@@ -24,17 +24,19 @@ async function getUsers(req: NextRequest) {
         )
       : undefined;
     // Get users with pagination and search
+    // Note: Users can have multiple roles, we'll get the first role for display
     const userList = await db.select({
       id: users.id,
       email: users.email,
       name: users.name,
-      roleId: users.roleId,
-      role: roles.name, // alias as role for frontend
       isEmailVerified: users.isEmailVerified,
       isActive: users.isActive,
       isSuspended: users.isSuspended,
       lastLoginAt: users.lastLoginAt,
       createdAt: users.createdAt,
+      // Role info from user_roles join
+      roleId: roles.id,
+      role: roles.name,
       // Subscription info (joined)
       subscriptionName: subscriptionPlans.name,
       subscriptionBillingCycle: subscriptionPlans.billingCycle,
@@ -42,9 +44,10 @@ async function getUsers(req: NextRequest) {
       subscriptionExpiryDate: userSubscriptions.expiryDate,
     })
     .from(users)
+    .leftJoin(userRoles, eq(users.id, userRoles.userId))
+    .leftJoin(roles, eq(userRoles.roleId, roles.id))
     .leftJoin(userSubscriptions, eq(users.id, userSubscriptions.userId))
     .leftJoin(subscriptionPlans, eq(userSubscriptions.planId, subscriptionPlans.id))
-    .leftJoin(roles, eq(users.roleId, roles.id))
     .where(whereCondition)
     .limit(limit)
     .offset(offset);
@@ -84,19 +87,12 @@ async function getUsers(req: NextRequest) {
 async function updateUserRole(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, role } = body;
+    const { userId, roleName } = body;
 
     // Validate input
-    if (!userId || !role) {
+    if (!userId || !roleName) {
       return NextResponse.json(
-        { error: 'User ID and role are required' },
-        { status: 400 }
-      );
-    }
-
-    if (!['admin', 'user'].includes(role)) {
-      return NextResponse.json(
-        { error: 'Invalid role. Must be "admin" or "user"' },
+        { error: 'User ID and role name are required' },
         { status: 400 }
       );
     }
@@ -104,7 +100,7 @@ async function updateUserRole(req: NextRequest) {
     // Check if user exists
     const existingUser = await db.query.users.findFirst({
       where: eq(users.id, userId),
-      columns: { id: true, email: true, roleId: true }
+      columns: { id: true, email: true }
     });
 
     if (!existingUser) {
@@ -123,8 +119,11 @@ async function updateUserRole(req: NextRequest) {
       );
     }
 
-    // Find the roleId for the requested role name
-    const roleRecord = await db.query.roles.findFirst({ where: eq(roles.name, role) });
+    // Find the role by name
+    const roleRecord = await db.query.roles.findFirst({ 
+      where: eq(roles.name, roleName) 
+    });
+    
     if (!roleRecord) {
       return NextResponse.json(
         { error: 'Role not found in roles table' },
@@ -132,25 +131,29 @@ async function updateUserRole(req: NextRequest) {
       );
     }
 
-    // Update user role using the permission service
-    const success = await import('@/server/services/permissions').then(({ PermissionService }) => 
-      PermissionService.setUserRole(adminCheck.userId!, userId, roleRecord.id)
-    );
+    // Get user's current roles
+    const currentRoles = await db.query.userRoles.findMany({
+      where: eq(userRoles.userId, userId),
+      with: { role: { columns: { name: true } } }
+    });
 
-    if (!success) {
-      return NextResponse.json(
-        { error: 'Failed to update user role' },
-        { status: 500 }
-      );
-    }
+    // Remove all existing roles
+    await db.delete(userRoles).where(eq(userRoles.userId, userId));
+
+    // Assign new role via user_roles table
+    await db.insert(userRoles).values({
+      userId,
+      roleId: roleRecord.id,
+      assignedBy: adminCheck.userId,
+    });
 
     return NextResponse.json({
       success: true,
-      message: `User role updated to ${role}`,
+      message: `User role updated to ${roleName}`,
       data: {
         userId,
-        oldRole: existingUser.roleId || existingUser.roleId,
-        newRole: roleRecord.id
+        oldRoles: currentRoles.map(r => r.role.name),
+        newRole: roleName
       }
     });
 
