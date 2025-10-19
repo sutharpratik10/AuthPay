@@ -12,7 +12,6 @@ const envDefault = path.join(root, '.env');
 // load .env.local if present, else .env
 const chosenEnv = fs.existsSync(envLocal) ? envLocal : envDefault;
 
-
 config({ path: chosenEnv, override: true });
 
 console.log('cwd:', process.cwd());
@@ -97,12 +96,18 @@ const defaultSubscriptionRenewal = [
 
 async function seed() {
   try {
-    console.log('🌱 Seeding roles...');
-    // Insert roles if not exist
+    console.log('🌱 Starting database seeding...');
+    console.log('');
+    
+    // ============================================
+    // 1. Seed Roles
+    // ============================================
+    console.log('🔐 Seeding roles...');
     for (const role of defaultRoles) {
       await db.insert(roles).values(role).onConflictDoNothing();
     }
-
+    console.log('✅ Roles seeded successfully');
+    console.log('');
 
     // Get admin role id
     const adminRole = await db.query.roles.findFirst({ where: (roles, { eq }) => eq(roles.name, 'admin') });
@@ -112,9 +117,13 @@ async function seed() {
     const userRole = await db.query.roles.findFirst({ where: (roles, { eq }) => eq(roles.name, 'user') });
     if (!userRole) throw new Error('User role not found after insert!');
 
-    // Hash admin password
+    // ============================================
+    // 2. Seed Users and Assign Roles
+    // ============================================
+    console.log('👥 Seeding users and assigning roles...');
+    
+    // Hash passwords
     const hashedAdminPassword = await bcrypt.hash('admin', 10);
-    // Hash user password
     const hashedUserPassword = await bcrypt.hash('user', 10);
 
     // Insert admin user if not exist
@@ -129,14 +138,14 @@ async function seed() {
         isActive: true,
       }).returning();
       
-      // Assign admin role using userRoles junction table
+      // Assign admin role using user_roles junction table
       await db.insert(userRoles).values({
         userId: newAdmin.id,
         roleId: adminRole.id,
       });
-      console.log('✅ Admin user created with admin role');
+      console.log('  ✅ Admin user created (admin@example.com) with admin role');
     } else {
-      console.log('ℹ️ Admin user already exists');
+      console.log('  ℹ️  Admin user already exists (admin@example.com)');
       // Check if admin has admin role, if not assign it
       const hasAdminRole = await db.query.userRoles.findFirst({
         where: (userRoles, { eq, and }) => and(
@@ -149,7 +158,9 @@ async function seed() {
           userId: existingAdmin.id,
           roleId: adminRole.id,
         });
-        console.log('✅ Assigned admin role to existing admin user');
+        console.log('  ✅ Assigned admin role to existing admin user');
+      } else {
+        console.log('  ✅ Admin role already assigned');
       }
     }
 
@@ -165,14 +176,14 @@ async function seed() {
         isActive: true,
       }).returning();
       
-      // Assign user role using userRoles junction table
+      // Assign user role using user_roles junction table
       await db.insert(userRoles).values({
         userId: newUser.id,
         roleId: userRole.id,
       });
-      console.log('✅ User user@example.com created with user role');
+      console.log('  ✅ Regular user created (user@example.com) with user role');
     } else {
-      console.log('ℹ️ User user@example.com already exists');
+      console.log('  ℹ️  Regular user already exists (user@example.com)');
       // Check if user has user role, if not assign it
       const hasUserRole = await db.query.userRoles.findFirst({
         where: (userRoles, { eq, and }) => and(
@@ -185,31 +196,50 @@ async function seed() {
           userId: existingUser.id,
           roleId: userRole.id,
         });
-        console.log('✅ Assigned user role to existing user');
+        console.log('  ✅ Assigned user role to existing user');
+      } else {
+        console.log('  ✅ User role already assigned');
       }
     }
+    console.log('✅ Users and role assignments completed');
+    console.log('');
 
-    // Insert subscription renewal options
-    console.log('🌱 Seeding subscription renewal options...');
+    // ============================================
+    // 3. Seed Subscription Renewal Types
+    // ============================================
+    console.log('🔄 Seeding subscription renewal types...');
     for (const renewal of defaultSubscriptionRenewal) {
       await db.insert(subscriptionRenewalTypes).values(renewal).onConflictDoNothing();
     }
-    console.log('✅ Subscription renewal options seeded');
+    console.log('✅ Subscription renewal types seeded');
+    console.log('');
 
-    // Insert subscription statuses
-    console.log('🌱 Seeding subscription statuses...');
+    // ============================================
+    // 4. Seed Subscription Statuses
+    // ============================================
+    console.log('📊 Seeding subscription statuses...');
     for (const status of defaultStatuses) {
       await db.insert(subscriptionStatuses).values(status).onConflictDoNothing();
     }
     console.log('✅ Subscription statuses seeded');
+    console.log('');
     
-    // Insert subscription plans
-    console.log('🌱 Seeding subscription plans...');
+    // ============================================
+    // 5. Seed Subscription Plans
+    // ============================================
+    console.log('💳 Seeding subscription plans...');
     for (const plan of defaultPlans) {
       await db.insert(subscriptionPlans).values(plan).onConflictDoNothing();
     }
+    console.log('✅ Subscription plans seeded');
+    console.log('');
 
-    console.log('🎉 Seeding completed successfully!');
+    console.log('🎉 Database seeding completed successfully!');
+    console.log('');
+    console.log('📝 Default credentials:');
+    console.log('   Admin: admin@example.com / admin');
+    console.log('   User:  user@example.com / user');
+    console.log('');
     process.exit(0);
   } catch (error) {
     console.error('❌ Seeding failed:', error);
