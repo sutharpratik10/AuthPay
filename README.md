@@ -8,7 +8,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 [![Razorpay](https://img.shields.io/badge/Razorpay-02042B?style=flat-square&logo=razorpay)](https://razorpay.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=flat-square)](https://github.com/sutharpratik10/Jobs/graphs/commit-activity)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=flat-square)](https://github.com/sutharpratik10/AuthPay/graphs/commit-activity)
 
 > **A production-ready, full-stack authentication and payment platform built with Next.js 15, featuring advanced RBAC, secure payment processing, and comprehensive user management.**
 
@@ -448,8 +448,8 @@ Get AuthPay running in 5 minutes:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/sutharpratik10/Jobs.git
-cd Jobs
+git clone https://github.com/sutharpratik10/AuthPay.git
+cd AuthPay
 
 # 2. Install dependencies
 npm install
@@ -480,13 +480,13 @@ Visit [http://localhost:3000](http://localhost:3000) and login with:
 
 ```bash
 # Using HTTPS
-git clone https://github.com/sutharpratik10/Jobs.git
+git clone https://github.com/sutharpratik10/AuthPay.git
 
 # Or using SSH
-git clone git@github.com:sutharpratik10/Jobs.git
+git clone git@github.com:sutharpratik10/AuthPay.git
 
 # Navigate to project directory
-cd Jobs
+cd AuthPay
 ```
 
 ### Step 2: Install Dependencies
@@ -1003,8 +1003,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### Community
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/sutharpratik10/Jobs/issues)
-- **Discussions**: [Ask questions and share ideas](https://github.com/sutharpratik10/Jobs/discussions)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/sutharpratik10/AuthPay/issues)
+- **Discussions**: [Ask questions and share ideas](https://github.com/sutharpratik10/AuthPay/discussions)
 
 ### Contact
 
@@ -1038,9 +1038,9 @@ Built with amazing open-source technologies:
 
 ## 📊 Project Stats
 
-![GitHub stars](https://img.shields.io/github/stars/sutharpratik10/Jobs?style=social)
-![GitHub forks](https://img.shields.io/github/forks/sutharpratik10/Jobs?style=social)
-![GitHub watchers](https://img.shields.io/github/watchers/sutharpratik10/Jobs?style=social)
+![GitHub stars](https://img.shields.io/github/stars/sutharpratik10/AuthPay?style=social)
+![GitHub forks](https://img.shields.io/github/forks/sutharpratik10/AuthPay?style=social)
+![GitHub watchers](https://img.shields.io/github/watchers/sutharpratik10/AuthPay?style=social)
 
 ---
 
