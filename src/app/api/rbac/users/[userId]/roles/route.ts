@@ -16,7 +16,7 @@ import { eq } from "drizzle-orm";
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
@@ -24,7 +24,7 @@ export async function POST(
   }
 
   try {
-    const { userId } = params;
+    const { userId } = await params;
     const body = await req.json();
     const { roleId } = body;
 
@@ -91,7 +91,7 @@ export async function POST(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
@@ -99,7 +99,7 @@ export async function DELETE(
   }
 
   try {
-    const { userId } = params;
+    const { userId } = await params;
     const body = await req.json();
     const { roleId } = body;
 
@@ -142,7 +142,7 @@ export async function DELETE(
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
@@ -150,7 +150,7 @@ export async function GET(
   }
 
   try {
-    const { userId } = params;
+    const { userId } = await params;
 
     // Get all roles for this user
     const userRolesRecords = await db

@@ -15,7 +15,7 @@ import { eq, and } from "drizzle-orm";
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { roleId: string } }
+  { params }: { params: Promise<{ roleId: string }> }
 ) {
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
@@ -23,7 +23,7 @@ export async function POST(
   }
 
   try {
-    const { roleId } = params;
+    const { roleId } = await params;
     const body = await req.json();
     const { policyId } = body;
 
@@ -97,7 +97,7 @@ export async function POST(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { roleId: string } }
+  { params }: { params: Promise<{ roleId: string }> }
 ) {
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
@@ -105,7 +105,7 @@ export async function DELETE(
   }
 
   try {
-    const { roleId } = params;
+    const { roleId } = await params;
     const body = await req.json();
     const { policyId } = body;
 
@@ -142,7 +142,7 @@ export async function DELETE(
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { roleId: string } }
+  { params }: { params: Promise<{ roleId: string }> }
 ) {
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
@@ -150,7 +150,7 @@ export async function GET(
   }
 
   try {
-    const { roleId } = params;
+    const { roleId } = await params;
 
     // Get all policies for this role
     const rolePolicies = await db

@@ -227,13 +227,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Refresh session one more time to be sure
           await getSession();
           
-          // Get user role to determine correct dashboard
-          const currentUser = session?.user;
-          const userRole = currentUser?.role || 'user';
-          const dashboardUrl = userRole === 'admin' 
-            ? '/protected/admin/dashboard' 
-            : '/protected/user/dashboard';
-          router.push(dashboardUrl);
+          // Fetch dashboard URL from API based on user policies
+          try {
+            const response = await fetch('/api/rbac/user/dashboard');
+            const data = await response.json();
+            const dashboardUrl = data.dashboardUrl || '/protected/user/dashboard';
+            router.push(dashboardUrl);
+          } catch (error) {
+            console.error('Error fetching dashboard URL:', error);
+            // Fallback to user dashboard
+            router.push('/protected/user/dashboard');
+          }
         } catch (routerError) {
           console.error("Failed to redirect after verification:", routerError);
           // Fallback to full page reload which will fetch fresh session

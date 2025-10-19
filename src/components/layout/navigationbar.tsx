@@ -1,17 +1,17 @@
 "use client"
 import * as React from "react"
 import Link from "next/link"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { cn } from "@/lib/utils/helpers"
 import { APP_CONFIG } from "@/lib/utils/constants"
-import { getRoleName } from "@/lib/auth/role-utils"
 import { getAppName } from "@/lib/utils/config"
 import type { NavigationItem, NavigationSubItem } from "@/lib/utils/constants" 
 import { Menu, X, ChevronRight, User, Settings, LogOut, Shield, LayoutDashboard } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { signOut } from "next-auth/react"
 import { ROUTES } from "@/routes/routeUtils"
+import { ROUTE_POLICIES } from "@/lib/rbac/routing-utils"
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -36,6 +36,7 @@ export function Navigationbar() {
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
+  const [dashboardPath, setDashboardPath] = useState(ROUTE_POLICIES.USER_DASHBOARD.path)
   const sidebarRef = React.useRef<HTMLDivElement>(null)
 
   // Check if user is authenticated and email is verified
@@ -43,12 +44,28 @@ export function Navigationbar() {
   const isEmailVerified = session?.user?.isEmailVerified
   const user = session?.user
 
-  // Helper to get role name from user object (new schema: roleId is UUID, role name may be present)
-
   // Ensure component is mounted on client side
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Fetch dashboard URL based on user's policies
+  useEffect(() => {
+    async function fetchDashboard() {
+      if (user?.id && isAuthenticated) {
+        try {
+          const response = await fetch('/api/rbac/user/dashboard');
+          const data = await response.json();
+          if (data.dashboardUrl) {
+            setDashboardPath(data.dashboardUrl);
+          }
+        } catch (error) {
+          console.error('Error fetching dashboard URL:', error);
+        }
+      }
+    }
+    fetchDashboard();
+  }, [user, isAuthenticated]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
@@ -120,17 +137,15 @@ export function Navigationbar() {
   useEffect(() => {
     if (!mounted) return;    
     if (!isAuthenticated) return;
-    const roleName = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
-    const desired = roleName === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
     // If current path is an auth page (but NOT home), push to desired dashboard
     if (typeof window !== 'undefined') {
       const path = window.location.pathname
       const isAuthPage = path.startsWith('/auth/')
       if (isAuthPage) {
-        router.replace(desired)
+        router.replace(dashboardPath)
       }
     }
-  }, [mounted, isAuthenticated, user, router])
+  }, [mounted, isAuthenticated, dashboardPath, router])
 
   // Type guard functions
   const hasHref = (item: NavigationItem): item is NavigationItem & { href: string } => {
@@ -162,10 +177,7 @@ export function Navigationbar() {
             {isAuthenticated && pathname === "/" && (
               <NavigationMenuItem>
                 <NavigationMenuLink className={navigationMenuTriggerStyle()} asChild>
-                  <Link href={(() => {
-                    const roleName = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
-                    return roleName === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
-                  })()}>
+                  <Link href={dashboardPath}>
                     Dashboard
                   </Link>
                 </NavigationMenuLink>
@@ -364,10 +376,7 @@ export function Navigationbar() {
                   {/* Dashboard link for authenticated users - only on home page */}
                   {pathname === "/" && (
                     <Link 
-                      href={(() => {
-                        const roleName = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
-                        return roleName === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
-                      })()} 
+                      href={dashboardPath} 
                       onClick={closeMenu}
                       className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-muted/60 dark:hover:bg-slate-800/60 transition-all duration-200 group text-foreground"
                     >

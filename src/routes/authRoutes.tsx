@@ -4,8 +4,7 @@ import { ReactNode, useEffect } from "react"
 import Loading from "@/components/Loading"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import { getRoleName } from "@/lib/auth/role-utils"
-import { ROUTES } from "@/routes/routeUtils"
+import { ROUTE_POLICIES } from "@/lib/rbac/routing-utils"
 
 export interface AuthRouteProps {
   children: ReactNode
@@ -14,11 +13,12 @@ export interface AuthRouteProps {
 }
 
 /**
- * Helper function to get the correct dashboard URL based on user role
+ * Helper function to get the correct dashboard URL based on user's policies
+ * This calls the API to get the policy-based dashboard
  */
-export function getRoleDashboard(user: { role?: string } | null | undefined): string {
-  const role = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
-  return role === 'admin' ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
+export function getRoleDashboard(): string {
+  // Return default path - actual routing is handled server-side
+  return ROUTE_POLICIES.USER_DASHBOARD.path;
 }
 
 /**
@@ -39,30 +39,44 @@ export function AuthRoute({
   
   // Use useEffect to handle redirection instead of doing it during render
   useEffect(() => {
-    // Only redirect if authentication state is confirmed (not loading)
-    // and the user is authenticated and we want to redirect
-    if (!loading && isAuthenticated && redirectIfAuthenticated) {
-      // Special case: Allow authenticated but unverified users to stay on verify page
-      if (!isEmailVerified && pathname === '/auth/verify') {
-        console.log('[AUTH_ROUTE] Allowing unverified user to stay on verify page')
-        return
-      }
-      
-      // For verified users, redirect to dashboard
-      if (isEmailVerified) {
-        const targetPath = redirectPath || getRoleDashboard(user);
-        console.log('[AUTH_ROUTE] Redirecting verified user to dashboard:', targetPath)
-        router.push(targetPath)
-        return
-      }
-      
-      // For unverified users on other auth pages, redirect to verify
-      if (isAuthenticated && !isEmailVerified) {
-        console.log('[AUTH_ROUTE] Redirecting unverified user to verify')
-        router.push('/auth/verify')
-        return
+    async function handleAuthRedirect() {
+      // Only redirect if authentication state is confirmed (not loading)
+      // and the user is authenticated and we want to redirect
+      if (!loading && isAuthenticated && redirectIfAuthenticated) {
+        // Special case: Allow authenticated but unverified users to stay on verify page
+        if (!isEmailVerified && pathname === ROUTE_POLICIES.AUTH_VERIFY.path) {
+          console.log('[AUTH_ROUTE] Allowing unverified user to stay on verify page')
+          return
+        }
+        
+        // For verified users, redirect to dashboard
+        if (isEmailVerified) {
+          try {
+            // Fetch user's dashboard URL from API
+            const response = await fetch('/api/rbac/user/dashboard');
+            const data = await response.json();
+            
+            const targetPath = redirectPath || data.dashboardUrl || ROUTE_POLICIES.USER_DASHBOARD.path;
+            console.log('[AUTH_ROUTE] Redirecting verified user to dashboard:', targetPath)
+            router.push(targetPath)
+            return
+          } catch (error) {
+            console.error('Error fetching dashboard URL:', error);
+            // Fallback to user dashboard
+            router.push(ROUTE_POLICIES.USER_DASHBOARD.path);
+          }
+        }
+        
+        // For unverified users on other auth pages, redirect to verify
+        if (isAuthenticated && !isEmailVerified) {
+          console.log('[AUTH_ROUTE] Redirecting unverified user to verify')
+          router.push(ROUTE_POLICIES.AUTH_VERIFY.path)
+          return
+        }
       }
     }
+    
+    handleAuthRedirect()
   }, [loading, isAuthenticated, isEmailVerified, redirectIfAuthenticated, redirectPath, router, pathname, user])
   
   // Show loading while checking authentication

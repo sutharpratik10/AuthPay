@@ -12,7 +12,7 @@ import { eq } from "drizzle-orm";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
@@ -20,7 +20,7 @@ export async function GET(
   }
 
   try {
-    const { userId } = params;
+    const { userId } = await params;
 
     // Check if user exists
     const user = await db.query.users.findFirst({

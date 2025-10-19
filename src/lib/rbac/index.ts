@@ -14,6 +14,18 @@ export {
   type AuthCheckResult
 } from "./policy-middleware";
 
+// Export routing utilities
+export {
+  getDashboardUrl,
+  getAuthorizedRoute,
+  getPostLoginRedirect,
+  getAuthPageRedirect,
+  isAdminUser,
+  hasAnyPolicy,
+  ROUTE_POLICIES,
+  DASHBOARD_PATHS
+} from "./routing-utils";
+
 // Export all types
 export type {
   PolicyName,
@@ -79,6 +91,20 @@ export const POLICIES = {
   SETTINGS_VIEW: "settings:view",
   SETTINGS_UPDATE: "settings:update",
   SETTINGS_MANAGE: "settings:manage",
+
+  // Profile Management
+  PROFILE_VIEW: "profile:view",
+  PROFILE_UPDATE: "profile:update",
+
+  // Account Management
+  ACCOUNT_VIEW: "account:view",
+  ACCOUNT_MANAGE: "account:manage",
+
+  // Admin Access
+  ADMIN_ACCESS: "admin:access",
+
+  // User Access (default for all authenticated users)
+  USER_ACCESS: "user:access",
 } as const;
 
 // Type for policy values

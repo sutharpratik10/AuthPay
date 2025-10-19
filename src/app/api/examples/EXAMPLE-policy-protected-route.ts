@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
   const userId = authCheck.userId; // You have access to the user's ID
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const body = await req.json();
     
     // Your content creation logic here
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
       message: "Content created successfully",
       userId
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to create content" },
       { status: 500 }
@@ -69,7 +70,7 @@ export async function GET(req: NextRequest) {
       success: true,
       data: [] // Your content data
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to fetch content" },
       { status: 500 }

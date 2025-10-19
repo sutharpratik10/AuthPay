@@ -11,7 +11,7 @@ import { eq } from "drizzle-orm";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { policyId: string } }
+  { params }: { params: Promise<{ policyId: string }> }
 ) {
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
@@ -19,7 +19,7 @@ export async function PUT(
   }
 
   try {
-    const { policyId } = params;
+    const { policyId } = await params;
     const body = await req.json();
     const { name, description, category, displayName, resource, action } = body;
 
@@ -72,7 +72,7 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { policyId: string } }
+  { params }: { params: Promise<{ policyId: string }> }
 ) {
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
@@ -80,7 +80,7 @@ export async function DELETE(
   }
 
   try {
-    const { policyId } = params;
+    const { policyId } = await params;
 
     // Check if policy exists
     const existingPolicy = await db.query.permissions.findFirst({

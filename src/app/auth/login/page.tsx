@@ -1,22 +1,43 @@
 ﻿"use client"
 
-import { useEffect } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import { getRoleName } from "@/lib/auth/role-utils"
-import { ROUTES } from "@/routes/routeUtils"
+import { ROUTE_POLICIES } from "@/lib/rbac/routing-utils"
 import LoginForm from "@/components/auth/LoginForm"
+import Loading from "@/components/Loading"
 
-export default function LoginPage() {  const router = useRouter()
+function LoginContent() {  
+  const router = useRouter()
   const searchParams = useSearchParams()
   const returnTo = searchParams.get('returnTo')
   const message = searchParams.get('message')
   const error = searchParams.get('error')
   const { isAuthenticated, isEmailVerified, loading, user } = useAuth()
+  const [dashboardUrl, setDashboardUrl] = useState<string | null>(null)
     
+  // Fetch dashboard URL when user is authenticated
+  useEffect(() => {
+    async function fetchDashboard() {
+      if (user?.id && isAuthenticated) {
+        try {
+          const response = await fetch('/api/rbac/user/dashboard');
+          const data = await response.json();
+          if (data.dashboardUrl) {
+            setDashboardUrl(data.dashboardUrl);
+          }
+        } catch (error) {
+          console.error('Error fetching dashboard URL:', error);
+          setDashboardUrl(ROUTE_POLICIES.USER_DASHBOARD.path);
+        }
+      }
+    }
+    fetchDashboard();
+  }, [user, isAuthenticated]);
+
   // Redirect if already authenticated
   useEffect(() => {    
-      if (!loading && isAuthenticated) {
+    if (!loading && isAuthenticated && dashboardUrl) {
       // Add a small delay to ensure session data is fully loaded
       const redirectTimer = setTimeout(() => {
         if (isEmailVerified) {
@@ -25,21 +46,18 @@ export default function LoginPage() {  const router = useRouter()
             console.log('[LOGIN] Redirecting verified user to:', redirectPath)
             router.push(redirectPath)
           } else {
-            // Determine dashboard based on user role
-            const userRole = getRoleName(user as { role?: string; roleName?: string; roleId?: string });
-            const dashboardUrl = userRole === 'admin' 
-              ? ROUTES.PROTECTED.ADMIN_DASHBOARD : ROUTES.PROTECTED.USER_DASHBOARD;
+            // Use fetched dashboard URL
             router.push(dashboardUrl)
           }
         } else {          
           console.log('[LOGIN] Redirecting unverified user to verify')
-          router.push("/auth/verify")
+          router.push(ROUTE_POLICIES.AUTH_VERIFY.path)
         }
       }, 100) // Small delay to ensure session is fully updated
       
       return () => clearTimeout(redirectTimer)
     }
-  }, [isAuthenticated, isEmailVerified, loading, returnTo, router, user])
+  }, [isAuthenticated, isEmailVerified, loading, returnTo, router, dashboardUrl])
     return (
     <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8 animate-in fade-in duration-500">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
@@ -67,5 +85,13 @@ export default function LoginPage() {  const router = useRouter()
         <LoginForm />
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<Loading text="Loading login..." />}>
+      <LoginContent />
+    </Suspense>
   )
 }

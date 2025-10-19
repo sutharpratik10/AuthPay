@@ -20,7 +20,7 @@ console.log('.env path:', chosenEnv, 'exists:', fs.existsSync(chosenEnv));
 console.log('DATABASE_URL:', process.env.DATABASE_URL);
 
 import { db } from '../src/server/db/index';
-import { roles, users, subscriptionPlans, subscriptionStatuses, subscriptionRenewalTypes } from '../src/server/db/schema';
+import { roles, users, userRoles, subscriptionPlans, subscriptionStatuses, subscriptionRenewalTypes } from '../src/server/db/schema';
 import bcrypt from 'bcryptjs';
 
 const defaultRoles = [
@@ -121,34 +121,72 @@ async function seed() {
     const adminEmail = 'admin@example.com';
     const existingAdmin = await db.query.users.findFirst({ where: (users, { eq }) => eq(users.email, adminEmail) });
     if (!existingAdmin) {
-      await db.insert(users).values({
+      const [newAdmin] = await db.insert(users).values({
         email: adminEmail,
         password: hashedAdminPassword,
         name: 'Admin',
         isEmailVerified: true,
         isActive: true,
+      }).returning();
+      
+      // Assign admin role using userRoles junction table
+      await db.insert(userRoles).values({
+        userId: newAdmin.id,
         roleId: adminRole.id,
       });
-      console.log('✅ Admin user created');
+      console.log('✅ Admin user created with admin role');
     } else {
       console.log('ℹ️ Admin user already exists');
+      // Check if admin has admin role, if not assign it
+      const hasAdminRole = await db.query.userRoles.findFirst({
+        where: (userRoles, { eq, and }) => and(
+          eq(userRoles.userId, existingAdmin.id),
+          eq(userRoles.roleId, adminRole.id)
+        )
+      });
+      if (!hasAdminRole) {
+        await db.insert(userRoles).values({
+          userId: existingAdmin.id,
+          roleId: adminRole.id,
+        });
+        console.log('✅ Assigned admin role to existing admin user');
+      }
     }
 
     // Insert regular user if not exist
     const userEmail = 'user@example.com';
     const existingUser = await db.query.users.findFirst({ where: (users, { eq }) => eq(users.email, userEmail) });
     if (!existingUser) {
-      await db.insert(users).values({
+      const [newUser] = await db.insert(users).values({
         email: userEmail,
         password: hashedUserPassword,
         name: 'User',
         isEmailVerified: true,
         isActive: true,
+      }).returning();
+      
+      // Assign user role using userRoles junction table
+      await db.insert(userRoles).values({
+        userId: newUser.id,
         roleId: userRole.id,
       });
-      console.log('✅ User user@example.com created');
+      console.log('✅ User user@example.com created with user role');
     } else {
       console.log('ℹ️ User user@example.com already exists');
+      // Check if user has user role, if not assign it
+      const hasUserRole = await db.query.userRoles.findFirst({
+        where: (userRoles, { eq, and }) => and(
+          eq(userRoles.userId, existingUser.id),
+          eq(userRoles.roleId, userRole.id)
+        )
+      });
+      if (!hasUserRole) {
+        await db.insert(userRoles).values({
+          userId: existingUser.id,
+          roleId: userRole.id,
+        });
+        console.log('✅ Assigned user role to existing user');
+      }
     }
 
     // Insert subscription renewal options

@@ -4,16 +4,35 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
-import { ROUTES } from "@/routes/routeUtils"
-import { getRoleDashboard } from "@/routes/authRoutes"
+import { ROUTE_POLICIES } from "@/lib/rbac/routing-utils"
+import { useEffect, useState } from "react"
 
 export function AuthLinks() {
   const { isAuthenticated, logout, loading, user } = useAuth()
   const router = useRouter()
+  const [dashboardPath, setDashboardPath] = useState(ROUTE_POLICIES.USER_DASHBOARD.path)
+
+  useEffect(() => {
+    async function fetchDashboard() {
+      if (user?.id) {
+        try {
+          // Call API to get dashboard URL based on user's policies
+          const response = await fetch('/api/rbac/user/dashboard');
+          const data = await response.json();
+          if (data.dashboardUrl) {
+            setDashboardPath(data.dashboardUrl);
+          }
+        } catch (error) {
+          console.error('Error fetching dashboard URL:', error);
+        }
+      }
+    }
+    fetchDashboard();
+  }, [user]);
 
   const handleLogout = () => {
     logout()
-    router.push(ROUTES.PUBLIC.HOME)
+    router.push(ROUTE_POLICIES.AUTH_LOGIN.path)
   }
 
   // Show skeleton/placeholder during loading to prevent layout shift
@@ -29,7 +48,7 @@ export function AuthLinks() {
   if (isAuthenticated) {
     return (
       <div className="flex items-center space-x-4">
-        <Link href={getRoleDashboard(user)} className="text-sm font-medium hover:text-primary transition-colors">
+        <Link href={dashboardPath} className="text-sm font-medium hover:text-primary transition-colors">
           Dashboard
         </Link>
         <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -41,14 +60,15 @@ export function AuthLinks() {
 
   return (
     <div className="flex items-center space-x-4">
-      <Link href={ROUTES.AUTH.LOGIN} className="text-sm font-medium hover:text-primary transition-colors">
+      <Link href={ROUTE_POLICIES.AUTH_LOGIN.path} className="text-sm font-medium hover:text-primary transition-colors">
         Login
       </Link>
       <Button asChild size="sm">
-        <Link href={ROUTES.AUTH.SIGNUP}>
+        <Link href={ROUTE_POLICIES.AUTH_SIGNUP.path}>
           Sign Up
         </Link>
       </Button>
     </div>
   )
 }
+

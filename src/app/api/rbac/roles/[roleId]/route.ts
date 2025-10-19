@@ -11,7 +11,7 @@ import { eq } from "drizzle-orm";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { roleId: string } }
+  { params }: { params: Promise<{ roleId: string }> }
 ) {
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
@@ -19,7 +19,7 @@ export async function PUT(
   }
 
   try {
-    const { roleId } = params;
+    const { roleId } = await params;
     const body = await req.json();
     const { name, description, isDefault } = body;
 
@@ -73,7 +73,7 @@ export async function PUT(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { roleId: string } }
+  { params }: { params: Promise<{ roleId: string }> }
 ) {
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
@@ -81,7 +81,7 @@ export async function DELETE(
   }
 
   try {
-    const { roleId } = params;
+    const { roleId } = await params;
 
     // Check if role exists
     const existingRole = await db.query.roles.findFirst({

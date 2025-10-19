@@ -8,13 +8,31 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
-import { getRoleDashboard } from '@/routes/authRoutes';
+import { ROUTE_POLICIES } from '@/lib/rbac/routing-utils';
 
 function PaymentSuccessContent() {
   const [loading, setLoading] = useState(true);
+  const [dashboardPath, setDashboardPath] = useState(ROUTE_POLICIES.USER_DASHBOARD.path);
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
+
+  useEffect(() => {
+    async function fetchDashboard() {
+      if (user?.id) {
+        try {
+          const response = await fetch('/api/rbac/user/dashboard');
+          const data = await response.json();
+          if (data.dashboardUrl) {
+            setDashboardPath(data.dashboardUrl);
+          }
+        } catch (error) {
+          console.error('Error fetching dashboard URL:', error);
+        }
+      }
+    }
+    fetchDashboard();
+  }, [user]);
 
   useEffect(() => {
     // Since we're now using internal subscription assignment,
@@ -35,7 +53,7 @@ function PaymentSuccessContent() {
     router.push('/protected/user/manage-subscription');
   };
   const handleGoToDashboard = () => {
-    router.push(getRoleDashboard(user));
+    router.push(dashboardPath);
   };
 
   if (loading) {

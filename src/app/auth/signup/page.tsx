@@ -1,29 +1,45 @@
 ﻿"use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
+import { ROUTE_POLICIES } from "@/lib/rbac/routing-utils"
 import SignupForm from "@/components/auth/SignupForm"
 
 export default function SignupPage() {
   const router = useRouter()
   const { isAuthenticated, isEmailVerified, loading, user } = useAuth()
+  const [dashboardUrl, setDashboardUrl] = useState<string | null>(null)
   
-  // Redirect if already authenticated
+  // Fetch dashboard URL when user is authenticated
   useEffect(() => {
-    if (!loading && isAuthenticated) {
-      if (isEmailVerified) {
-        // Determine dashboard based on user role
-        const userRole = (user as { role?: string })?.role || 'user';
-        const dashboardUrl = userRole === 'admin' 
-          ? '/protected/admin/dashboard' 
-          : '/protected/user/dashboard';
-        router.push(dashboardUrl)
-      } else {
-        router.push("/auth/verify")
+    async function fetchDashboard() {
+      if (user?.id && isAuthenticated) {
+        try {
+          const response = await fetch('/api/rbac/user/dashboard');
+          const data = await response.json();
+          if (data.dashboardUrl) {
+            setDashboardUrl(data.dashboardUrl);
+          }
+        } catch (error) {
+          console.error('Error fetching dashboard URL:', error);
+          setDashboardUrl(ROUTE_POLICIES.USER_DASHBOARD.path);
+        }
       }
     }
-  }, [isAuthenticated, isEmailVerified, loading, router, user])
+    fetchDashboard();
+  }, [user, isAuthenticated]);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!loading && isAuthenticated && dashboardUrl) {
+      if (isEmailVerified) {
+        router.push(dashboardUrl)
+      } else {
+        router.push(ROUTE_POLICIES.AUTH_VERIFY.path)
+      }
+    }
+  }, [isAuthenticated, isEmailVerified, loading, router, dashboardUrl])
   
   return (
     <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8 animate-in fade-in duration-500">

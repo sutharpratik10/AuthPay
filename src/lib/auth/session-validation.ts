@@ -19,7 +19,6 @@ export interface SessionValidationResult {
     name?: string;
     isEmailVerified: boolean;
     isActive?: boolean;
-    roleId: string;
   };
   sessionDetails?: {
     sessionId: string;
@@ -74,7 +73,6 @@ export async function validateSessionFromRequest(
         name: true,
         isEmailVerified: true,
         isActive: true,
-        roleId: true,
       }
     });
 
@@ -120,7 +118,6 @@ export async function validateSessionFromRequest(
         name: user.name || undefined,
         isEmailVerified: user.isEmailVerified ?? false,
         isActive: user.isActive ?? true,
-        roleId: user.roleId ?? "",
       },
       sessionDetails: sessionValidation.sessionId ? {
         sessionId: sessionValidation.sessionId,
