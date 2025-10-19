@@ -189,6 +189,7 @@ export default function AdminRolesPage() {
         toast({
           title: 'Success',
           description: 'Role created successfully',
+          variant: 'success',
         });
         setIsCreateDialogOpen(false);
         resetForm();
@@ -227,6 +228,7 @@ export default function AdminRolesPage() {
         toast({
           title: 'Success',
           description: 'Role updated successfully',
+          variant: 'success',
         });
         setIsEditDialogOpen(false);
         resetForm();
@@ -263,6 +265,7 @@ export default function AdminRolesPage() {
         toast({
           title: 'Success',
           description: 'Role deleted successfully',
+          variant: 'success',
         });
         setIsDeleteDialogOpen(false);
         fetchRoles();

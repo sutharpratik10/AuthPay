@@ -161,6 +161,7 @@ export default function AdminUsersPage() {
         toast({
           title: 'Success',
           description: data.message,
+          variant: 'success',
         });
         fetchUsers(); // Refresh the users list to show updated subscription info
       } else {
@@ -194,6 +195,7 @@ export default function AdminUsersPage() {
         toast({
           title: 'Success',
           description: data.message,
+          variant: 'success',
         });
         fetchUsers(); // Refresh the users list to show updated subscription info
       } else {
@@ -272,6 +274,7 @@ export default function AdminUsersPage() {
         toast({
           title: 'Success',
           description: 'User created successfully',
+          variant: 'success',
         });
         setIsCreateDialogOpen(false);
         resetForm();
@@ -308,6 +311,7 @@ export default function AdminUsersPage() {
         toast({
           title: 'Success',
           description: `User roles updated to: ${selectedRoles.join(', ')}`,
+          variant: 'success',
         });
         fetchUsers();
       } else {
@@ -362,6 +366,7 @@ export default function AdminUsersPage() {
         toast({
           title: 'Success',
           description: 'User updated successfully',
+          variant: 'success',
         });
         setIsEditDialogOpen(false);
         resetForm();
@@ -409,6 +414,7 @@ export default function AdminUsersPage() {
         toast({
           title: 'Success',
           description: 'User deleted successfully',
+          variant: 'success',
         });
         setIsDeleteDialogOpen(false);
         setSelectedUser(null);
@@ -1047,6 +1053,7 @@ export default function AdminUsersPage() {
                                   toast({
                                     title: 'Success',
                                     description: `User ${checked ? 'suspended' : 'unsuspended'} successfully`,
+                                    variant: 'success',
                                   });
                                 } catch {
                                   toast({

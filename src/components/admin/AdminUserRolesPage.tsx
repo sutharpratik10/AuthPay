@@ -145,6 +145,7 @@ export default function AdminUserRolesPage() {
         toast({
           title: 'Success',
           description: `User role updated to ${pendingRoleChange.newRole}`,
+          variant: 'success',
         });
         fetchUsers();
       } else {

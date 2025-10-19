@@ -42,7 +42,7 @@ function PaymentSuccessContent() {
       toast({
         title: "Subscription Activated",
         description: "Your subscription has been successfully activated!",
-        variant: "default"
+        variant: "success"
       });
     }, 1000);
 
