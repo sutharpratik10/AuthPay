@@ -13,7 +13,10 @@ import {
   TableCell, 
   TableHead, 
   TableHeader, 
-  TableRow 
+  TableRow,
+  TableHeadSortable,
+  TableColumnSearch,
+  TablePagination
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -30,11 +33,10 @@ import {
   XCircle,
   Package,
   Users,
-  ArrowUpDown,
   Check
 } from 'lucide-react';
 
-interface SubscriptionPlan {
+interface SubscriptionPlan extends Record<string, unknown> {
   id: string;
   name: string;
   description: string | null;
@@ -114,7 +116,7 @@ interface RazorpayInvoice {
 }
 
 // Razorpay Plan interfaces (minimal)
-interface RazorpayPlanItem {
+interface RazorpayPlanItem extends Record<string, unknown> {
   id: string;
   active?: boolean;
   name?: string;
@@ -125,7 +127,7 @@ interface RazorpayPlanItem {
   created_at?: number;
 }
 
-interface RazorpayPlan {
+interface RazorpayPlan extends Record<string, unknown> {
   id: string;
   entity: string;
   interval?: number;
@@ -242,6 +244,79 @@ export default function RazorPay() {
   const [plansPage, setPlansPage] = useState(1);
   const [plansTotal, setPlansTotal] = useState(0);
   const plansPageSize = 10;
+
+  // Razorpay Plans sorting and column filtering
+  type RazorpayPlanSortField = 'id' | 'name' | 'amount' | 'period' | 'created_at';
+  const [razorpayPlanSortField, setRazorpayPlanSortField] = useState<RazorpayPlanSortField>('created_at');
+  const [razorpayPlanSortDirection, setRazorpayPlanSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [razorpayPlanColumnFilters, setRazorpayPlanColumnFilters] = useState<Record<string, string>>({});
+
+  const handleRazorpayPlanSort = (field: RazorpayPlanSortField) => {
+    if (field === razorpayPlanSortField) {
+      setRazorpayPlanSortDirection(razorpayPlanSortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setRazorpayPlanSortField(field);
+      setRazorpayPlanSortDirection('asc');
+    }
+  };
+
+  const handleRazorpayPlanColumnFilter = (column: string, value: string) => {
+    setRazorpayPlanColumnFilters(prev => ({
+      ...prev,
+      [column]: value
+    }));
+  };
+
+  const filteredAndSortedRazorpayPlans = useMemo(() => {
+    let result = [...razorpayPlans];
+
+    // Apply column filters
+    Object.entries(razorpayPlanColumnFilters).forEach(([column, filterValue]) => {
+      if (filterValue) {
+        result = result.filter((plan) => {
+          if (column === 'name' || column === 'amount') {
+            const item = plan.item as RazorpayPlanItem | undefined;
+            if (!item) return false;
+            const itemValue = String((item as Record<string, unknown>)[column] || '').toLowerCase();
+            return itemValue.includes(filterValue.toLowerCase());
+          } else {
+            const itemValue = String((plan as Record<string, unknown>)[column] || '').toLowerCase();
+            return itemValue.includes(filterValue.toLowerCase());
+          }
+        });
+      }
+    });
+
+    // Apply sorting
+    result.sort((a, b) => {
+      let aVal: string | number;
+      let bVal: string | number;
+
+      if (razorpayPlanSortField === 'name' || razorpayPlanSortField === 'amount') {
+        const aItem = a.item as RazorpayPlanItem | undefined;
+        const bItem = b.item as RazorpayPlanItem | undefined;
+        aVal = (aItem as Record<string, unknown>)?.[razorpayPlanSortField] as string | number || '';
+        bVal = (bItem as Record<string, unknown>)?.[razorpayPlanSortField] as string | number || '';
+      } else {
+        aVal = (a as Record<string, unknown>)[razorpayPlanSortField] as string | number || '';
+        bVal = (b as Record<string, unknown>)[razorpayPlanSortField] as string | number || '';
+      }
+
+      if (razorpayPlanSortField === 'amount' || razorpayPlanSortField === 'created_at') {
+        aVal = Number(aVal) || 0;
+        bVal = Number(bVal) || 0;
+      } else {
+        aVal = String(aVal).toLowerCase();
+        bVal = String(bVal).toLowerCase();
+      }
+
+      if (aVal < bVal) return razorpayPlanSortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return razorpayPlanSortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [razorpayPlans, razorpayPlanColumnFilters, razorpayPlanSortField, razorpayPlanSortDirection]);
 
   // Single plan dialog state
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
@@ -807,6 +882,68 @@ export default function RazorPay() {
     plan.billingCycle.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Basic Plans table sorting and filtering
+  type BasicPlanSortField = 'name' | 'price' | 'billingCycle' | 'isActive' | 'createdAt' | 'userCountActive';
+  const [basicPlanSortField, setBasicPlanSortField] = useState<BasicPlanSortField>('createdAt');
+  const [basicPlanSortDirection, setBasicPlanSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [basicPlanColumnFilters, setBasicPlanColumnFilters] = useState<Record<string, string>>({});
+
+  const handleBasicPlanSort = (field: BasicPlanSortField) => {
+    if (field === basicPlanSortField) {
+      setBasicPlanSortDirection(basicPlanSortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setBasicPlanSortField(field);
+      setBasicPlanSortDirection('asc');
+    }
+  };
+
+  const handleBasicPlanColumnFilter = (column: string, value: string) => {
+    setBasicPlanColumnFilters(prev => ({
+      ...prev,
+      [column]: value
+    }));
+  };
+
+  const filteredAndSortedBasicPlans = useMemo(() => {
+    let result = [...filteredPlans];
+
+    // Apply column filters
+    Object.entries(basicPlanColumnFilters).forEach(([column, filterValue]) => {
+      if (filterValue) {
+        result = result.filter((plan) => {
+          const itemValue = String((plan as Record<string, unknown>)[column] || '').toLowerCase();
+          return itemValue.includes(filterValue.toLowerCase());
+        });
+      }
+    });
+
+    // Apply sorting
+    result.sort((a, b) => {
+      let aVal: string | number = (a as Record<string, unknown>)[basicPlanSortField] as string | number;
+      let bVal: string | number = (b as Record<string, unknown>)[basicPlanSortField] as string | number;
+
+      if (basicPlanSortField === 'price' || basicPlanSortField === 'userCountActive') {
+        aVal = Number(aVal) || 0;
+        bVal = Number(bVal) || 0;
+      } else if (basicPlanSortField === 'createdAt') {
+        aVal = new Date(aVal as string).getTime();
+        bVal = new Date(bVal as string).getTime();
+      } else if (basicPlanSortField === 'isActive') {
+        aVal = aVal ? 1 : 0;
+        bVal = bVal ? 1 : 0;
+      } else {
+        aVal = String(aVal || '').toLowerCase();
+        bVal = String(bVal || '').toLowerCase();
+      }
+
+      if (aVal < bVal) return basicPlanSortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return basicPlanSortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [filteredPlans, basicPlanColumnFilters, basicPlanSortField, basicPlanSortDirection]);
+
   // Parse features for display
   const parseFeatures = (featuresStr: string | null): string[] => {
     if (!featuresStr) return [];
@@ -1019,18 +1156,94 @@ export default function RazorPay() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Billing Cycle</TableHead>
+                  <TableHeadSortable
+                    sortable
+                    sortDirection={basicPlanSortField === 'name' ? basicPlanSortDirection : null}
+                    onSort={() => handleBasicPlanSort('name')}
+                  >
+                    Plan
+                  </TableHeadSortable>
+                  <TableHeadSortable
+                    sortable
+                    sortDirection={basicPlanSortField === 'price' ? basicPlanSortDirection : null}
+                    onSort={() => handleBasicPlanSort('price')}
+                  >
+                    Price
+                  </TableHeadSortable>
+                  <TableHeadSortable
+                    sortable
+                    sortDirection={basicPlanSortField === 'billingCycle' ? basicPlanSortDirection : null}
+                    onSort={() => handleBasicPlanSort('billingCycle')}
+                  >
+                    Billing Cycle
+                  </TableHeadSortable>
                   <TableHead>Features</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>User Count</TableHead>
+                  <TableHeadSortable
+                    sortable
+                    sortDirection={basicPlanSortField === 'isActive' ? basicPlanSortDirection : null}
+                    onSort={() => handleBasicPlanSort('isActive')}
+                  >
+                    Status
+                  </TableHeadSortable>
+                  <TableHeadSortable
+                    sortable
+                    sortDirection={basicPlanSortField === 'createdAt' ? basicPlanSortDirection : null}
+                    onSort={() => handleBasicPlanSort('createdAt')}
+                  >
+                    Created
+                  </TableHeadSortable>
+                  <TableHeadSortable
+                    sortable
+                    sortDirection={basicPlanSortField === 'userCountActive' ? basicPlanSortDirection : null}
+                    onSort={() => handleBasicPlanSort('userCountActive')}
+                  >
+                    User Count
+                  </TableHeadSortable>
                   <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+                <TableRow>
+                  <TableHead>
+                    <TableColumnSearch
+                      placeholder="Search plan..."
+                      onSearch={(value) => handleBasicPlanColumnFilter('name', value)}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <TableColumnSearch
+                      placeholder="Search price..."
+                      onSearch={(value) => handleBasicPlanColumnFilter('price', value)}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <TableColumnSearch
+                      placeholder="Search cycle..."
+                      onSearch={(value) => handleBasicPlanColumnFilter('billingCycle', value)}
+                    />
+                  </TableHead>
+                  <TableHead></TableHead>
+                  <TableHead>
+                    <TableColumnSearch
+                      placeholder="Search status..."
+                      onSearch={(value) => handleBasicPlanColumnFilter('isActive', value)}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <TableColumnSearch
+                      placeholder="Search date..."
+                      onSearch={(value) => handleBasicPlanColumnFilter('createdAt', value)}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <TableColumnSearch
+                      placeholder="Search count..."
+                      onSearch={(value) => handleBasicPlanColumnFilter('userCountActive', value)}
+                    />
+                  </TableHead>
+                  <TableHead className="text-right"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPlans.length === 0 ? (
+                {filteredAndSortedBasicPlans.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8">
                       <div className="text-muted-foreground">
@@ -1039,7 +1252,7 @@ export default function RazorPay() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredPlans.map((plan) => (
+                  filteredAndSortedBasicPlans.map((plan) => (
                     <TableRow key={plan.id}>
                       <TableCell>
                         <div>
@@ -1203,20 +1416,82 @@ export default function RazorPay() {
               <Table className="min-w-[700px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Plan Id</TableHead>
-                    <TableHead>Plan Name</TableHead>
-                    <TableHead>Amount/Unit</TableHead>
-                    <TableHead>Billing Cycle</TableHead>
-                    <TableHead>Created At</TableHead>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={razorpayPlanSortField === 'id' ? razorpayPlanSortDirection : null}
+                      onSort={() => handleRazorpayPlanSort('id')}
+                    >
+                      Plan Id
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={razorpayPlanSortField === 'name' ? razorpayPlanSortDirection : null}
+                      onSort={() => handleRazorpayPlanSort('name')}
+                    >
+                      Plan Name
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={razorpayPlanSortField === 'amount' ? razorpayPlanSortDirection : null}
+                      onSort={() => handleRazorpayPlanSort('amount')}
+                    >
+                      Amount/Unit
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={razorpayPlanSortField === 'period' ? razorpayPlanSortDirection : null}
+                      onSort={() => handleRazorpayPlanSort('period')}
+                    >
+                      Billing Cycle
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={razorpayPlanSortField === 'created_at' ? razorpayPlanSortDirection : null}
+                      onSort={() => handleRazorpayPlanSort('created_at')}
+                    >
+                      Created At
+                    </TableHeadSortable>
+                  </TableRow>
+                  <TableRow>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search ID..."
+                        onSearch={(value) => handleRazorpayPlanColumnFilter('id', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search name..."
+                        onSearch={(value) => handleRazorpayPlanColumnFilter('name', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search amount..."
+                        onSearch={(value) => handleRazorpayPlanColumnFilter('amount', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search cycle..."
+                        onSearch={(value) => handleRazorpayPlanColumnFilter('period', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search date..."
+                        onSearch={(value) => handleRazorpayPlanColumnFilter('created_at', value)}
+                      />
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {razorpayPlans.length === 0 ? (
+                  {filteredAndSortedRazorpayPlans.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No plans found.</TableCell>
                     </TableRow>
                   ) : (
-                    razorpayPlans.map((p: RazorpayPlan) => (
+                    filteredAndSortedRazorpayPlans.map((p: RazorpayPlan) => (
                       <TableRow key={p.id}>
                         <TableCell>
                           <button
@@ -1245,15 +1520,13 @@ export default function RazorPay() {
                 </TableBody>
               </Table>
 
-              {plansTotal > plansPageSize && (
-                <div className="flex items-center justify-between gap-2 px-4 py-3 border-t bg-slate-50 dark:bg-slate-900">
-                  <div className="text-xs text-muted-foreground">Page {plansPage} of {Math.ceil(plansTotal / plansPageSize)} ({plansTotal} total plans)</div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" disabled={plansPage === 1} onClick={() => setPlansPage(p => Math.max(1, p - 1))}>Prev</Button>
-                    <Button size="sm" variant="outline" disabled={plansPage === Math.ceil(plansTotal / plansPageSize)} onClick={() => setPlansPage(p => Math.min(Math.ceil(plansTotal / plansPageSize), p + 1))}>Next</Button>
-                  </div>
-                </div>
-              )}
+              <TablePagination
+                currentPage={plansPage}
+                totalPages={Math.ceil(plansTotal / plansPageSize)}
+                pageSize={plansPageSize}
+                totalItems={plansTotal}
+                onPageChange={setPlansPage}
+              />
             </div>
           )}
         </CardContent>
@@ -1276,111 +1549,99 @@ export default function RazorPay() {
             <div className="w-full">
               <Table className="">
                 <TableHeader>
-                  <TableRow className="py-3 align-middle" style={{ paddingTop: '12px', paddingBottom: '12px' }}>
-                      <TableHead>
-                        <div className="flex flex-col py-2">
-                          <Button variant="ghost" size="sm" className="h-auto p-0 font-semibold text-left" onClick={() => handleSort('id')}>
-                            Subscription Id
-                            <ArrowUpDown className="w-3 h-3" />
-                          </Button>
-                          <input
-                            type="text"
-                            className="mt-1 px-2 py-1 border rounded text-md bg-background"
-                            placeholder="Filter..."
-                            value={subscriptionFilters.id}
-                            onChange={e => setSubscriptionFilters(f => ({ ...f, id: e.target.value }))}
-                          />
-                        </div>
-                      </TableHead>
+                  <TableRow>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'id' ? sortDirection : null}
+                      onSort={() => handleSort('id')}
+                    >
+                      Subscription Id
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'plan_id' ? sortDirection : null}
+                      onSort={() => handleSort('plan_id')}
+                    >
+                      Plan Id
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'short_url' ? sortDirection : null}
+                      onSort={() => handleSort('short_url')}
+                    >
+                      Subscription Link
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'customer_id' ? sortDirection : null}
+                      onSort={() => handleSort('customer_id')}
+                    >
+                      Customer Id
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'current_end' ? sortDirection : null}
+                      onSort={() => handleSort('current_end')}
+                    >
+                      Next Due on
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'created_at' ? sortDirection : null}
+                      onSort={() => handleSort('created_at')}
+                    >
+                      Created At
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'status' ? sortDirection : null}
+                      onSort={() => handleSort('status')}
+                    >
+                      Status
+                    </TableHeadSortable>
+                  </TableRow>
+                  <TableRow>
                     <TableHead>
-                      <div className="flex flex-col py-2">
-                        <Button variant="ghost" size="sm" className="h-auto p-0 font-semibold text-left" onClick={() => handleSort('plan_id')}>
-                          Plan Id
-                          <ArrowUpDown className="w-3 h-3" />
-                        </Button>
-                        <input
-                          type="text"
-                          className="mt-1 px-2 py-1 border rounded text-md bg-background"
-                          placeholder="Filter..."
-                          value={subscriptionFilters.plan_id}
-                          onChange={e => setSubscriptionFilters(f => ({ ...f, plan_id: e.target.value }))}
-                        />
-                      </div>
+                      <TableColumnSearch
+                        placeholder="Filter ID..."
+                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, id: value }))}
+                      />
                     </TableHead>
                     <TableHead>
-                      <div className="flex flex-col py-2">
-                        <Button variant="ghost" size="sm" className="h-auto p-0 font-semibold text-left" onClick={() => handleSort('short_url')}>
-                          Subscription Link
-                          <ArrowUpDown className="w-3 h-3" />
-                        </Button>
-                        <input
-                          type="text"
-                          className="mt-1 px-2 py-1 border rounded text-md bg-background"
-                          placeholder="Filter..."
-                          value={subscriptionFilters.short_url}
-                          onChange={e => setSubscriptionFilters(f => ({ ...f, short_url: e.target.value }))}
-                        />
-                      </div>
+                      <TableColumnSearch
+                        placeholder="Filter plan..."
+                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, plan_id: value }))}
+                      />
                     </TableHead>
                     <TableHead>
-                      <div className="flex flex-col py-2">
-                        <Button variant="ghost" size="sm" className="h-auto p-0 font-semibold text-left" onClick={() => handleSort('customer_id')}>
-                          Customer Id
-                          <ArrowUpDown className="w-3 h-3" />
-                        </Button>
-                        <input
-                          type="text"
-                          className="mt-1 px-2 py-1 border rounded text-md bg-background"
-                          placeholder="Filter..."
-                          value={subscriptionFilters.customer_id}
-                          onChange={e => setSubscriptionFilters(f => ({ ...f, customer_id: e.target.value }))}
-                        />
-                      </div>
+                      <TableColumnSearch
+                        placeholder="Filter link..."
+                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, short_url: value }))}
+                      />
                     </TableHead>
                     <TableHead>
-                      <div className="flex flex-col py-2">
-                        <Button variant="ghost" size="sm" className="h-auto p-0 font-semibold text-left" onClick={() => handleSort('current_end')}>
-                          Next Due on
-                          <ArrowUpDown className="w-3 h-3" />
-                        </Button>
-                        <input
-                          type="text"
-                          className="mt-1 px-2 py-1 border rounded text-md bg-background"
-                          placeholder="Filter..."
-                          value={subscriptionFilters.current_end}
-                          onChange={e => setSubscriptionFilters(f => ({ ...f, current_end: e.target.value }))}
-                        />
-                      </div>
+                      <TableColumnSearch
+                        placeholder="Filter customer..."
+                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, customer_id: value }))}
+                      />
                     </TableHead>
                     <TableHead>
-                      <div className="flex flex-col py-2">
-                        <Button variant="ghost" size="sm" className="h-auto p-0 font-semibold text-left" onClick={() => handleSort('created_at')}>
-                          Created At
-                          <ArrowUpDown className="w-3 h-3" />
-                        </Button>
-                        <input
-                          type="text"
-                          className="mt-1 px-2 py-1 border rounded text-md bg-background"
-                          placeholder="Filter..."
-                          value={subscriptionFilters.created_at}
-                          onChange={e => setSubscriptionFilters(f => ({ ...f, created_at: e.target.value }))}
-                        />
-                      </div>
+                      <TableColumnSearch
+                        placeholder="Filter date..."
+                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, current_end: value }))}
+                      />
                     </TableHead>
                     <TableHead>
-                      <div className="flex flex-col py-2">
-                        <Button variant="ghost" size="sm" className="h-auto p-0 font-semibold text-left" onClick={() => handleSort('status')}>
-                          Status
-                          <ArrowUpDown className="w-3 h-3" />
-                        </Button>
-                        <input
-                          type="text"
-                          className="mt-1 px-2 py-1 border rounded text-md bg-background"
-                          placeholder="Filter..."
-                          value={subscriptionFilters.status}
-                          onChange={e => setSubscriptionFilters(f => ({ ...f, status: e.target.value }))}
-                        />
-                      </div>
+                      <TableColumnSearch
+                        placeholder="Filter date..."
+                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, created_at: value }))}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Filter status..."
+                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, status: value }))}
+                      />
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1478,33 +1739,14 @@ export default function RazorPay() {
                   )}
                 </TableBody>
               </Table>
-              {/* Pagination */}
-              {subscriptionsTotal > subscriptionsPageSize && (
-                <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t bg-slate-50 dark:bg-slate-900">
-                  <div className="text-xs text-muted-foreground">
-                    Page {subscriptionsPage} of {Math.ceil(subscriptionsTotal / subscriptionsPageSize)} 
-                    ({subscriptionsTotal} total subscriptions)
-                  </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      disabled={subscriptionsPage === 1} 
-                      onClick={() => setSubscriptionsPage(p => Math.max(1, p - 1))}
-                    >
-                      Prev
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      disabled={subscriptionsPage === Math.ceil(subscriptionsTotal / subscriptionsPageSize)} 
-                      onClick={() => setSubscriptionsPage(p => Math.min(Math.ceil(subscriptionsTotal / subscriptionsPageSize), p + 1))}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
+              
+              <TablePagination
+                currentPage={subscriptionsPage}
+                totalPages={Math.ceil(subscriptionsTotal / subscriptionsPageSize)}
+                pageSize={subscriptionsPageSize}
+                totalItems={subscriptionsTotal}
+                onPageChange={setSubscriptionsPage}
+              />
             </div>
           )}
         </CardContent>

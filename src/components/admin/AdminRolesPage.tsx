@@ -6,7 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow,
+  TableHeadSortable,
+  TableColumnSearch,
+  TablePagination
+} from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -66,13 +76,28 @@ export default function AdminRolesPage() {
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'roles' | 'assignments'>('roles');
   const { toast } = useToast();
+
+  // Sorting state
+  type SortColumn = 'name' | 'description' | 'type' | 'userCount' | 'createdAt' | null;
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
+
+  // Column filters
+  const [columnFilters, setColumnFilters] = useState({
+    name: '',
+    description: '',
+    type: '',
+    userCount: '',
+    createdAt: '',
+  });
 
   // Form state for create/edit role
   const [formData, setFormData] = useState({
@@ -274,6 +299,86 @@ export default function AdminRolesPage() {
     fetchRoles(1, value);
   };
 
+  // Handle sorting
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortColumn(null);
+        setSortDirection(null);
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Handle column filter
+  const handleColumnFilter = (column: string, value: string) => {
+    setColumnFilters((prev) => ({ ...prev, [column]: value }));
+  };
+
+  // Filter and sort roles
+  const filteredAndSortedRoles = React.useMemo(() => {
+    let filtered = [...roles];
+
+    // Apply column filters
+    Object.entries(columnFilters).forEach(([column, filterValue]) => {
+      if (filterValue) {
+        filtered = filtered.filter((role) => {
+          const value = column === 'type' 
+            ? (role.isSystemManaged ? 'System' : 'Custom')
+            : column === 'userCount'
+            ? String(role.userCount || 0)
+            : String(role[column as keyof Role] || '');
+          return value.toLowerCase().includes(filterValue.toLowerCase());
+        });
+      }
+    });
+
+    // Apply sorting
+    if (sortColumn && sortDirection) {
+      filtered.sort((a, b) => {
+        let aValue: string | number = '';
+        let bValue: string | number = '';
+
+        switch (sortColumn) {
+          case 'name':
+            aValue = a.name || '';
+            bValue = b.name || '';
+            break;
+          case 'description':
+            aValue = a.description || '';
+            bValue = b.description || '';
+            break;
+          case 'type':
+            aValue = a.isSystemManaged ? 'System' : 'Custom';
+            bValue = b.isSystemManaged ? 'System' : 'Custom';
+            break;
+          case 'userCount':
+            aValue = a.userCount || 0;
+            bValue = b.userCount || 0;
+            break;
+          case 'createdAt':
+            aValue = a.createdAt || '';
+            bValue = b.createdAt || '';
+            break;
+        }
+
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+
+        return sortDirection === 'asc'
+          ? String(aValue).localeCompare(String(bValue))
+          : String(bValue).localeCompare(String(aValue));
+      });
+    }
+
+    return filtered;
+  }, [roles, columnFilters, sortColumn, sortDirection]);
+
   // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -395,17 +500,90 @@ export default function AdminRolesPage() {
                 <>
                   <Table>
                     <TableHeader>
+                      {/* Header row with sorting */}
                       <TableRow>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Users</TableHead>
-                        <TableHead>Created</TableHead>
+                        <TableHeadSortable
+                          sortable
+                          sortDirection={sortColumn === 'name' ? sortDirection : null}
+                          onSort={() => handleSort('name')}
+                        >
+                          Role
+                        </TableHeadSortable>
+                        <TableHeadSortable
+                          sortable
+                          sortDirection={sortColumn === 'description' ? sortDirection : null}
+                          onSort={() => handleSort('description')}
+                        >
+                          Description
+                        </TableHeadSortable>
+                        <TableHeadSortable
+                          sortable
+                          sortDirection={sortColumn === 'type' ? sortDirection : null}
+                          onSort={() => handleSort('type')}
+                        >
+                          Type
+                        </TableHeadSortable>
+                        <TableHeadSortable
+                          sortable
+                          sortDirection={sortColumn === 'userCount' ? sortDirection : null}
+                          onSort={() => handleSort('userCount')}
+                        >
+                          Users
+                        </TableHeadSortable>
+                        <TableHeadSortable
+                          sortable
+                          sortDirection={sortColumn === 'createdAt' ? sortDirection : null}
+                          onSort={() => handleSort('createdAt')}
+                        >
+                          Created
+                        </TableHeadSortable>
                         <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+
+                      {/* Search row */}
+                      <TableRow>
+                        <TableHead>
+                          <TableColumnSearch
+                            placeholder="Search role..."
+                            onSearch={(value) => handleColumnFilter('name', value)}
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <TableColumnSearch
+                            placeholder="Search description..."
+                            onSearch={(value) => handleColumnFilter('description', value)}
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <TableColumnSearch
+                            placeholder="Search type..."
+                            onSearch={(value) => handleColumnFilter('type', value)}
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <TableColumnSearch
+                            placeholder="Search count..."
+                            onSearch={(value) => handleColumnFilter('userCount', value)}
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <TableColumnSearch
+                            placeholder="Search date..."
+                            onSearch={(value) => handleColumnFilter('createdAt', value)}
+                          />
+                        </TableHead>
+                        <TableHead className="text-right"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {roles.map((role) => (
+                      {filteredAndSortedRoles.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            No roles found.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredAndSortedRoles.map((role) => (
                         <TableRow key={role.id}>
                           <TableCell>
                             <div className="flex items-center space-x-3">
@@ -467,39 +645,20 @@ export default function AdminRolesPage() {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))}
+                      ))
+                      )}
                     </TableBody>
                   </Table>
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="flex justify-center mt-6">
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          disabled={currentPage === 1}
-                          onClick={() => handlePageChange(currentPage - 1)}
-                        >
-                          Previous
-                        </Button>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                          <Button
-                            key={page}
-                            variant={currentPage === page ? 'default' : 'outline'}
-                            onClick={() => handlePageChange(page)}
-                          >
-                            {page}
-                          </Button>
-                        ))}
-                        <Button
-                          variant="outline"
-                          disabled={currentPage === totalPages}
-                          onClick={() => handlePageChange(currentPage + 1)}
-                        >
-                          Next
-                        </Button>
-                      </div>
-                    </div>
+                    <TablePagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      pageSize={10}
+                      totalItems={roles.length}
+                      onPageChange={handlePageChange}
+                    />
                   )}
                 </>
               )}

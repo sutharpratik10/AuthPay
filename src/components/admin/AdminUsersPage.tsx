@@ -5,7 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow,
+  TableHeadSortable,
+  TableColumnSearch,
+  TablePagination
+} from '@/components/ui/table';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -72,6 +82,24 @@ export default function AdminUsersPage() {
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const { toast } = useToast();
+
+  // Sorting state
+  type SortColumn = 'name' | 'email' | 'role' | 'status' | 'subscription' | 'billingCycle' | 'expiryDate' | 'lastLogin' | 'created' | null;
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
+
+  // Column filters
+  const [columnFilters, setColumnFilters] = useState({
+    name: '',
+    email: '',
+    role: '',
+    status: '',
+    subscription: '',
+    billingCycle: '',
+    expiryDate: '',
+    lastLogin: '',
+    created: '',
+  });
 
   // Form state for create/edit
   const [formData, setFormData] = useState({
@@ -421,6 +449,127 @@ export default function AdminUsersPage() {
     fetchUsers(1, value);
   };
 
+  // Handle sorting
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortColumn(null);
+        setSortDirection(null);
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Handle column filter
+  const handleColumnFilter = (column: string, value: string) => {
+    setColumnFilters((prev) => ({ ...prev, [column]: value }));
+  };
+
+  // Filter and sort users
+  const filteredAndSortedUsers = React.useMemo(() => {
+    let filtered = [...users];
+
+    // Apply column filters
+    Object.entries(columnFilters).forEach(([column, filterValue]) => {
+      if (filterValue) {
+        filtered = filtered.filter((user) => {
+          let value = '';
+          switch (column) {
+            case 'name':
+              value = user.name || 'No name';
+              break;
+            case 'email':
+              value = user.email;
+              break;
+            case 'role':
+              value = user.roles?.join(', ') || user.role;
+              break;
+            case 'status':
+              value = user.isActive ? 'Active' : 'Inactive';
+              break;
+            case 'subscription':
+              value = user.subscriptionName || 'No Subscription';
+              break;
+            case 'billingCycle':
+              value = user.subscriptionBillingCycle || '-';
+              break;
+            case 'expiryDate':
+              value = user.subscriptionExpiryDate ? formatDate(user.subscriptionExpiryDate) : 'No Expiry';
+              break;
+            case 'lastLogin':
+              value = user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Never';
+              break;
+            case 'created':
+              value = formatDate(user.createdAt);
+              break;
+          }
+          return value.toLowerCase().includes(filterValue.toLowerCase());
+        });
+      }
+    });
+
+    // Apply sorting
+    if (sortColumn && sortDirection) {
+      filtered.sort((a, b) => {
+        let aValue: string | number = '';
+        let bValue: string | number = '';
+
+        switch (sortColumn) {
+          case 'name':
+            aValue = a.name || 'No name';
+            bValue = b.name || 'No name';
+            break;
+          case 'email':
+            aValue = a.email;
+            bValue = b.email;
+            break;
+          case 'role':
+            aValue = a.roles?.join(', ') || a.role;
+            bValue = b.roles?.join(', ') || b.role;
+            break;
+          case 'status':
+            aValue = a.isActive ? 'Active' : 'Inactive';
+            bValue = b.isActive ? 'Active' : 'Inactive';
+            break;
+          case 'subscription':
+            aValue = a.subscriptionName || 'No Subscription';
+            bValue = b.subscriptionName || 'No Subscription';
+            break;
+          case 'billingCycle':
+            aValue = a.subscriptionBillingCycle || '';
+            bValue = b.subscriptionBillingCycle || '';
+            break;
+          case 'expiryDate':
+            aValue = a.subscriptionExpiryDate || '';
+            bValue = b.subscriptionExpiryDate || '';
+            break;
+          case 'lastLogin':
+            aValue = a.lastLoginAt || '';
+            bValue = b.lastLoginAt || '';
+            break;
+          case 'created':
+            aValue = a.createdAt;
+            bValue = b.createdAt;
+            break;
+        }
+
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+
+        return sortDirection === 'asc'
+          ? String(aValue).localeCompare(String(bValue))
+          : String(bValue).localeCompare(String(aValue));
+      });
+    }
+
+    return filtered;
+  }, [users, columnFilters, sortColumn, sortDirection]);
+
   // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -485,11 +634,6 @@ export default function AdminUsersPage() {
       minute: '2-digit',
     });
   };
-
-  // Deduplicate users by id before rendering
-  const uniqueUsers = users.filter((user, index, self) =>
-    index === self.findIndex(u => u.id === user.id)
-  );
 
   return (
     <div className="space-y-6">
@@ -586,22 +730,133 @@ export default function AdminUsersPage() {
             <>
               <Table>
                 <TableHeader>
+                  {/* Sortable headers */}
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Subscription</TableHead>
-                    <TableHead>Billing Cycle</TableHead>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'name' ? sortDirection : null}
+                      onSort={() => handleSort('name')}
+                    >
+                      User
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'role' ? sortDirection : null}
+                      onSort={() => handleSort('role')}
+                    >
+                      Role
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'status' ? sortDirection : null}
+                      onSort={() => handleSort('status')}
+                    >
+                      Status
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'subscription' ? sortDirection : null}
+                      onSort={() => handleSort('subscription')}
+                    >
+                      Subscription
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'billingCycle' ? sortDirection : null}
+                      onSort={() => handleSort('billingCycle')}
+                    >
+                      Billing Cycle
+                    </TableHeadSortable>
                     <TableHead>Start Date</TableHead>
-                    <TableHead>Expiry Date</TableHead>
-                    <TableHead>Last Login</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'expiryDate' ? sortDirection : null}
+                      onSort={() => handleSort('expiryDate')}
+                    >
+                      Expiry Date
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'lastLogin' ? sortDirection : null}
+                      onSort={() => handleSort('lastLogin')}
+                    >
+                      Last Login
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'created' ? sortDirection : null}
+                      onSort={() => handleSort('created')}
+                    >
+                      Created
+                    </TableHeadSortable>
                     <TableHead>Role Edit</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
+
+                  {/* Search row */}
+                  <TableRow>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search user..."
+                        onSearch={(value) => handleColumnFilter('name', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search role..."
+                        onSearch={(value) => handleColumnFilter('role', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search status..."
+                        onSearch={(value) => handleColumnFilter('status', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search subscription..."
+                        onSearch={(value) => handleColumnFilter('subscription', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search cycle..."
+                        onSearch={(value) => handleColumnFilter('billingCycle', value)}
+                      />
+                    </TableHead>
+                    <TableHead></TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search expiry..."
+                        onSearch={(value) => handleColumnFilter('expiryDate', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search login..."
+                        onSearch={(value) => handleColumnFilter('lastLogin', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search date..."
+                        onSearch={(value) => handleColumnFilter('created', value)}
+                      />
+                    </TableHead>
+                    <TableHead></TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
                 </TableHeader>                
                 <TableBody>
-                  {uniqueUsers.map((user) => (
+                  {filteredAndSortedUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                        No users found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredAndSortedUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell>
                         <div className="flex items-center space-x-3">
@@ -841,39 +1096,20 @@ export default function AdminUsersPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ))
+                  )}
                 </TableBody>
               </Table>
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex justify-center mt-6">
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      disabled={currentPage === 1}
-                      onClick={() => handlePageChange(currentPage - 1)}
-                    >
-                      Previous
-                    </Button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                      <Button
-                        key={page}
-                        variant={currentPage === page ? 'default' : 'outline'}
-                        onClick={() => handlePageChange(page)}
-                      >
-                        {page}
-                      </Button>
-                    ))}
-                    <Button
-                      variant="outline"
-                      disabled={currentPage === totalPages}
-                      onClick={() => handlePageChange(currentPage + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+                <TablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={10}
+                  totalItems={users.length}
+                  onPageChange={handlePageChange}
+                />
               )}
             </>
           )}

@@ -3,12 +3,22 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
+import { 
+  Table, 
+  TableHeader, 
+  TableRow, 
+  TableHead, 
+  TableBody, 
+  TableCell,
+  TableHeadSortable,
+  TableColumnSearch,
+  TablePagination
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronDown, Calendar as CalendarIcon, Search, Download, X, ArrowUpDown, RefreshCcwIcon } from 'lucide-react';
+import { ChevronDown, Calendar as CalendarIcon, Search, Download, X, RefreshCcwIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils/helpers';
 import {
@@ -41,7 +51,7 @@ export default function Transactions() {
     }
   }, []);
   // --- Payments state and helpers (restored) ---
-  interface PaymentItem {
+  interface PaymentItem extends Record<string, unknown> {
     id: string;
     amount?: number;
     currency?: string;
@@ -73,6 +83,9 @@ export default function Transactions() {
   // Sorting
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Column filters for table search
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
 
   const loadPayments = useCallback(async (p = 1) => {
     setLoading(true);
@@ -112,6 +125,17 @@ export default function Transactions() {
     if (methodFilters.length > 0) {
       filtered = filtered.filter((item: PaymentItem) => methodFilters.includes(String(item.method || '').toLowerCase()));
     }
+
+    // Apply column filters
+    Object.entries(columnFilters).forEach(([column, filterValue]) => {
+      if (filterValue) {
+        filtered = filtered.filter((item: PaymentItem) => {
+          const itemValue = String((item as Record<string, unknown>)[column] || '').toLowerCase();
+          return itemValue.includes(filterValue.toLowerCase());
+        });
+      }
+    });
+
     const getField = (obj: PaymentItem | Record<string, unknown>, f: SortField) => {
       const o = obj as Record<string, unknown>;
       const v = o[f];
@@ -136,7 +160,7 @@ export default function Transactions() {
       return 0;
     });
     setFilteredPayments(filtered);
-  }, [allPayments, statusFilters, methodFilters, sortField, sortDirection]);
+  }, [allPayments, statusFilters, methodFilters, sortField, sortDirection, columnFilters]);
 
 
 
@@ -168,6 +192,13 @@ export default function Transactions() {
       setSortDirection('asc');
     }
     // No API call needed - applyFiltersAndSort will run via useEffect
+  };
+
+  const handleColumnFilter = (column: string, value: string) => {
+    setColumnFilters(prev => ({
+      ...prev,
+      [column]: value
+    }));
   };
 
   // Payment details dialog state
@@ -234,6 +265,25 @@ export default function Transactions() {
   type InvoiceSortField = 'id' | 'invoice_number' | 'customer_id' | 'amount' | 'status' | 'date';
   const [invoiceSortField, setInvoiceSortField] = useState<InvoiceSortField>('date');
   const [invoiceSortDirection, setInvoiceSortDirection] = useState<'asc'|'desc'>('desc');
+  
+  // Invoice column filters for table search
+  const [invoiceColumnFilters, setInvoiceColumnFilters] = useState<Record<string, string>>({});
+
+  const handleInvoiceSort = (field: InvoiceSortField) => {
+    if (field === invoiceSortField) {
+      setInvoiceSortDirection(invoiceSortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setInvoiceSortField(field);
+      setInvoiceSortDirection('asc');
+    }
+  };
+
+  const handleInvoiceColumnFilter = (column: string, value: string) => {
+    setInvoiceColumnFilters(prev => ({
+      ...prev,
+      [column]: value
+    }));
+  };
 
   const loadInvoices = useCallback(async (p = 1) => {
     setInvoicesLoading(true);
@@ -284,6 +334,16 @@ export default function Transactions() {
       ));
     }
 
+    // Apply column filters
+    Object.entries(invoiceColumnFilters).forEach(([column, filterValue]) => {
+      if (filterValue) {
+        arr = arr.filter((inv) => {
+          const itemValue = getInvoiceField(inv, column).toLowerCase();
+          return itemValue.includes(filterValue.toLowerCase());
+        });
+      }
+    });
+
     arr.sort((a, b) => {
       let aVal = getInvoiceField(a, invoiceSortField as string);
       let bVal = getInvoiceField(b, invoiceSortField as string);
@@ -298,7 +358,7 @@ export default function Transactions() {
       return 0;
     });
     return arr;
-  }, [invoices, invoiceQ, invoiceSortField, invoiceSortDirection]);
+  }, [invoices, invoiceQ, invoiceSortField, invoiceSortDirection, invoiceColumnFilters]);
 
   const toggleInvoiceStatus = (status: string) => {
     setInvoiceStatusFilter(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
@@ -532,75 +592,104 @@ export default function Transactions() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="w-48">
-                      <Button 
-                        variant="ghost" 
-                        className="h-auto p-0 font-semibold hover:bg-transparent flex items-center gap-1"
-                        onClick={() => handleSort('id')}
-                      >
-                        Payment ID
-                        <ArrowUpDown className="w-3 h-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="w-32">
-                      <Button 
-                        variant="ghost" 
-                        className="h-auto p-0 font-semibold hover:bg-transparent flex items-center gap-1"
-                        onClick={() => handleSort('amount')}
-                      >
-                        Amount
-                        <ArrowUpDown className="w-3 h-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="w-24">
-                      <Button 
-                        variant="ghost" 
-                        className="h-auto p-0 font-semibold hover:bg-transparent flex items-center gap-1"
-                        onClick={() => handleSort('currency')}
-                      >
-                        Currency
-                        <ArrowUpDown className="w-3 h-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="w-32">
-                      <Button 
-                        variant="ghost" 
-                        className="h-auto p-0 font-semibold hover:bg-transparent flex items-center gap-1"
-                        onClick={() => handleSort('status')}
-                      >
-                        Status
-                        <ArrowUpDown className="w-3 h-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="w-32">
-                      <Button 
-                        variant="ghost" 
-                        className="h-auto p-0 font-semibold hover:bg-transparent flex items-center gap-1"
-                        onClick={() => handleSort('method')}
-                      >
-                        Method
-                        <ArrowUpDown className="w-3 h-3" />
-                      </Button>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'id' ? sortDirection : null}
+                      onSort={() => handleSort('id')}
+                      className="w-48"
+                    >
+                      Payment ID
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'amount' ? sortDirection : null}
+                      onSort={() => handleSort('amount')}
+                      className="w-32"
+                    >
+                      Amount
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'currency' ? sortDirection : null}
+                      onSort={() => handleSort('currency')}
+                      className="w-24"
+                    >
+                      Currency
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'status' ? sortDirection : null}
+                      onSort={() => handleSort('status')}
+                      className="w-32"
+                    >
+                      Status
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'method' ? sortDirection : null}
+                      onSort={() => handleSort('method')}
+                      className="w-32"
+                    >
+                      Method
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'email' ? sortDirection : null}
+                      onSort={() => handleSort('email')}
+                    >
+                      Email
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortField === 'created_at' ? sortDirection : null}
+                      onSort={() => handleSort('created_at')}
+                      className="w-44"
+                    >
+                      Created
+                    </TableHeadSortable>
+                  </TableRow>
+                  <TableRow>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search ID..."
+                        onSearch={(value) => handleColumnFilter('id', value)}
+                      />
                     </TableHead>
                     <TableHead>
-                      <Button 
-                        variant="ghost" 
-                        className="h-auto p-0 font-semibold hover:bg-transparent flex items-center gap-1"
-                        onClick={() => handleSort('email')}
-                      >
-                        Email
-                        <ArrowUpDown className="w-3 h-3" />
-                      </Button>
+                      <TableColumnSearch
+                        placeholder="Search amount..."
+                        onSearch={(value) => handleColumnFilter('amount', value)}
+                      />
                     </TableHead>
-                    <TableHead className="w-44">
-                      <Button 
-                        variant="ghost" 
-                        className="h-auto p-0 font-semibold hover:bg-transparent flex items-center gap-1"
-                        onClick={() => handleSort('created_at')}
-                      >
-                        Created
-                        <ArrowUpDown className="w-3 h-3" />
-                      </Button>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search currency..."
+                        onSearch={(value) => handleColumnFilter('currency', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search status..."
+                        onSearch={(value) => handleColumnFilter('status', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search method..."
+                        onSearch={(value) => handleColumnFilter('method', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search email..."
+                        onSearch={(value) => handleColumnFilter('email', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search date..."
+                        onSearch={(value) => handleColumnFilter('created_at', value)}
+                      />
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -680,15 +769,14 @@ export default function Transactions() {
         </CardContent>
 
         {/* Payments pagination footer */}
-        <div className="flex items-center justify-between p-4">
-          <div className="text-sm text-muted-foreground">
-            Showing page {page} of {Math.ceil((totalCount || 0) / pageSize)}{totalCount > 0 && ` (${totalCount} total results)`}{(statusFilters.length > 0 || methodFilters.length > 0) && ` • ${filteredPayments.length} filtered`}
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={page === 1 || loading} onClick={() => setPage(p => Math.max(1, p-1))}>Previous</Button>
-            <Button size="sm" variant="outline" disabled={page >= Math.ceil((totalCount || 0) / pageSize) || loading} onClick={() => setPage(p => p+1)}>Next</Button>
-          </div>
-        </div>
+        <TablePagination
+          currentPage={page}
+          totalPages={Math.ceil((totalCount || 0) / pageSize)}
+          pageSize={pageSize}
+          totalItems={totalCount}
+          onPageChange={setPage}
+          className="p-4"
+        />
 
       </Card>
 
@@ -738,25 +826,88 @@ export default function Transactions() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead>
-                      <Button variant="ghost" className="h-auto p-0 font-semibold" onClick={() => { setInvoiceSortField('id'); setInvoiceSortDirection(d => d === 'asc' ? 'desc' : 'asc'); }}>Invoice ID</Button>
-                    </TableHead>
-                    <TableHead>
-                      <Button variant="ghost" className="h-auto p-0 font-semibold" onClick={() => { setInvoiceSortField('invoice_number'); setInvoiceSortDirection(d => d === 'asc' ? 'desc' : 'asc'); }}>Number</Button>
-                    </TableHead>
-                    <TableHead>
-                      <Button variant="ghost" className="h-auto p-0 font-semibold" onClick={() => { setInvoiceSortField('customer_id'); setInvoiceSortDirection(d => d === 'asc' ? 'desc' : 'asc'); }}>Customer</Button>
-                    </TableHead>
-                    <TableHead>
-                      <Button variant="ghost" className="h-auto p-0 font-semibold" onClick={() => { setInvoiceSortField('amount'); setInvoiceSortDirection(d => d === 'asc' ? 'desc' : 'asc'); }}>Amount</Button>
-                    </TableHead>
-                    <TableHead>
-                      <Button variant="ghost" className="h-auto p-0 font-semibold" onClick={() => { setInvoiceSortField('status'); setInvoiceSortDirection(d => d === 'asc' ? 'desc' : 'asc'); }}>Status</Button>
-                    </TableHead>
-                    <TableHead>
-                      <Button variant="ghost" className="h-auto p-0 font-semibold" onClick={() => { setInvoiceSortField('date'); setInvoiceSortDirection(d => d === 'asc' ? 'desc' : 'asc'); }}>Date</Button>
-                    </TableHead>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={invoiceSortField === 'id' ? invoiceSortDirection : null}
+                      onSort={() => handleInvoiceSort('id')}
+                    >
+                      Invoice ID
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={invoiceSortField === 'invoice_number' ? invoiceSortDirection : null}
+                      onSort={() => handleInvoiceSort('invoice_number')}
+                    >
+                      Number
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={invoiceSortField === 'customer_id' ? invoiceSortDirection : null}
+                      onSort={() => handleInvoiceSort('customer_id')}
+                    >
+                      Customer
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={invoiceSortField === 'amount' ? invoiceSortDirection : null}
+                      onSort={() => handleInvoiceSort('amount')}
+                    >
+                      Amount
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={invoiceSortField === 'status' ? invoiceSortDirection : null}
+                      onSort={() => handleInvoiceSort('status')}
+                    >
+                      Status
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={invoiceSortField === 'date' ? invoiceSortDirection : null}
+                      onSort={() => handleInvoiceSort('date')}
+                    >
+                      Date
+                    </TableHeadSortable>
                     <TableHead>Actions</TableHead>
+                  </TableRow>
+                  <TableRow>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search ID..."
+                        onSearch={(value) => handleInvoiceColumnFilter('id', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search number..."
+                        onSearch={(value) => handleInvoiceColumnFilter('invoice_number', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search customer..."
+                        onSearch={(value) => handleInvoiceColumnFilter('customer_id', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search amount..."
+                        onSearch={(value) => handleInvoiceColumnFilter('amount', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search status..."
+                        onSearch={(value) => handleInvoiceColumnFilter('status', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search date..."
+                        onSearch={(value) => handleInvoiceColumnFilter('date', value)}
+                      />
+                    </TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
 
@@ -789,13 +940,14 @@ export default function Transactions() {
           )}
         </CardContent>
 
-        <div className="flex items-center justify-between p-4">
-          <div className="text-sm text-muted-foreground">Showing page {invoicesPage} of {Math.ceil((invoicesTotal || 0) / invoicesPageSize)}</div>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={invoicesPage === 1} onClick={() => setInvoicesPage(p => Math.max(1, p-1))}>Previous</Button>
-            <Button size="sm" variant="outline" disabled={invoicesPage >= Math.ceil((invoicesTotal || 0) / invoicesPageSize)} onClick={() => setInvoicesPage(p => p+1)}>Next</Button>
-          </div>
-        </div>
+        <TablePagination
+          currentPage={invoicesPage}
+          totalPages={Math.ceil((invoicesTotal || 0) / invoicesPageSize)}
+          pageSize={invoicesPageSize}
+          totalItems={invoicesTotal}
+          onPageChange={setInvoicesPage}
+          className="p-4"
+        />
       </Card>
 
       {/* Payment Details Dialog */}
