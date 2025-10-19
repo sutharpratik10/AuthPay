@@ -19,7 +19,8 @@ interface User {
   id: string;
   email: string;
   name: string | null;
-  role: 'admin' | 'user';
+  role: string; // Primary role for backward compatibility
+  roles?: string[]; // All user roles
   isEmailVerified: boolean;
   isActive: boolean;
   isSuspended: boolean;
@@ -65,6 +66,9 @@ export default function AdminUsersPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isRoleEditDialogOpen, setIsRoleEditDialogOpen] = useState(false);
+  const [selectedUserForRoles, setSelectedUserForRoles] = useState<User | null>(null);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const { toast } = useToast();
@@ -261,13 +265,13 @@ export default function AdminUsersPage() {
     }
   };
 
-  // Update user role
-  const updateUserRole = async (userId: string, newRole: string) => {
+  // Update user roles (supports multiple roles)
+  const updateUserRoles = async (userId: string, selectedRoles: string[]) => {
     try {
       const response = await fetch('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, roleName: newRole }),
+        body: JSON.stringify({ userId, roleNames: selectedRoles }),
       });
 
       const data = await response.json();
@@ -275,21 +279,21 @@ export default function AdminUsersPage() {
       if (data.success) {
         toast({
           title: 'Success',
-          description: `User role updated to ${newRole}`,
+          description: `User roles updated to: ${selectedRoles.join(', ')}`,
         });
         fetchUsers();
       } else {
         toast({
           title: 'Error',
-          description: data.error || 'Failed to update user role',
+          description: data.error || 'Failed to update user roles',
           variant: 'destructive',
         });
       }
     } catch (error) {
-      console.error('Error updating user role:', error);
+      console.error('Error updating user roles:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update user role',
+        description: 'Failed to update user roles',
         variant: 'destructive',
       });
     }
@@ -616,14 +620,29 @@ export default function AdminUsersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                          {user.role === 'admin' ? (
-                            <Shield className="h-3 w-3 mr-1" />
+                        <div className="flex flex-wrap gap-1">
+                          {user.roles && user.roles.length > 0 ? (
+                            user.roles.map((roleName) => (
+                              <Badge 
+                                key={roleName} 
+                                variant={roleName === 'admin' ? 'default' : 'secondary'}
+                                className="text-xs"
+                              >
+                                {roleName === 'admin' ? (
+                                  <Shield className="h-3 w-3 mr-1" />
+                                ) : (
+                                  <User className="h-3 w-3 mr-1" />
+                                )}
+                                {roleName}
+                              </Badge>
+                            ))
                           ) : (
-                            <User className="h-3 w-3 mr-1" />
+                            <Badge variant="secondary">
+                              <User className="h-3 w-3 mr-1" />
+                              {user.role}
+                            </Badge>
                           )}
-                          {user.role}
-                        </Badge>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col space-y-1">
@@ -722,16 +741,19 @@ export default function AdminUsersPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Select
-                            value={user.role ?? ''}
-                            onValueChange={(value) => updateUserRole(user.id, value as string)}
-                            options={roleOptions}
-                            className="w-24"
-                            placeholder="Select role"
-                            disabled={user.id === currentUserId}
-                          />
-                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={user.id === currentUserId}
+                          onClick={() => {
+                            setSelectedUserForRoles(user);
+                            setSelectedRoles(user.roles || [user.role]);
+                            setIsRoleEditDialogOpen(true);
+                          }}
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Edit Roles
+                        </Button>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end space-x-2 items-center">
@@ -933,6 +955,70 @@ export default function AdminUsersPage() {
             </Button>
             <Button onClick={updateUser}>
               Update User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Roles Dialog */}
+      <Dialog open={isRoleEditDialogOpen} onOpenChange={setIsRoleEditDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800">
+          <DialogHeader>
+            <DialogTitle>Edit User Roles</DialogTitle>
+            <DialogDescription>
+              Select roles for {selectedUserForRoles?.name || selectedUserForRoles?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-3">
+              {roleOptions.map((roleOption) => (
+                <div key={roleOption.value} className="flex items-center space-x-3">
+                  <Checkbox
+                    id={`role-${roleOption.value}`}
+                    checked={selectedRoles.includes(roleOption.value)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedRoles([...selectedRoles, roleOption.value]);
+                      } else {
+                        setSelectedRoles(selectedRoles.filter(r => r !== roleOption.value));
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor={`role-${roleOption.value}`}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center"
+                  >
+                    {roleOption.value === 'admin' ? (
+                      <Shield className="h-4 w-4 mr-2" />
+                    ) : (
+                      <User className="h-4 w-4 mr-2" />
+                    )}
+                    {roleOption.label}
+                  </label>
+                </div>
+              ))}
+            </div>
+            {selectedRoles.length === 0 && (
+              <div className="mt-3 p-2 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-sm rounded flex items-center">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Please select at least one role
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRoleEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (selectedUserForRoles && selectedRoles.length > 0) {
+                  await updateUserRoles(selectedUserForRoles.id, selectedRoles);
+                  setIsRoleEditDialogOpen(false);
+                }
+              }}
+              disabled={selectedRoles.length === 0}
+            >
+              Save Roles
             </Button>
           </DialogFooter>
         </DialogContent>
