@@ -218,10 +218,20 @@ export default function AdminUsersPage() {
   // Create user
   const createUser = async () => {
     try {
+      // Transform formData to match API expectations
+      const payload = {
+        email: formData.email,
+        name: formData.name,
+        password: formData.password,
+        roleName: formData.role, // API expects 'roleName' instead of 'role'
+        isActive: formData.isActive,
+        isEmailVerified: formData.isEmailVerified,
+      };
+
       const response = await fetch('/api/admin/users/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -257,7 +267,7 @@ export default function AdminUsersPage() {
       const response = await fetch('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, role: newRole }),
+        body: JSON.stringify({ userId, roleName: newRole }),
       });
 
       const data = await response.json();
