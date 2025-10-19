@@ -79,21 +79,22 @@ export default function Transactions() {
     setError(null);
     try {
       const skip = (p - 1) * pageSize;
-      const params = new URLSearchParams();
-      params.set('count', String(pageSize));
-      params.set('skip', String(skip));
-      if (q) params.set('q', q);
-      if (fromDate) params.set('from', String(Math.floor(fromDate.getTime() / 1000)));
-      if (toDate) params.set('to', String(Math.floor(toDate.getTime() / 1000)));
+      const params = new URLSearchParams({
+        count: String(pageSize),
+        skip: String(skip),
+        ...(q && { q }),
+        ...(fromDate && { from: String(Math.floor(fromDate.getTime() / 1000)) }),
+        ...(toDate && { to: String(Math.floor(toDate.getTime() / 1000)) })
+      });
 
       const res = await fetch(`/api/payments/razorpay-payments?${params.toString()}`);
       const data = await res.json();
-      if (data && data.entity === 'collection') {
-        const items: PaymentItem[] = data.items || [];
-        setAllPayments(items);
-        setTotalCount(data.count || items.length);
+      
+      if (data?.entity === 'collection') {
+        setAllPayments(data.items || []);
+        setTotalCount(data.count || data.items?.length || 0);
       } else {
-        setError(data?.error?.description || 'Failed to load payments');
+        setError(data?.error?.description || data?.message);
       }
     } catch (err) {
       console.error('Error loading payments', err);
@@ -469,7 +470,7 @@ export default function Transactions() {
             </div>
             <div className="flex items-center gap-2">
               <Button onClick={() => { setPage(1); loadPayments(1); }} className="flex items-center gap-2">
-                <RefreshCcwIcon className="w-4 h-4" />
+                <RefreshCcwIcon className={cn("w-4 h-4", loading && "animate-spin")} />
                 Refresh
               </Button>
               <Button variant="outline" onClick={() => { /* TODO: export logic */ }} className="flex items-center gap-2">
@@ -520,12 +521,9 @@ export default function Transactions() {
               <p className="mt-2 text-sm text-muted-foreground">Loading transactions...</p>
             </div>
           ) : error ? (
-            <div className="py-12 text-center">
-              <p className="text-red-600 font-medium">{error}</p>
-              <DialogClose asChild>
-                <Button variant="outline" size="sm">Close</Button>
-              </DialogClose>
-              <Button onClick={() => loadPayments(page)} className="mt-2">
+            <div className="py-12 text-center space-y-3">
+              <p className="text-red-700 font-semibold text-lg">{error}</p>
+              <Button onClick={() => loadPayments(page)} className="mt-4" variant="outline">
                 Try again
               </Button>
             </div>
