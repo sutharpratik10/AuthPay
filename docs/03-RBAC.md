@@ -56,36 +56,36 @@ if (await hasPolicy(userId, 'content:create')) {
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                    User Authentication                    │
+│                    User Authentication                   │
 └────────────────────────┬─────────────────────────────────┘
                          │
                          │ Load Roles & Policies
                          ▼
 ┌──────────────────────────────────────────────────────────┐
 │                     RBACService                          │
-│  ┌────────────────────────────────────────────────────┐ │
-│  │  getUserPolicies(userId)                           │ │
-│  │    ↓                                               │ │
-│  │  1. Check cache (5min TTL)                         │ │
-│  │  2. Query user_roles → roles                       │ │
-│  │  3. Query role_permissions → policies              │ │
-│  │  4. Admin check (bypass all)                       │ │
-│  │  5. Return aggregated policies                     │ │
-│  └────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │  getUserPolicies(userId)                           │  │
+│  │    ↓                                               │  │
+│  │  1. Check cache (5min TTL)                         │  │
+│  │  2. Query user_roles → roles                       │  │
+│  │  3. Query role_permissions → policies              │  │
+│  │  4. Admin check (bypass all)                       │  │
+│  │  5. Return aggregated policies                     │  │
+│  └────────────────────────────────────────────────────┘  │
 └────────────────────────┬─────────────────────────────────┘
                          │
                          │ Policies cached in session
                          ▼
 ┌──────────────────────────────────────────────────────────┐
-│                   Request Processing                      │
+│                   Request Processing                     │
 │                                                          │
-│  Middleware → Check Route Policy                        │
+│  Middleware → Check Route Policy                         │
 │       ↓                                                  │
-│  API Route → requirePolicy()                            │
+│  API Route → requirePolicy()                             │
 │       ↓                                                  │
-│  hasPolicy(userId, 'resource:action')                   │
+│  hasPolicy(userId, 'resource:action')                    │
 │       ↓                                                  │
-│  ✅ Allow / ❌ Deny                                      │
+│  ✅ Allow / ❌ Deny                                     │
 └──────────────────────────────────────────────────────────┘
 ```
 
