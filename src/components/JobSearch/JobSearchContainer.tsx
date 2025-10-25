@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import SearchPanel from "./SearchPanel";
+import SearchPanel from "./Content";
 import JobList from "./JobList";
 import type { SearchFilters } from "./types";
 const JobSearchContainer: React.FC = () => {
