@@ -3,17 +3,17 @@ import { withSessionValidation } from '@/lib/auth/session-validation';
 import { SessionService } from '@/server/services/session';
 import { RBACService } from '@/lib/rbac/rbac-service';
 
-// Get session statistics (admin only)
+// Get session statistics (admin only - uses policy-based check)
 export async function GET(request: NextRequest) {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
       try {
-        // Check if user is admin using RBAC service
-        const isAdmin = await RBACService.isAdmin(sessionData.userId!);
-        if (!isAdmin) {
+        // Use policy-based RBAC check
+        const hasAccess = await RBACService.hasPolicy(sessionData.userId!, 'admin:access');
+        if (!hasAccess) {
           return NextResponse.json(
-            { success: false, error: 'Insufficient permissions' },
+            { success: false, error: 'Insufficient permissions - admin:access policy required' },
             { status: 403 }
           );
         }
@@ -40,17 +40,17 @@ export async function GET(request: NextRequest) {
   );
 }
 
-// Manual session cleanup (admin only)
+// Manual session cleanup (admin only - uses policy-based check)
 export async function POST(request: NextRequest) {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
       try {
-        // Check if user is admin using RBAC service
-        const isAdmin = await RBACService.isAdmin(sessionData.userId!);
-        if (!isAdmin) {
+        // Use policy-based RBAC check
+        const hasAccess = await RBACService.hasPolicy(sessionData.userId!, 'admin:access');
+        if (!hasAccess) {
           return NextResponse.json(
-            { success: false, error: 'Insufficient permissions' },
+            { success: false, error: 'Insufficient permissions - admin:access policy required' },
             { status: 403 }
           );
         }

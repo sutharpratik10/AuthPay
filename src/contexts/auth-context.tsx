@@ -49,16 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const session = sessionData as ExtendedSession | null
   
   useEffect(() => {
-    // Immediately set loading to false for faster initial render
-    // Only keep loading true if session is actually being fetched
+    // Immediately set loading to false when status changes
     if (status !== "loading") {
       setLoading(false)
-    } else {
-      // Set a maximum loading timeout to prevent infinite loading
-      const timeout = setTimeout(() => {
-        setLoading(false)
-      }, 1000) // Maximum 1 second loading
-          return () => clearTimeout(timeout)
     }
   }, [status])
 

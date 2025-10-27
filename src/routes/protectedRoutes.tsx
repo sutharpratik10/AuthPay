@@ -62,8 +62,15 @@ export function ProtectedRoute({
   // Validate user exists in database when authenticated
   useEffect(() => {
     let isMounted = true;
+    let isValidating = false;
     
     async function checkUserInDatabase() {
+      // Prevent concurrent validations
+      if (isValidating) {
+        console.log('[PROTECTED_ROUTE] Validation already in progress, skipping...');
+        return;
+      }
+      
       // Skip validation if user is on verify page (they're in the middle of verification)
       if (pathname === '/auth/verify') {
         console.log('[PROTECTED_ROUTE] Skipping validation - user on verify page');
@@ -77,6 +84,7 @@ export function ProtectedRoute({
         !authState.loading &&
         userValidated === null // Only run if we haven't validated yet
       ) {
+        isValidating = true;
         console.log('[PROTECTED_ROUTE] Validating user in database...');
         
         try {
@@ -111,6 +119,8 @@ export function ProtectedRoute({
           console.error('[PROTECTED_ROUTE] User validation failed:', error);
           setValidationError('Unable to verify your account. Please try again.');
           setUserValidated(false);
+        } finally {
+          isValidating = false;
         }
       } else if (!authState.isAuthenticated && !authState.loading) {
         if (isMounted) {
@@ -119,12 +129,10 @@ export function ProtectedRoute({
       }
     }
 
-    // Add a small delay to prevent immediate validation loops
-    const timeoutId = setTimeout(checkUserInDatabase, 100);
+    checkUserInDatabase();
     
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId);
     };
   }, [authState.isAuthenticated, authState.user?.id, authState.loading, logout, userValidated, pathname]);
 

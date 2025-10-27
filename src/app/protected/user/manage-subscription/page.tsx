@@ -57,8 +57,15 @@ export default function ManageSubscriptionPage() {
   // Use context subscription status and enrich with Razorpay details
   React.useEffect(() => {
     let isMounted = true;
+    let isFetching = false;
 
     const enrichSubscriptionWithRazorpay = async () => {
+      // Prevent concurrent calls during React Strict Mode
+      if (isFetching) {
+        console.log('[MANAGE-SUBSCRIPTION] Enrichment already in progress, skipping...');
+        return;
+      }
+
       if (!contextStatus || !contextStatus.hasSubscription) {
         if (isMounted) {
           setSubscriptionStatus(null);
@@ -66,6 +73,8 @@ export default function ManageSubscriptionPage() {
         }
         return;
       }
+
+      isFetching = true;
 
       const formatCurrency = (minorAmount: number | string | undefined, currency?: string) => {
         if (minorAmount == null) return null;
@@ -124,6 +133,7 @@ export default function ManageSubscriptionPage() {
         if (isMounted) {
           setLoading(false);
         }
+        isFetching = false;
       }
     };
 
@@ -137,8 +147,17 @@ export default function ManageSubscriptionPage() {
   // Load subscription history separately
   React.useEffect(() => {
     let isMounted = true;
+    let isFetching = false;
 
     const loadData = async () => {
+      // Prevent concurrent calls during React Strict Mode
+      if (isFetching) {
+        console.log('[MANAGE-SUBSCRIPTION] History fetch already in progress, skipping...');
+        return;
+      }
+
+      isFetching = true;
+
       try {
         const historyResponse = await fetch('/api/user/subscription-history');
         const historyData = await historyResponse.json();
@@ -218,6 +237,8 @@ export default function ManageSubscriptionPage() {
             variant: 'destructive'
           });
         }
+      } finally {
+        isFetching = false;
       }
     };
 

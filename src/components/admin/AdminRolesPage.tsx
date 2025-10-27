@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -83,6 +83,11 @@ export default function AdminRolesPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'roles' | 'assignments'>('roles');
+  
+  // Use refs to prevent duplicate fetches (React Strict Mode causes double mounting)
+  const hasFetchedRef = useRef(false);
+  const isFetchingRef = useRef(false);
+  
   const { toast } = useToast();
 
   // Sorting state
@@ -107,8 +112,15 @@ export default function AdminRolesPage() {
   });
 
   // Fetch roles with pagination and search
-  const fetchRoles = useCallback(async (page: number = currentPage, search: string = searchTerm) => {
+  const fetchRoles = useCallback(async (page: number, search: string) => {
+    // Prevent duplicate fetches in React Strict Mode
+    if (isFetchingRef.current) {
+      console.log('[AdminRolesPage] Fetch already in progress, skipping...');
+      return;
+    }
+    
     try {
+      isFetchingRef.current = true;
       setLoading(true);
       const params = new URLSearchParams({
         page: page.toString(),
@@ -138,8 +150,9 @@ export default function AdminRolesPage() {
       });
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
-  }, [currentPage, searchTerm, toast]);
+  }, [toast]); // Remove currentPage and searchTerm from deps - they're passed as parameters
 
   // Fetch user role assignments
   const fetchUserRoles = useCallback(async () => {
@@ -167,12 +180,13 @@ export default function AdminRolesPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (activeTab === 'roles') {
-      fetchRoles();
-    } else {
+    if (activeTab === 'roles' && !hasFetchedRef.current) {
+      fetchRoles(currentPage, searchTerm);
+      hasFetchedRef.current = true;
+    } else if (activeTab === 'assignments') {
       fetchUserRoles();
     }
-  }, [activeTab, fetchRoles, fetchUserRoles]);
+  }, [activeTab, currentPage, searchTerm, fetchRoles, fetchUserRoles]);
 
   // Create role
   const createRole = async () => {
@@ -193,7 +207,8 @@ export default function AdminRolesPage() {
         });
         setIsCreateDialogOpen(false);
         resetForm();
-        fetchRoles();
+        hasFetchedRef.current = false; // Reset to allow refetch
+        fetchRoles(currentPage, searchTerm);
       } else {
         toast({
           title: 'Error',
@@ -232,7 +247,8 @@ export default function AdminRolesPage() {
         });
         setIsEditDialogOpen(false);
         resetForm();
-        fetchRoles();
+        hasFetchedRef.current = false; // Reset to allow refetch
+        fetchRoles(currentPage, searchTerm);
       } else {
         toast({
           title: 'Error',
@@ -268,7 +284,8 @@ export default function AdminRolesPage() {
           variant: 'success',
         });
         setIsDeleteDialogOpen(false);
-        fetchRoles();
+        hasFetchedRef.current = false; // Reset to allow refetch
+        fetchRoles(currentPage, searchTerm);
       } else {
         toast({
           title: 'Error',
@@ -385,7 +402,8 @@ export default function AdminRolesPage() {
   // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    fetchRoles(page);
+    hasFetchedRef.current = false; // Reset to allow refetch
+    fetchRoles(page, searchTerm);
   };
 
   // Open edit dialog
