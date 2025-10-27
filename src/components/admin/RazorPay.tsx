@@ -531,8 +531,8 @@ export default function RazorPay() {
     try {
       const res = await fetch(`/api/payments/razorpay-plans/${encodeURIComponent(id)}`);
       const data = await res.json();
-      if (data && !data.error) {
-        setSelectedRazorpayPlan(data as RazorpayPlan);
+      if (data && !data.error && data.data) {
+        setSelectedRazorpayPlan(data.data as RazorpayPlan);
       } else {
         setPlanError(data?.error?.description || 'Failed to load plan');
       }
@@ -1816,7 +1816,7 @@ export default function RazorPay() {
 
                         <div>
                           <div className="text-sm text-muted-foreground">Interval Count</div>
-                          <div>{`${(((selectedRazorpayPlan.item as unknown) as Record<string, unknown>)['interval_count'] ?? ((selectedRazorpayPlan.item as unknown) as Record<string, unknown>)['interval'] ?? '--')}`}</div>
+                          <div>{selectedRazorpayPlan.item ? `${(((selectedRazorpayPlan.item as unknown) as Record<string, unknown>)['interval_count'] ?? ((selectedRazorpayPlan.item as unknown) as Record<string, unknown>)['interval'] ?? '--')}` : '--'}</div>
                         </div>
                       </div>
                     </div>
