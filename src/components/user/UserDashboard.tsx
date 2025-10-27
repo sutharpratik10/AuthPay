@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import SubscriptionDashboard from "@/components/user/SubscriptionDashboard"
-import JobSearchContainer from "@/components/JobSearch/JobSearchContainer"
+import JobSearchContainer from "@/components/JobSearch/PaywallContainer"
 import { useSubscription } from "@/contexts/SubscriptionContext"
 
 export default function UserDashboard() {
