@@ -16,9 +16,12 @@ export default function LoginForm() {
   })
 
   const [error, setError] = useState("")
+  const [errorType, setErrorType] = useState<"error" | "warning" | "info">("error")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuspended, setIsSuspended] = useState(false)
   const [isCheckingSuspension, setIsCheckingSuspension] = useState(false)
+  const [emailStatus, setEmailStatus] = useState<"unknown" | "checking" | "registered" | "not-registered">("unknown")
+  const [emailMessage, setEmailMessage] = useState("")
 
   // Function to check if email is suspended
   const checkSuspensionStatus = useCallback(async (email: string) => {
@@ -50,14 +53,54 @@ export default function LoginForm() {
     }
   }, [])
 
+  // Function to check if email is registered
+  const checkEmailRegistration = useCallback(async (email: string) => {
+    if (!email || !email.includes('@')) {
+      setEmailStatus("unknown")
+      setEmailMessage("")
+      return
+    }
+
+    setEmailStatus("checking")
+    setEmailMessage("")
+    
+    try {
+      const response = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.emailExists) {
+          setEmailStatus("registered")
+        } else {
+          setEmailStatus("not-registered")
+          setEmailMessage("This email is not registered with us. Please sign up!")
+        }
+      } else {
+        setEmailStatus("unknown")
+        setEmailMessage("")
+      }
+    } catch (error) {
+      console.error('Error checking email registration:', error)
+      setEmailStatus("unknown")
+      setEmailMessage("")
+    }
+  }, [])
+
   // Debounce email check
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       checkSuspensionStatus(formData.email)
+      checkEmailRegistration(formData.email)
     }, 500) // Wait 500ms after user stops typing
 
     return () => clearTimeout(timeoutId)
-  }, [formData.email, checkSuspensionStatus])
+  }, [formData.email, checkSuspensionStatus, checkEmailRegistration])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -66,20 +109,30 @@ export default function LoginForm() {
     // Clear error when user starts typing
     if (error) {
       setError("")
+      setErrorType("error")
+    }
+
+    // Reset email status when user modifies email
+    if (name === "email") {
+      setEmailStatus("unknown")
+      setEmailMessage("")
     }
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
+    setErrorType("error")
 
     if (!formData.email || !formData.password) {
       setError("Please enter both your email and password.")
+      setErrorType("warning")
       return
     }
 
     if (isSuspended) {
       setError("Your account has been suspended. Please contact support for assistance.")
+      setErrorType("error")
       return
     }
 
@@ -90,24 +143,36 @@ export default function LoginForm() {
         // Map backend errors to user-friendly messages
         switch (result.error) {
           case "Invalid credentials":
-            setError("The password you entered is incorrect.")
+            setError("Password is wrong! Please try again or use 'Forgot password?' to reset it.")
+            setErrorType("error")
             break
           case "Email not verified":
-            setError("Your email address is not verified. Please check your inbox for a verification link.")
+            setError("Your email address is not verified yet. Please check your inbox for a verification link we sent you.")
+            setErrorType("warning")
             break
           case "Account disabled":
-            setError("Your account has been disabled. Please contact support for assistance.")
+            setError("Your account has been disabled. Please contact our support team for assistance.")
+            setErrorType("error")
             break
+          case "User not found":
           case "Account does not exist":
-            setError(`Account with email ${formData.email} doesn't exist`)
+          case "Email not registered":
+            setError(`We couldn't find an account with email ${formData.email}. Would you like to create one?`)
+            setErrorType("info")
+            break
+          case "Too many attempts":
+            setError("Too many login attempts. Please wait a few minutes before trying again.")
+            setErrorType("warning")
             break
           default:
-            setError("Unable to sign in. Please try again or reset your password.")
+            setError("We're having trouble signing you in. Please check your credentials and try again.")
+            setErrorType("error")
         }
       }
       // Let the LoginPage handle redirection based on auth state
     } catch (err) {
-      setError("A network error occurred. Please check your connection and try again.")
+      setError("A network error occurred. Please check your internet connection and try again.")
+      setErrorType("error")
       console.error(err)
     } finally {
       setIsSubmitting(false)
@@ -138,17 +203,44 @@ export default function LoginForm() {
 
       {/* Error Message */}
       {error && (
-        <div className="mb-4 p-3 flex items-center gap-2 text-sm text-red-700 bg-red-50 rounded-md border border-red-200">
-          <AlertCircle className="h-4 w-4" />
-          <p>{error}</p>
+        <div 
+          className={`mb-4 p-3 rounded-md border ${
+            errorType === "error" 
+              ? "text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800" 
+              : errorType === "warning"
+              ? "text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950 dark:border-amber-800"
+              : "text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800"
+          }`}
+        >
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm">{error}</p>
+              {errorType === "info" && (
+                <Link 
+                  href="/auth/signup" 
+                  className="text-sm font-medium underline hover:no-underline mt-2 inline-block"
+                >
+                  Sign up here →
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
       {/* Suspension Warning */}
       {isSuspended && !error && (
-        <div className="mb-4 p-3 flex items-center gap-2 text-sm text-red-700 bg-red-50 rounded-md border border-red-200">
-          <AlertCircle className="h-4 w-4" />
-          <p>Your account has been suspended. Please contact support for assistance.</p>
+        <div className="mb-4 p-3 rounded-md border border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-red-700 dark:text-red-400" />
+            <div className="flex-1">
+              <p className="text-sm text-red-700 dark:text-red-400 font-medium">Account Suspended</p>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                Your account has been suspended. Please contact our support team for assistance.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -158,16 +250,57 @@ export default function LoginForm() {
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Email
           </label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="Enter your Email"
-            className="w-full"
-            required
-          />
+          <div className="relative">
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="Enter your Email"
+              className={`w-full transition-colors ${
+                emailStatus === "registered" 
+                  ? "border-green-500 focus:border-green-500 focus:ring-green-500 dark:border-green-600" 
+                  : emailStatus === "not-registered"
+                  ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
+                  : ""
+              }`}
+              required
+            />
+            {emailStatus === "checking" && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="animate-spin h-4 w-4 border-2 border-gray-300 border-t-gray-600 rounded-full"></div>
+              </div>
+            )}
+            {emailStatus === "registered" && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
+            {emailStatus === "not-registered" && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+            )}
+          </div>
+          {emailMessage && (
+            <p className={`text-sm mt-1 ${
+              emailStatus === "registered" 
+                ? "text-green-600 dark:text-green-400" 
+                : "text-red-600 dark:text-red-400"
+            }`}>
+              {emailMessage}
+              {emailStatus === "not-registered" && (
+                <Link href="/auth/signup" className="font-medium underline hover:no-underline ml-1">
+                  Sign up here →
+                </Link>
+              )}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -197,11 +330,12 @@ export default function LoginForm() {
         <Button
           type="submit"
           className="w-full bg-white text-black border-1 border-black hover:bg-gray-100 dark:bg-neutral-800 dark:text-white dark:border-white dark:hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={isSubmitting || loading || isSuspended || isCheckingSuspension}
+          disabled={isSubmitting || loading || isSuspended || isCheckingSuspension || emailStatus === "not-registered"}
         >
           {isSubmitting ? "Signing in..." : 
            isCheckingSuspension ? "Checking..." : 
            isSuspended ? "Account Suspended" : 
+           emailStatus === "not-registered" ? "Email Not Registered" :
            "Log In"}
         </Button>
       </form>

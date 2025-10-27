@@ -59,7 +59,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isEmailVerified = !!session?.user?.isEmailVerified;
   const login = async (email: string, password: string): Promise<{ error?: string; requires2FA?: boolean }> => {
     try {
-      // For NextAuth v5, we need to call signIn with proper parameters
+      // First, validate the credentials and get specific error messages
+      const validateResponse = await fetch('/api/auth/validate-credentials', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!validateResponse.ok) {
+        const errorData = await validateResponse.json();
+        return { error: errorData.error || "An unexpected error occurred" };
+      }
+
+      const validationResult = await validateResponse.json();
+      
+      // Check if 2FA is required
+      if (validationResult.requires2FA) {
+        // Generate temporary token for 2FA flow
+        try {
+          const tempToken = await fetch('/api/auth/generate-temp-token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password }),
+          });
+
+          if (tempToken.ok) {
+            const tokenData = await tempToken.json();
+            // Redirect to 2FA verification page
+            try {
+              router.push(`/auth/2fa-verify?email=${encodeURIComponent(email)}&token=${tokenData.tempToken}`);
+              return { requires2FA: true };
+            } catch (routerError) {
+              console.error('Failed to redirect to 2FA page:', routerError);
+              return { error: "Failed to redirect to verification page" };
+            }
+          } else {
+            const errorData = await tempToken.json().catch(() => ({ error: 'Unknown error' }));
+            return { error: errorData.error || "Failed to initiate 2FA verification" };
+          }
+        } catch (tempTokenError) {
+          console.error('Failed to generate temp token:', tempTokenError);
+          return { error: "Failed to initiate 2FA verification" };
+        }
+      }
+
+      // If validation passed and no 2FA required, proceed with NextAuth sign in
       const result = await signIn("credentials", {
         email,
         password,
@@ -69,72 +117,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Only log in development
       if (process.env.NODE_ENV === 'development') {
         console.log('Login result:', result);
-        console.log('Login result error:', result?.error);
-        console.log('Login result type of error:', typeof result?.error);
       }
 
       if (result?.error) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Login error detected:', result.error);
-        }
-        
-        // For any credential error, check if the user has 2FA enabled
-        // This is more reliable than trying to parse NextAuth's error formats
-        try {
-          const check2FAResponse = await fetch('/api/auth/check-2fa-status', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email }),
-          });
-
-          if (check2FAResponse.ok) {
-            const { has2FA } = await check2FAResponse.json();
-            
-            if (has2FA) {
-              // If user has 2FA enabled, this login failure might be due to 2FA being required
-              try {
-                // Generate temporary token for 2FA flow
-                const tempToken = await fetch('/api/auth/generate-temp-token', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ email, password }),
-                });
-
-                if (tempToken.ok) {
-                  const tokenData = await tempToken.json();
-                  // Redirect to 2FA verification page with proper error handling
-                  try {
-                    router.push(`/auth/2fa-verify?email=${encodeURIComponent(email)}&token=${tokenData.tempToken}`);
-                    return { requires2FA: true };
-                  } catch (routerError) {
-                    console.error('Failed to redirect to 2FA page:', routerError);
-                    return { error: "Failed to redirect to verification page" };
-                  }
-                } else {
-                  const errorData = await tempToken.json().catch(() => ({ error: 'Unknown error' }));
-                  return { error: errorData.error || "Failed to initiate 2FA verification" };
-                }
-              } catch (tempTokenError) {
-                console.error('Failed to generate temp token:', tempTokenError);
-                return { error: "Failed to initiate 2FA verification" };
-              }
-            }
-          }
-        } catch (check2FAError) {
-          console.error('Failed to check 2FA status:', check2FAError);
-          // Continue with normal error handling if 2FA check fails
-        }
-        return { error: result.error }
+        // This shouldn't happen if validation passed, but handle it anyway
+        return { error: "Invalid credentials" };
       }
 
       // Session is already created by NextAuth credentials callback in auth.config.ts
-      // No need to call track-session here - it would be redundant
-      
-      // Don't redirect here - let middleware handle the redirect based on email verification status
       return {}
     } catch (error) {
       console.error("Login error:", error)
