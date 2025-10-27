@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import SubscriptionDashboard from "@/components/user/SubscriptionDashboard"
-import JobSearchContainer from "@/components/JobSearch/PaywallContainer"
+import PaywallContainer from "@/components/Paywall/PaywallContainer"
 import { useSubscription } from "@/contexts/SubscriptionContext"
 
 export default function UserDashboard() {
@@ -53,7 +53,7 @@ export default function UserDashboard() {
 
       {isActiveSub && (
         <div>
-          <JobSearchContainer />
+          <PaywallContainer />
         </div>
       )}
     </div>
