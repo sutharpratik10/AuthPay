@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { withPolicy, API_POLICIES } from '@/lib/api/permissions';
 import { auth } from '@/config/auth';
 import { db } from '@/server/db';
 import { users } from '@/server/db/schema';
@@ -78,5 +78,5 @@ async function updateProfile(req: NextRequest) {
   }
 }
 
-// Export the route handler wrapped with permission checking
-export const PUT = withPermission(updateProfile, API_PERMISSIONS.PROFILE_EDIT);
+// Export the route handler wrapped with policy checking
+export const PUT = withPolicy(updateProfile, API_POLICIES.PROFILE_EDIT);

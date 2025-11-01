@@ -290,8 +290,9 @@ All RBAC APIs require **admin access** unless otherwise noted.
 
 #### Delete Role
 
-**Endpoint**: `DELETE /api/rbac/roles/[roleId]`  
-**Auth Required**: Yes (Admin)
+**Endpoint**: `DELETE /api/admin/roles/[roleId]`  
+**Auth Required**: Yes  
+**Required Policy**: `role:manage`
 
 **Response**:
 ```typescript
@@ -306,12 +307,123 @@ All RBAC APIs require **admin access** unless otherwise noted.
 }
 ```
 
-### Policy Management
+### User Management
 
-#### List All Policies
+#### List All Users
 
-**Endpoint**: `GET /api/rbac/policies`  
-**Auth Required**: Yes (Admin)
+**Endpoint**: `GET /api/admin/users`  
+**Auth Required**: Yes  
+**Required Policy**: `user:manage`
+
+**Response**:
+```typescript
+{
+  success: true,
+  users: User[]
+}
+```
+
+#### Create User
+
+**Endpoint**: `POST /api/admin/users/create`  
+**Auth Required**: Yes  
+**Required Policy**: `user:manage`
+
+**Request Body**:
+```typescript
+{
+  email: string;
+  password: string;
+  name: string;
+  roleId?: string;
+}
+```
+
+**Response**:
+```typescript
+{
+  success: true,
+  user: User
+}
+```
+
+#### Update User
+
+**Endpoint**: `PUT /api/admin/users/[userId]`  
+**Auth Required**: Yes  
+**Required Policy**: `user:manage`
+
+**Request Body**:
+```typescript
+{
+  name?: string;
+  email?: string;
+  isSuspended?: boolean;
+}
+```
+
+#### Delete User
+
+**Endpoint**: `DELETE /api/admin/users/[userId]`  
+**Auth Required**: Yes  
+**Required Policy**: `user:manage`
+
+#### Suspend/Unsuspend User
+
+**Endpoint**: `PUT /api/admin/users/[userId]/suspend`  
+**Auth Required**: Yes  
+**Required Policy**: `user:manage`
+
+**Request Body**:
+```typescript
+{
+  isSuspended: boolean;
+}
+```
+
+### User-Role Management
+
+#### Get User Roles
+
+**Endpoint**: `GET /api/admin/user-roles?userId={userId}`  
+**Auth Required**: Yes  
+**Required Policy**: `role:manage`
+
+#### Assign Role to User
+
+**Endpoint**: `POST /api/admin/user-roles`  
+**Auth Required**: Yes  
+**Required Policy**: `role:manage`
+
+**Request Body**:
+```typescript
+{
+  userId: string;
+  roleId: string;
+}
+```
+
+#### Remove Role from User
+
+**Endpoint**: `DELETE /api/admin/user-roles`  
+**Auth Required**: Yes  
+**Required Policy**: `role:manage`
+
+**Request Body**:
+```typescript
+{
+  userId: string;
+  roleId: string;
+}
+```
+
+### Subscription Plan Management
+
+#### List Subscription Plans
+
+**Endpoint**: `GET /api/admin/subscription-plans`  
+**Auth Required**: Yes  
+**Required Policy**: `subscription:manage`
 
 **Query Parameters** (Optional):
 - `category`: Filter by category

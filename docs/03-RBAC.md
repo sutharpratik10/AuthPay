@@ -94,11 +94,11 @@ if (await hasPolicy(userId, 'content:create')) {
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | **RBACService** | `src/lib/rbac/rbac-service.ts` | Core permission logic |
-| **Policy Middleware** | `src/lib/rbac/policy-middleware.ts` | API route protection |
+| **Policy Middleware** | `src/lib/api/permissions.ts` | API route protection (`withPolicy`) |
 | **Routing Utils** | `src/lib/rbac/routing-utils.ts` | Dynamic dashboard routing |
 | **Policies Constants** | `src/lib/rbac/index.ts` | Policy definitions |
 | **Route Middleware** | `middleware.ts` | Route-level protection |
-| **Admin APIs** | `src/app/api/rbac/` | RBAC management endpoints |
+| **Admin APIs** | `src/app/api/admin/` | RBAC management endpoints |
 
 ## Core Concepts
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS, requireAdmin } from '@/lib/api/permissions';
+import { withPolicy, API_POLICIES, requireAdmin } from '@/lib/api/permissions';
 import { db } from '@/server/db';
 import { users, subscriptionPlans, roles, userSubscriptions, userRoles } from '@/server/db/schema';
 import { eq, or, ilike, count } from 'drizzle-orm';
@@ -204,6 +204,6 @@ async function updateUserRole(req: NextRequest) {
   }
 }
 
-// Export route handlers with permission checking
-export const GET = withPermission(getUsers, API_PERMISSIONS.USER_VIEW);
-export const PATCH = withPermission(updateUserRole, API_PERMISSIONS.USER_EDIT);
+// Export route handlers with policy checking
+export const GET = withPolicy(getUsers, API_POLICIES.USER_MANAGE);
+export const PATCH = withPolicy(updateUserRole, API_POLICIES.USER_MANAGE);

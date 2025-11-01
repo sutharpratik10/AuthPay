@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { withPolicy, API_POLICIES } from '@/lib/api/permissions';
 import { db } from '@/server/db';
 import { subscriptionPlans, userSubscriptions, subscriptionStatuses } from '@/server/db/schema';
 import { eq, inArray, and } from 'drizzle-orm';
@@ -179,6 +179,6 @@ async function deleteSubscriptionPlan(req: NextRequest, context?: unknown) {
   }
 }
 
-// Export the route handlers wrapped with admin permission checking
-export const PUT = withPermission(updateSubscriptionPlan, API_PERMISSIONS.SUBSCRIPTION_MANAGE);
-export const DELETE = withPermission(deleteSubscriptionPlan, API_PERMISSIONS.SUBSCRIPTION_MANAGE);
+// Export the route handlers wrapped with admin policy checking
+export const PUT = withPolicy(updateSubscriptionPlan, API_POLICIES.SUBSCRIPTION_MANAGE);
+export const DELETE = withPolicy(deleteSubscriptionPlan, API_POLICIES.SUBSCRIPTION_MANAGE);

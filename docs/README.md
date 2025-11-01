@@ -17,6 +17,18 @@ Complete, modern documentation covering all aspects of AuthPay:
 | [**05-API-ROUTES.md**](./05-API-ROUTES.md) | 🌐 Complete API reference | Frontend & Backend |
 | [**06-ROUTING.md**](./06-ROUTING.md) | 🧭 Routing system and navigation | Frontend developers |
 
+## 🔄 Migration Guides
+
+Documentation for developers migrating to the modern policy-based RBAC system:
+
+| Document | Description | When to Use |
+|----------|-------------|-------------|
+| [**QUICK-REFERENCE.md**](./QUICK-REFERENCE.md) | ⚡ Quick cheat sheet | Daily development reference |
+| [**08-MIGRATION-GUIDE.md**](./08-MIGRATION-GUIDE.md) | 📋 Step-by-step migration guide | Upgrading from deprecated patterns |
+| [**FINAL-MIGRATION-SUMMARY.md**](./FINAL-MIGRATION-SUMMARY.md) | 📊 Complete migration report | Understanding what changed |
+| [**MIGRATION-COMPLETE-SUMMARY.md**](./MIGRATION-COMPLETE-SUMMARY.md) | ✅ Detailed file-by-file changes | Technical reference |
+| [**DEPRECATED-COMPONENTS-UPDATE.md**](./DEPRECATED-COMPONENTS-UPDATE.md) | ⚠️ Deprecation audit report | Historical context |
+
 ---
 
 ## 🎯 Policy-Based RBAC System (Legacy)

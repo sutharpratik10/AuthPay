@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { withPolicy, API_POLICIES } from '@/lib/api/permissions';
 import { db } from '@/server/db';
 import { subscriptionPlans } from '@/server/db/schema';
 import { desc } from 'drizzle-orm';
@@ -64,7 +64,7 @@ async function createOrUpdateSubscriptionPlan(request: NextRequest) {
   }
 }
 
-// Export the route handlers wrapped with admin permission checking
-export const GET = withPermission(getSubscriptionPlans, API_PERMISSIONS.SUBSCRIPTION_MANAGE);
-export const POST = withPermission(createOrUpdateSubscriptionPlan, API_PERMISSIONS.SUBSCRIPTION_MANAGE);
-export const PUT = withPermission(createOrUpdateSubscriptionPlan, API_PERMISSIONS.SUBSCRIPTION_MANAGE);
+// Export the route handlers wrapped with admin policy checking
+export const GET = withPolicy(getSubscriptionPlans, API_POLICIES.SUBSCRIPTION_MANAGE);
+export const POST = withPolicy(createOrUpdateSubscriptionPlan, API_POLICIES.SUBSCRIPTION_MANAGE);
+export const PUT = withPolicy(createOrUpdateSubscriptionPlan, API_POLICIES.SUBSCRIPTION_MANAGE);

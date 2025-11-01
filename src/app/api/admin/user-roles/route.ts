@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { withPolicy, API_POLICIES } from '@/lib/api/permissions';
 import { db } from '@/server/db';
 import { users, userRoles, roles } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -152,7 +152,7 @@ async function removeUserRole(req: NextRequest) {
   }
 }
 
-// Export route handlers with permission checking
-export const GET = withPermission(getUserRoles, API_PERMISSIONS.USER_VIEW);
-export const POST = withPermission(assignUserRole, API_PERMISSIONS.USER_EDIT);
-export const DELETE = withPermission(removeUserRole, API_PERMISSIONS.USER_EDIT);
+// Export route handlers with policy checking
+export const GET = withPolicy(getUserRoles, API_POLICIES.ROLE_MANAGE);
+export const POST = withPolicy(assignUserRole, API_POLICIES.ROLE_MANAGE);
+export const DELETE = withPolicy(removeUserRole, API_POLICIES.ROLE_MANAGE);
