@@ -133,15 +133,16 @@ export function Navigationbar() {
   // Use navItems directly, do not add Dashboard link
   const navigationItems: readonly NavigationItem[] = navItems;
 
-  // After a successful login, redirect users to their role-based dashboard if they landed on a neutral page
+  // After a successful login, redirect users to their role-based dashboard if they landed on an auth page
+  // This is a one-time redirect, not on every navigation
   useEffect(() => {
     if (!mounted) return;    
     if (!isAuthenticated) return;
-    // If current path is an auth page (but NOT home), push to desired dashboard
+    // If current path is an auth page, redirect to dashboard once
     if (typeof window !== 'undefined') {
       const path = window.location.pathname
-      const isAuthPage = path.startsWith('/auth/')
-      if (isAuthPage) {
+      const isAuthPage = path.startsWith('/auth/') && path !== '/auth/verify'
+      if (isAuthPage && dashboardPath) {
         router.replace(dashboardPath)
       }
     }

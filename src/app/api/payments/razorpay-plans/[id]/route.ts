@@ -1,25 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
+import { withDynamicApiHandler, errorResponse } from '@/lib/api/helpers';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
+/**
+ * GET /api/payments/razorpay-plans/[id]
+ * Fetch a specific Razorpay plan by ID
+ * 
+ * @protected Requires authentication
+ * @param {string} id - Plan ID
+ */
+export const GET = withDynamicApiHandler<{ id: string }>(
+  async (request, { user, params }) => {
     const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-      return NextResponse.json({ success: false, error: { description: 'Missing Razorpay credentials' } }, { status: 500 });
+      return errorResponse('Missing Razorpay credentials', 500);
     }
 
-    const { id } = await params;
+    const { id } = params;
     if (!id) {
-      return NextResponse.json({ success: false, error: { description: 'Missing plan id' } }, { status: 400 });
+      return errorResponse('Missing plan id', 400);
     }
+
+    console.log(`[razorpay-plans] Fetching plan ${id} for user: ${user?.id}`);
 
     const razorpay = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
     const plan = await razorpay.plans.fetch(id);
+    
     return NextResponse.json({ success: true, data: plan });
-  } catch (err) {
-    const message = (err instanceof Error) ? err.message : 'Failed to fetch plan';
-    return NextResponse.json({ success: false, error: { description: message } }, { status: 500 });
-  }
-}
+  },
+  { requireAuth: true }
+);

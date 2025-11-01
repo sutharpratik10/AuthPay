@@ -2,9 +2,19 @@
 
 import { ReactNode, useEffect, useMemo, useState } from "react"
 import Loading from '@/components/Loading';
-import { useRouter, usePathname } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { ForceRedirect } from "@/components/shared/ForceRedirect"
+
+// Extended user interface with our custom properties
+interface ExtendedUser {
+  id?: string;
+  email?: string | null;
+  name?: string | null;
+  image?: string | null;
+  isEmailVerified?: boolean;
+  role?: string;
+}
 
 export interface ProtectedRouteProps {
   children: ReactNode
@@ -45,21 +55,20 @@ async function validateUserInDatabase(userId: string): Promise<{ exists: boolean
 export function ProtectedRoute({ 
   children
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isEmailVerified, loading, user, logout } = useAuth()
-  const router = useRouter()
+  const { loading, user, logout } = useAuth()
   const pathname = usePathname()
   const [userValidated, setUserValidated] = useState<boolean | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   
   // Memoize the auth state to prevent unnecessary re-renders
   const authState = useMemo(() => ({
-    isAuthenticated,
-    isEmailVerified,
+    isAuthenticated: !!user,
+    isEmailVerified: !!(user as ExtendedUser)?.isEmailVerified,
     loading,
     user
-  }), [isAuthenticated, isEmailVerified, loading, user]);
+  }), [user, loading]);
 
-  // Validate user exists in database when authenticated
+  // Validate user exists in database when authenticated - run only once per session
   useEffect(() => {
     let isMounted = true;
     let isValidating = false;
@@ -67,13 +76,14 @@ export function ProtectedRoute({
     async function checkUserInDatabase() {
       // Prevent concurrent validations
       if (isValidating) {
-        console.log('[PROTECTED_ROUTE] Validation already in progress, skipping...');
         return;
       }
       
-      // Skip validation if user is on verify page (they're in the middle of verification)
+      // Skip validation if user is on verify page
       if (pathname === '/auth/verify') {
-        console.log('[PROTECTED_ROUTE] Skipping validation - user on verify page');
+        if (isMounted && userValidated === null) {
+          setUserValidated(true); // Assume valid on verify page
+        }
         return;
       }
       
@@ -85,7 +95,6 @@ export function ProtectedRoute({
         userValidated === null // Only run if we haven't validated yet
       ) {
         isValidating = true;
-        console.log('[PROTECTED_ROUTE] Validating user in database...');
         
         try {
           const { exists, shouldSignOut } = await validateUserInDatabase(authState.user.id);
@@ -93,7 +102,6 @@ export function ProtectedRoute({
           if (!isMounted) return;
           
           if (!exists) {
-            console.log('[PROTECTED_ROUTE] User not found in database, clearing auth');
             setValidationError('Your account was not found. Please sign in again.');
             setUserValidated(false);
             
@@ -113,7 +121,6 @@ export function ProtectedRoute({
           
           setUserValidated(true);
           setValidationError(null);
-          console.log('[PROTECTED_ROUTE] User validation successful');
         } catch (error) {
           if (!isMounted) return;
           console.error('[PROTECTED_ROUTE] User validation failed:', error);
@@ -136,60 +143,16 @@ export function ProtectedRoute({
     };
   }, [authState.isAuthenticated, authState.user?.id, authState.loading, logout, userValidated, pathname]);
 
-  useEffect(() => {
-    console.log('[PROTECTED_ROUTE] useEffect triggered:', {
-      pathname,
-      loading: authState.loading,
-      isAuthenticated: authState.isAuthenticated,
-      isEmailVerified: authState.isEmailVerified,
-      userValidated,
-      validationError
-    });
-    
-    // Only process redirects when loading is complete and user is validated
-    // Add extra check to prevent loops
-    if (!authState.loading && userValidated !== null && !validationError) {
-      if (!authState.isAuthenticated || userValidated === false) {
-        console.log('[PROTECTED_ROUTE] Redirecting unauthenticated or invalid user to login')
-        
-        // Use window.location for hard redirect to break any loops
-        if (typeof window !== 'undefined' && pathname !== '/auth/login') {
-          window.location.href = '/auth/login';
-        }
-        return
-      }
+  // Show loading only during initial authentication check or database validation
+  if (authState.loading || (authState.isAuthenticated && userValidated === null)) {
+    return <Loading text={authState.loading ? 'Loading...' : 'Validating account...'} />
+  }
 
-      // Prevent redirect loop: don't redirect to verify if already there
-      if (!authState.isEmailVerified && pathname !== '/auth/verify') {
-        console.log('[PROTECTED_ROUTE] Redirecting unverified user to verify')
-        router.replace('/auth/verify')
-        return
-      }
-      
-      console.log('[PROTECTED_ROUTE] All checks passed, rendering children');
-    }
-  }, [authState.isAuthenticated, authState.isEmailVerified, authState.loading, userValidated, validationError, router, pathname])
+  // Show force redirect component for invalid users (deleted accounts)
+  if (!authState.loading && userValidated === false && authState.user?.id && validationError) {
+    return <ForceRedirect userId={authState.user.id} />;
+  }
 
-  // Show loading state if still checking authentication or validating user
-    if (authState.loading || (authState.isAuthenticated && userValidated === null)) {
-      return <Loading text={authState.loading ? 'Loading...' : 'Validating account...'} />
-    }
-
-  // Show force redirect component for invalid users
-    if (!authState.loading && userValidated === false && authState.user?.id) {
-      return <ForceRedirect userId={authState.user.id} />;
-    }
-
-  // If not authenticated or user validation failed, show loading while redirect happens
-    if (!authState.isAuthenticated || userValidated === false) {
-      return <Loading text="Redirecting to login..." />
-    }
-
-  // If email not verified and NOT on verify page, show loading while redirect happens
-    if (!authState.isEmailVerified && pathname !== '/auth/verify') {
-      return <Loading text="Redirecting to verification..." />
-    }
-  
-  // If authenticated, email verified, and user validated, render children
+  // If middleware allowed us to reach here, trust it and render children
   return <>{children}</>
 }

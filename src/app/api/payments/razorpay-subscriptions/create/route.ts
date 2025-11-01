@@ -1,30 +1,50 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { db } from '@/server/db';
 import { subscriptionPlans } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { withApiHandler, errorResponse } from '@/lib/api/helpers';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest) {
-  try {
+/**
+ * POST /api/payments/razorpay-subscriptions/create
+ * Create a new Razorpay subscription
+ * 
+ * @protected Requires authentication
+ * @body {string} planId - Local subscription plan ID (optional if razorpayPlanId provided)
+ * @body {string} razorpayPlanId - Razorpay plan ID (optional if planId provided)
+ * @body {boolean} customer_notify - Whether to notify customer (default: true)
+ * @body {number} total_count - Total billing cycles (default: 12)
+ * @body {number} end_at - Unix timestamp for subscription end
+ */
+export const POST = withApiHandler(
+  async (request, { user }) => {
     const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-      return NextResponse.json({ success: false, error: 'Missing Razorpay credentials' }, { status: 500 });
+      return errorResponse('Missing Razorpay credentials', 500);
     }
 
-  const body = await req.json();
-  const { planId, razorpayPlanId, customer_notify, total_count, end_at } = body || {};
+    const body = await request.json();
+    const { planId, razorpayPlanId, customer_notify, total_count, end_at } = body || {};
 
     // Resolve a razorpay plan id: prefer explicit razorpayPlanId, else lookup local plan
     let rpPlanId: string | undefined = undefined;
-    if (typeof razorpayPlanId === 'string' && razorpayPlanId.trim()) rpPlanId = razorpayPlanId.trim();
-    else if (typeof planId === 'string' && planId.trim()) {
-      const plan = await db.query.subscriptionPlans.findFirst({ where: eq(subscriptionPlans.id, planId), columns: { razorpaySubscriptionPlanId: true } });
+    if (typeof razorpayPlanId === 'string' && razorpayPlanId.trim()) {
+      rpPlanId = razorpayPlanId.trim();
+    } else if (typeof planId === 'string' && planId.trim()) {
+      const plan = await db.query.subscriptionPlans.findFirst({ 
+        where: eq(subscriptionPlans.id, planId), 
+        columns: { razorpaySubscriptionPlanId: true } 
+      });
       rpPlanId = plan?.razorpaySubscriptionPlanId ?? undefined;
     }
 
-    if (!rpPlanId) return NextResponse.json({ success: false, error: 'Missing planId or razorpayPlanId' }, { status: 400 });
+    if (!rpPlanId) {
+      return errorResponse('Missing planId or razorpayPlanId', 400);
+    }
+
+    console.log(`[razorpay-subscriptions/create] Creating subscription for user: ${user?.id}, plan: ${rpPlanId}`);
 
     const razorpay = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
 
@@ -43,25 +63,10 @@ export async function POST(req: NextRequest) {
       payload.total_count = 12;
     }
 
-  // @ts-expect-error - razorpay SDK has dynamic types for subscriptions.create
-  const created = await razorpay.subscriptions.create(payload);
+    // @ts-expect-error - razorpay SDK has dynamic types for subscriptions.create
+    const created = await razorpay.subscriptions.create(payload);
 
     return NextResponse.json({ success: true, subscription: created });
-  } catch (err) {
-    // Try to surface Razorpay's error details when available
-    console.error('Create subscription error', err);
-    const e = err as unknown;
-    if (e && typeof e === 'object') {
-      const obj = e as Record<string, unknown>;
-      if (obj.error && typeof obj.error === 'object') {
-        const errObj = obj.error as Record<string, unknown>;
-        if (errObj.description) {
-          const desc = String(errObj.description);
-          const statusCode = typeof obj.statusCode === 'number' ? obj.statusCode : 500;
-          return NextResponse.json({ success: false, error: desc }, { status: statusCode });
-        }
-      }
-    }
-    return NextResponse.json({ success: false, error: (err as Error).message || 'Failed to create subscription' }, { status: 500 });
-  }
-}
+  },
+  { requireAuth: true }
+);

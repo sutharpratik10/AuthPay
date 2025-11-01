@@ -637,7 +637,603 @@ All RBAC APIs require **admin access** unless otherwise noted.
 
 ## Payment APIs
 
-### Create Payment Order
+> **⚠️ Security:** All payment APIs now require authentication and implement role-based authorization. See [Authorization Model](#payment-authorization-model) below.
+
+### Payment Authorization Model
+
+**Two-Layer Security:**
+
+1. **Authentication** (Layer 1) - All payment APIs require valid user session
+2. **Authorization** (Layer 2) - Role-based access control:
+   - **Admin users** → Full access to ALL users' payment data
+   - **Regular users** → Access ONLY to their OWN payment data
+
+**Authorization Rules:**
+
+| Resource Type | Admin Access | User Access |
+|--------------|--------------|-------------|
+| **Subscriptions** | All subscriptions | Only subscriptions owned by user (matched by `razorpaySubscriptionId`) |
+| **Payments** | All payments | Only payments matching user's `email` or `customer_id` |
+| **Invoices** | All invoices | Only invoices matching user's `subscription_id` or `customer_id` |
+| **Plans** | Read all, Create new | Read all (public pricing) |
+
+**Response Format:**
+All list endpoints include an `isAdmin` flag:
+```typescript
+{
+  "entity": "collection",
+  "count": 5,
+  "items": [...],
+  "isAdmin": false  // Indicates if user has admin privileges
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Not authenticated
+- `403 Forbidden` - User doesn't own the resource and is not admin
+
+---
+
+### Razorpay Plans
+
+#### List All Plans
+
+**Endpoint**: `GET /api/payments/razorpay-plans`  
+**Auth Required**: ✅ Yes  
+**Authorization**: All authenticated users (public pricing information)
+
+**Query Parameters**:
+- `from` (number, optional) - Unix timestamp for start date filter
+- `to` (number, optional) - Unix timestamp for end date filter
+- `count` (number, optional) - Number of items to return
+- `skip` (number, optional) - Number of items to skip for pagination
+
+**Response**:
+```typescript
+{
+  "success": true,
+  "entity": "collection",
+  "count": 10,
+  "items": [
+    {
+      "id": "plan_xxx",
+      "entity": "plan",
+      "interval": 1,
+      "period": "monthly",
+      "item": {
+        "id": "item_xxx",
+        "name": "Premium Plan",
+        "amount": 99900,  // Amount in paise (999.00 INR)
+        "currency": "INR",
+        "description": "Premium features"
+      },
+      "notes": {},
+      "created_at": 1640000000
+    }
+  ]
+}
+```
+
+**Example**:
+```typescript
+const response = await fetch('/api/payments/razorpay-plans', {
+  credentials: 'include'
+});
+const data = await response.json();
+```
+
+---
+
+#### Get Plan by ID
+
+**Endpoint**: `GET /api/payments/razorpay-plans/[id]`  
+**Auth Required**: ✅ Yes  
+**Authorization**: All authenticated users
+
+**URL Parameters**:
+- `id` - Razorpay Plan ID (e.g., `plan_xxx`)
+
+**Response**:
+```typescript
+{
+  "success": true,
+  "data": {
+    "id": "plan_xxx",
+    "entity": "plan",
+    "interval": 1,
+    "period": "monthly",
+    "item": {
+      "id": "item_xxx",
+      "name": "Premium Plan",
+      "amount": 99900,
+      "currency": "INR"
+    }
+  }
+}
+```
+
+---
+
+#### Create Plan (Admin Only)
+
+**Endpoint**: `POST /api/payments/razorpay-plans`  
+**Auth Required**: ✅ Yes  
+**Authorization**: 🔐 **Admin Only**
+
+**Request Body**:
+```typescript
+{
+  "period": "monthly" | "yearly" | "weekly" | "daily",
+  "interval": 1,  // Number of billing cycles
+  "item": {
+    "name": "Premium Plan",
+    "amount": 99900,  // Amount in paise
+    "currency": "INR",
+    "description": "Premium features with advanced analytics"
+  },
+  "notes": {
+    "feature_tier": "premium",
+    "custom_key": "custom_value"
+  }
+}
+```
+
+**Response**:
+```typescript
+// Success (201)
+{
+  "success": true,
+  "plan": { /* created plan object */ }
+}
+
+// Error - Not Admin (403)
+{
+  "success": false,
+  "error": "Admin access required"
+}
+```
+
+---
+
+### Razorpay Subscriptions
+
+#### List All Subscriptions
+
+**Endpoint**: `GET /api/payments/razorpay-subscriptions`  
+**Auth Required**: ✅ Yes  
+**Authorization**: 🔐 Role-based filtering
+- **Admin**: Returns all subscriptions
+- **User**: Returns only user's own subscriptions
+
+**Query Parameters**:
+- `plan_id` (string, optional) - Filter by Razorpay plan ID
+- `from` (number, optional) - Unix timestamp
+- `to` (number, optional) - Unix timestamp
+- `count` (number, optional) - Number of items
+- `skip` (number, optional) - Skip items for pagination
+
+**Response**:
+```typescript
+{
+  "success": true,
+  "subscriptions": [
+    {
+      "id": "sub_xxx",
+      "entity": "subscription",
+      "plan_id": "plan_xxx",
+      "customer_id": "cust_xxx",
+      "status": "active" | "paused" | "cancelled" | "completed",
+      "current_start": 1640000000,
+      "current_end": 1642678400,
+      "charge_at": 1642678400,
+      "total_count": 12,
+      "paid_count": 3,
+      "remaining_count": 9,
+      "created_at": 1640000000
+    }
+  ],
+  "count": 5,
+  "isAdmin": false  // Indicates if requesting user is admin
+}
+```
+
+**Behavior**:
+- Admins see ALL subscriptions from all users
+- Regular users see ONLY their own subscriptions (filtered by `razorpaySubscriptionId` in database)
+
+---
+
+#### Get Subscription by ID
+
+**Endpoint**: `GET /api/payments/razorpay-subscriptions/[id]`  
+**Auth Required**: ✅ Yes  
+**Authorization**: 🔐 Ownership required
+- **Admin**: Can access any subscription
+- **User**: Can only access subscriptions they own
+
+**URL Parameters**:
+- `id` - Razorpay Subscription ID (e.g., `sub_xxx`)
+
+**Response**:
+```typescript
+// Success (200)
+{
+  "id": "sub_xxx",
+  "entity": "subscription",
+  "plan_id": "plan_xxx",
+  "status": "active",
+  "customer_notify": 1,
+  // ... all subscription fields
+  "isAdmin": false
+}
+
+// Error - Not Owned (403)
+{
+  "success": false,
+  "error": "You do not have permission to access this subscription"
+}
+```
+
+---
+
+#### Create Subscription
+
+**Endpoint**: `POST /api/payments/razorpay-subscriptions/create`  
+**Auth Required**: ✅ Yes  
+**Authorization**: All authenticated users can create subscriptions for themselves
+
+**Request Body** (Option 1 - Using Local Plan ID):
+```typescript
+{
+  "planId": "local-plan-uuid",  // UUID from your database
+  "customer_notify": true,
+  "total_count": 12,  // Number of billing cycles
+  "quantity": 1,
+  "notes": {
+    "user_note": "Annual subscription"
+  }
+}
+```
+
+**Request Body** (Option 2 - Using Razorpay Plan ID):
+```typescript
+{
+  "razorpayPlanId": "plan_xxx",  // Direct Razorpay plan ID
+  "customer_notify": true,
+  "end_at": 1735689600,  // Unix timestamp for end date
+  "notes": {}
+}
+```
+
+**Response**:
+```typescript
+{
+  "success": true,
+  "subscription": {
+    "id": "sub_xxx",
+    "entity": "subscription",
+    "status": "created",
+    "plan_id": "plan_xxx",
+    // ... subscription details
+  }
+}
+```
+
+---
+
+#### Pause Subscription
+
+**Endpoint**: `POST /api/payments/razorpay-subscriptions/[id]/pause`  
+**Auth Required**: ✅ Yes  
+**Authorization**: 🔐 Ownership required (user must own subscription or be admin)
+
+**URL Parameters**:
+- `id` - Subscription ID to pause
+
+**Request Body**:
+```typescript
+{
+  "pause_at": "now" | number  // "now" or Unix timestamp
+}
+```
+
+**Response**:
+```typescript
+// Success (200)
+{
+  "success": true,
+  "subscription": {
+    "id": "sub_xxx",
+    "status": "paused",
+    "paused_at": 1640000000
+  }
+}
+
+// Error - Not Owned (403)
+{
+  "success": false,
+  "error": "You do not have permission to access this subscription"
+}
+```
+
+---
+
+#### Resume Subscription
+
+**Endpoint**: `POST /api/payments/razorpay-subscriptions/[id]/resume`  
+**Auth Required**: ✅ Yes  
+**Authorization**: 🔐 Ownership required
+
+**URL Parameters**:
+- `id` - Subscription ID to resume
+
+**Request Body**:
+```typescript
+{
+  "resume_at": "now" | number  // "now" or Unix timestamp
+}
+```
+
+**Response**:
+```typescript
+{
+  "success": true,
+  "subscription": {
+    "id": "sub_xxx",
+    "status": "active"
+  }
+}
+```
+
+---
+
+#### Cancel Subscription
+
+**Endpoint**: `POST /api/payments/razorpay-subscriptions/[id]/cancel`  
+**Auth Required**: ✅ Yes  
+**Authorization**: 🔐 Ownership required
+
+**URL Parameters**:
+- `id` - Subscription ID to cancel
+
+**Request Body**:
+```typescript
+{
+  "cancel_at_cycle_end": boolean  // If true, cancels at end of current billing cycle
+}
+```
+
+**Response**:
+```typescript
+{
+  "success": true,
+  "subscription": {
+    "id": "sub_xxx",
+    "status": "cancelled",
+    "ended_at": 1640000000
+  }
+}
+```
+
+---
+
+### Razorpay Payments
+
+#### List All Payments
+
+**Endpoint**: `GET /api/payments/razorpay-payments`  
+**Auth Required**: ✅ Yes  
+**Authorization**: 🔐 Role-based filtering
+- **Admin**: Returns all payments from all users
+- **User**: Returns only payments matching user's email or customer_id
+
+**Query Parameters**:
+- `count` (number, optional, default: 10, max: 10) - Items per page
+- `skip` (number, optional, default: 0) - Items to skip
+- `from` (number, optional) - Unix timestamp for start date
+- `to` (number, optional) - Unix timestamp for end date
+- `q` (string, optional) - Search query (searches payment ID, order ID, email)
+- `fetchAll` (boolean, optional) - Fetch all payments across multiple pages
+
+**Special Features**:
+- **Pagination**: Use `count` and `skip` for standard pagination
+- **Search**: Use `q` parameter to filter by payment ID, order ID, or email
+- **Fetch All**: Set `fetchAll=true` to automatically paginate through ALL results (admin useful)
+
+**Response**:
+```typescript
+{
+  "entity": "collection",
+  "count": 10,
+  "items": [
+    {
+      "id": "pay_xxx",
+      "entity": "payment",
+      "amount": 99900,  // Amount in paise
+      "currency": "INR",
+      "status": "captured" | "failed" | "refunded",
+      "order_id": "order_xxx",
+      "method": "card" | "netbanking" | "wallet" | "upi",
+      "email": "user@example.com",
+      "contact": "+919876543210",
+      "fee": 2360,  // Payment gateway fee
+      "tax": 360,
+      "captured": true,
+      "created_at": 1640000000
+    }
+  ],
+  "isAdmin": false
+}
+```
+
+**Behavior**:
+- Admins see payments from ALL users
+- Regular users see ONLY payments matching their email or customer_id
+- Search filter is applied AFTER authorization filtering
+
+**Example - Fetch User's Payments**:
+```typescript
+const response = await fetch('/api/payments/razorpay-payments?count=20&skip=0', {
+  credentials: 'include'
+});
+const data = await response.json();
+console.log(`Found ${data.count} payments (Admin: ${data.isAdmin})`);
+```
+
+**Example - Search Payments**:
+```typescript
+const response = await fetch('/api/payments/razorpay-payments?q=user@example.com', {
+  credentials: 'include'
+});
+```
+
+**Example - Fetch All (Admin)**:
+```typescript
+// Automatically paginates through all payments
+const response = await fetch('/api/payments/razorpay-payments?fetchAll=true', {
+  credentials: 'include'
+});
+```
+
+---
+
+#### Get Payment by ID
+
+**Endpoint**: `GET /api/payments/razorpay-payments/[id]`  
+**Auth Required**: ✅ Yes  
+**Authorization**: 🔐 Ownership required
+- **Admin**: Can access any payment
+- **User**: Can only access payments matching their email or customer_id
+
+**URL Parameters**:
+- `id` - Razorpay Payment ID (e.g., `pay_xxx`)
+
+**Response**:
+```typescript
+// Success (200)
+{
+  "id": "pay_xxx",
+  "entity": "payment",
+  "amount": 99900,
+  "currency": "INR",
+  "status": "captured",
+  "method": "card",
+  "email": "user@example.com",
+  "card": {
+    "id": "card_xxx",
+    "network": "Visa",
+    "last4": "1234",
+    "type": "credit"
+  },
+  "created_at": 1640000000,
+  "isAdmin": false
+}
+
+// Error - Not Owned (403)
+{
+  "success": false,
+  "error": "You do not have permission to access this payment"
+}
+```
+
+---
+
+### Razorpay Invoices
+
+#### List All Invoices
+
+**Endpoint**: `GET /api/payments/razorpay-invoices`  
+**Auth Required**: ✅ Yes  
+**Authorization**: 🔐 Role-based filtering
+- **Admin**: Returns all invoices
+- **User**: Returns only invoices matching user's subscription_id or customer_id
+
+**Query Parameters**:
+- `subscription_id` (string, optional) - Filter by subscription ID
+- `count` (number, optional, default: 20) - Items per page
+- `skip` (number, optional, default: 0) - Items to skip
+- `status` (string, optional) - Filter by status (paid, issued, expired, cancelled)
+- `customer_id` (string, optional) - Filter by customer ID
+- `payment_id` (string, optional) - Filter by payment ID
+
+**Response**:
+```typescript
+{
+  "entity": "collection",
+  "count": 10,
+  "items": [
+    {
+      "id": "inv_xxx",
+      "entity": "invoice",
+      "type": "invoice",
+      "status": "paid" | "issued" | "expired" | "cancelled",
+      "amount": 99900,
+      "amount_paid": 99900,
+      "amount_due": 0,
+      "currency": "INR",
+      "customer_id": "cust_xxx",
+      "subscription_id": "sub_xxx",
+      "payment_id": "pay_xxx",
+      "issued_at": 1640000000,
+      "paid_at": 1640100000,
+      "expire_by": 1640500000,
+      "created_at": 1640000000
+    }
+  ],
+  "isAdmin": false
+}
+```
+
+---
+
+#### Get Invoice by ID
+
+**Endpoint**: `GET /api/payments/razorpay-invoices/[id]`  
+**Auth Required**: ✅ Yes  
+**Authorization**: 🔐 Ownership required
+- **Admin**: Can access any invoice
+- **User**: Can only access invoices matching their subscription_id or customer_id
+
+**URL Parameters**:
+- `id` - Razorpay Invoice ID (e.g., `inv_xxx`)
+
+**Response**:
+```typescript
+// Success (200)
+{
+  "id": "inv_xxx",
+  "entity": "invoice",
+  "status": "paid",
+  "amount": 99900,
+  "currency": "INR",
+  "customer_id": "cust_xxx",
+  "subscription_id": "sub_xxx",
+  "payment_id": "pay_xxx",
+  "line_items": [
+    {
+      "item_id": "item_xxx",
+      "name": "Premium Plan",
+      "amount": 99900,
+      "quantity": 1
+    }
+  ],
+  "issued_at": 1640000000,
+  "paid_at": 1640100000,
+  "isAdmin": false
+}
+
+// Error - Not Owned (403)
+{
+  "success": false,
+  "error": "You do not have permission to access this invoice"
+}
+```
+
+---
+
+### Legacy Payment Endpoints
+
+#### Create Payment Order
 
 **Endpoint**: `POST /api/payments/create-order`  
 **Auth Required**: Yes  
@@ -663,7 +1259,9 @@ All RBAC APIs require **admin access** unless otherwise noted.
 }
 ```
 
-### Verify Payment
+---
+
+#### Verify Payment
 
 **Endpoint**: `POST /api/payments/verify`  
 **Auth Required**: Yes
@@ -686,7 +1284,9 @@ All RBAC APIs require **admin access** unless otherwise noted.
 }
 ```
 
-### Payment History
+---
+
+#### Payment History
 
 **Endpoint**: `GET /api/payments/history`  
 **Auth Required**: Yes  
@@ -719,7 +1319,9 @@ All RBAC APIs require **admin access** unless otherwise noted.
 }
 ```
 
-### Payment Webhook
+---
+
+#### Payment Webhook
 
 **Endpoint**: `POST /api/payments/webhook`  
 **Auth Required**: No (Validated via signature)
@@ -738,6 +1340,33 @@ All RBAC APIs require **admin access** unless otherwise noted.
 ```
 
 **Security**: Validates webhook signature before processing
+
+---
+
+### Payment API Security Summary
+
+**Authentication & Authorization:**
+- ✅ All payment APIs require authentication (Layer 1)
+- ✅ Role-based authorization implemented (Layer 2)
+- ✅ Admin users have full access to all data
+- ✅ Regular users can only access their own data
+- ✅ 403 Forbidden responses for unauthorized access
+
+**Data Privacy:**
+- ✅ Subscriptions matched by `razorpaySubscriptionId` ownership
+- ✅ Payments matched by user's `email` or `customer_id`
+- ✅ Invoices matched by user's `subscription_id` or `customer_id`
+
+**Audit & Transparency:**
+- ✅ All responses include `isAdmin` flag
+- ✅ Console logging for all access attempts
+- ✅ Clear error messages for denied access
+
+**For Complete Details, See:**
+- [Payment API Authorization Enhancement](./PAYMENT-API-AUTHORIZATION-ENHANCEMENT.md)
+- [Payment API Security Refactor](./PAYMENT-API-SECURITY-REFACTOR.md)
+- [Payment API Quick Reference](./PAYMENT-API-QUICK-REFERENCE.md)
+- [Authorization Summary](./AUTHORIZATION-SUMMARY.md)
 
 ## Job APIs
 

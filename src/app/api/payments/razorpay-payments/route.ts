@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
+import { withApiHandler, errorResponse } from '@/lib/api/helpers';
+import { filterPaymentsForUser, isAdmin } from '@/lib/api/payment-authorization';
 
 /**
  * Razorpay Payments API
@@ -7,6 +9,8 @@ import Razorpay from 'razorpay';
  * Fetches payment transactions from Razorpay with pagination and filtering.
  * 
  * @endpoint GET /api/payments/razorpay-payments
+ * @protected Requires authentication
+ * @authorization Admins can see all payments, users can only see their own
  * 
  * @queryparam {number} count - Number of items to fetch per page (default: 10, max: 10 for test accounts)
  * @queryparam {number} skip - Number of items to skip for pagination (default: 0)
@@ -32,12 +36,13 @@ import Razorpay from 'razorpay';
  * 
  * @note Test accounts have a limit of 10 items per request. Use fetchAll=true to get all payments.
  * @note When count is limited, response includes X-Count-Limited and X-Max-Count headers.
+ * @note Regular users will only see their own payments. Admins see all payments.
  */
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest) {
-  try {
+export const GET = withApiHandler(
+  async (request, { user }) => {
     const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
     
     // Enhanced credential validation
@@ -46,24 +51,19 @@ export async function GET(req: NextRequest) {
         hasKeyId: !!RAZORPAY_KEY_ID,
         hasKeySecret: !!RAZORPAY_KEY_SECRET,
       });
-      return NextResponse.json({ 
-        success: false, 
-        error: { description: 'Missing Razorpay credentials' } 
-      }, { status: 500 });
+      return errorResponse('Missing Razorpay credentials', 500);
     }
 
     // Validate key format
     if (!RAZORPAY_KEY_ID.startsWith('rzp_test_') && !RAZORPAY_KEY_ID.startsWith('rzp_live_')) {
       console.error('[razorpay/payments] Invalid key format:', RAZORPAY_KEY_ID.substring(0, 10) + '...');
-      return NextResponse.json({ 
-        success: false, 
-        error: { description: 'Invalid Razorpay key format' } 
-      }, { status: 500 });
+      return errorResponse('Invalid Razorpay key format', 500);
     }
 
-    console.log('[razorpay/payments] Using key:', RAZORPAY_KEY_ID.substring(0, 15) + '...');
+    const isAdminUser = await isAdmin(user!.id);
+    console.log(`[razorpay/payments] Fetching payments for user: ${user?.id} (admin: ${isAdminUser}), key: ${RAZORPAY_KEY_ID.substring(0, 15)}...`);
 
-    const url = new URL(req.url);
+    const url = new URL(request.url);
     const requestedCount = url.searchParams.get('count') ? Number(url.searchParams.get('count')) : 10;
     const skip = url.searchParams.get('skip') ? Number(url.searchParams.get('skip')) : 0;
     const from = url.searchParams.get('from') ? Number(url.searchParams.get('from')) : undefined;
@@ -120,11 +120,18 @@ export async function GET(req: NextRequest) {
 
       console.log(`[razorpay/payments] Fetched total of ${allItems.length} payments across ${pageCount} pages`);
 
+      // Apply authorization filtering
+      const authorizedItems = await filterPaymentsForUser(
+        user!.id,
+        allItems as Record<string, unknown>[]
+      );
+      console.log(`[razorpay/payments] Filtered to ${authorizedItems.length} payments after authorization`);
+
       // Apply search filter if provided
-      let finalItems = allItems;
+      let finalItems = authorizedItems;
       if (q) {
         const ql = q.toLowerCase();
-        finalItems = allItems.filter((p) => {
+        finalItems = authorizedItems.filter((p) => {
           const obj = p as Record<string, unknown>;
           const id = typeof obj.id === 'string' ? obj.id.toLowerCase() : '';
           const order_id = obj.order_id ? String(obj.order_id).toLowerCase() : '';
@@ -140,6 +147,7 @@ export async function GET(req: NextRequest) {
         items: finalItems,
         _fetchAll: true,
         _pages: pageCount,
+        isAdmin: isAdminUser,
         _note: `Fetched all ${allItems.length} payments across ${pageCount} pages${q ? ` (filtered to ${finalItems.length})` : ''}`
       });
 
@@ -158,11 +166,17 @@ export async function GET(req: NextRequest) {
 
     console.log('[razorpay/payments] Success - fetched', payments?.items?.length || 0, 'payments');
 
+    // Apply authorization filtering
+    let authorizedItems = (payments?.items || []) as unknown[];
+    if (!isAdminUser) {
+      authorizedItems = await filterPaymentsForUser(user!.id, authorizedItems as Record<string, unknown>[]);
+      console.log(`[razorpay/payments] User ${user!.id} authorized to see ${authorizedItems.length} payments out of ${payments?.items?.length || 0}`);
+    }
+
     // If q provided, do a simple in-memory filter across id, order_id, email
-    if (q && payments && Array.isArray(payments.items)) {
+    if (q && authorizedItems.length > 0) {
       const ql = q.toLowerCase();
-      const items = payments.items as unknown[];
-      const filtered = items.filter((p) => {
+      const filtered = authorizedItems.filter((p) => {
         const obj = p as Record<string, unknown>;
         const id = typeof obj.id === 'string' ? obj.id.toLowerCase() : '';
         const order_id = obj.order_id ? String(obj.order_id).toLowerCase() : '';
@@ -175,6 +189,7 @@ export async function GET(req: NextRequest) {
         entity: 'collection', 
         count: filtered.length, 
         items: filtered,
+        isAdmin: isAdminUser,
         ...(requestedCount > MAX_COUNT && { 
           _note: `Count limited to ${MAX_COUNT} items per request (requested: ${requestedCount})` 
         })
@@ -189,7 +204,10 @@ export async function GET(req: NextRequest) {
     }
 
     const response = NextResponse.json({
-      ...payments,
+      entity: 'collection',
+      count: authorizedItems.length,
+      items: authorizedItems,
+      isAdmin: isAdminUser,
       ...(requestedCount > MAX_COUNT && { 
         _note: `Count limited to ${MAX_COUNT} items per request (requested: ${requestedCount})` 
       })
@@ -201,28 +219,6 @@ export async function GET(req: NextRequest) {
     }
 
     return response;
-  } catch (err) {
-    // Enhanced error logging
-    console.error('[razorpay/payments] error:', err);
-    
-    // Log detailed error information
-    if (err && typeof err === 'object') {
-      const error = err as { statusCode?: number; error?: unknown; message?: string; stack?: string };
-      console.error('[razorpay/payments] error details:', {
-        statusCode: error.statusCode,
-        error: error.error,
-        message: error.message,
-        stack: error.stack?.split('\n').slice(0, 3).join('\n'),
-      });
-    }
-
-    const message = (err instanceof Error) ? err.message : 'Failed to fetch payments';
-    const error = err as { error?: { description?: string } };
-    const errorResponse = error?.error || { description: message };
-    
-    return NextResponse.json({ 
-      success: false, 
-      error: errorResponse 
-    }, { status: 500 });
-  }
-}
+  },
+  { requireAuth: true }
+);

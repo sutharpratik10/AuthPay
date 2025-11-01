@@ -9,6 +9,9 @@
 [![Razorpay](https://img.shields.io/badge/Razorpay-02042B?style=flat-square&logo=razorpay)](https://razorpay.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=flat-square)](https://github.com/sutharpratik10/AuthPay/graphs/commit-activity)
+[![Tests](https://img.shields.io/badge/tests-156%20passed-brightgreen?style=flat-square)](./TEST-SUMMARY.md)
+[![Security](https://img.shields.io/badge/security-87%20tests-brightgreen?style=flat-square)](./SECURITY-TEST-REPORT.md)
+[![Coverage](https://img.shields.io/badge/coverage-6.18%25-orange?style=flat-square)](./TEST-SUMMARY.md)
 
 > **A production-ready, full-stack authentication and payment platform built with Next.js 15, featuring advanced RBAC, secure payment processing, and comprehensive user management.**
 
