@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { AlertCircle, Mail, Facebook, CreditCard, Github } from "lucide-react"
+import { AlertCircle, Mail, CreditCard, Github } from "lucide-react"
 
 export default function LoginForm() {
   const { login, socialLogin, loading } = useAuth()
@@ -374,17 +374,6 @@ export default function LoginForm() {
         >
           <Github className="h-5 w-5" />
           Continue with GitHub
-        </Button>
-
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => handleSocialLogin("facebook")}
-          className="w-full flex items-center justify-center gap-2 border border-gray-300"
-          disabled={isSuspended}
-        >
-          <Facebook className="h-5 w-5" />
-          Continue with Facebook
         </Button>
 
         <Button

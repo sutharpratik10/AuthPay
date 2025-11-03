@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { AlertCircle, Mail, Github, Facebook, CreditCard, Eye, EyeOff, Check, X, Loader2 } from "lucide-react"
+import { AlertCircle, Mail, Github, CreditCard, Eye, EyeOff, Check, X, Loader2 } from "lucide-react"
 import { calculatePasswordStrength, getPasswordStrengthWidth, type PasswordStrength } from "@/lib/auth/password-strength"
 
 export default function SignupForm() {
@@ -408,16 +408,6 @@ export default function SignupForm() {
         >
           <Github className="h-5 w-5" />
           Continue with GitHub
-        </Button>
-        
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => handleSocialLogin("facebook")}
-          className="w-full flex items-center justify-center gap-2 border border-gray-300"
-        >
-          <Facebook className="h-5 w-5" />
-          Continue with Facebook
         </Button>
         
         <Button
