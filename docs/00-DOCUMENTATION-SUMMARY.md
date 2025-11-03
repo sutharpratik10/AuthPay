@@ -77,7 +77,23 @@ This document provides an overview of all the documentation created for the Auth
    - Troubleshooting
    - ~4,000 words
 
-7. **README.md** ✅ (Updated)
+7. **07-PAYMENT-GATEWAY.md** ✅
+   - Razorpay integration documentation
+   - Payment flows and webhooks
+   - Security best practices
+   - ~3,500 words
+
+8. **08-OAUTH-SETUP.md** ✅ (New)
+   - Complete OAuth 2.0 setup guide
+   - Google OAuth configuration
+   - Microsoft (Azure AD) OAuth setup
+   - GitHub OAuth setup
+   - Step-by-step instructions
+   - Troubleshooting guide
+   - Production deployment checklist
+   - ~5,000 words
+
+9. **README.md** ✅ (Updated)
    - Comprehensive documentation index
    - Quick start guides for different roles
    - Learning paths
@@ -89,7 +105,7 @@ This document provides an overview of all the documentation created for the Auth
 
 ### Migration & Reference Documentation
 
-8. **QUICK-REFERENCE.md** ✅ (New)
+10. **QUICK-REFERENCE.md** ✅ (New)
    - Quick cheat sheet for daily development
    - Two API pattern overview (/api/admin/* vs /api/rbac/*)
    - Policy format reference
@@ -97,7 +113,7 @@ This document provides an overview of all the documentation created for the Auth
    - Troubleshooting guide
    - ~2,000 words
 
-9. **08-MIGRATION-GUIDE.md** ✅
+11. **08-MIGRATION-GUIDE.md** ✅ (Legacy)
    - Step-by-step migration guide
    - Breaking changes documentation
    - API endpoint mappings
@@ -106,7 +122,7 @@ This document provides an overview of all the documentation created for the Auth
    - Troubleshooting migration issues
    - ~4,000 words
 
-10. **FINAL-MIGRATION-SUMMARY.md** ✅ (New)
+12. **FINAL-MIGRATION-SUMMARY.md** ✅ (New)
     - Executive migration summary
     - API structure clarification
     - Complete migration report
@@ -115,14 +131,14 @@ This document provides an overview of all the documentation created for the Auth
     - Developer migration guide
     - ~6,500 words
 
-11. **MIGRATION-COMPLETE-SUMMARY.md** ✅
+13. **MIGRATION-COMPLETE-SUMMARY.md** ✅
     - Detailed file-by-file changes
     - Verification results
     - Before/after code examples
     - Testing documentation
     - ~3,500 words
 
-12. **DEPRECATED-COMPONENTS-UPDATE.md** ✅
+14. **DEPRECATED-COMPONENTS-UPDATE.md** ✅
     - Deprecation audit report
     - Component-by-component analysis
     - Migration recommendations
@@ -132,8 +148,8 @@ This document provides an overview of all the documentation created for the Auth
 ## 📊 Documentation Statistics
 
 ### Total Documentation
-- **12 major documents** created/updated
-- **~50,000 words** of documentation
+- **14 major documents** created/updated
+- **~55,000 words** of documentation
 - **150+ code examples**
 - **Multiple architecture diagrams**
 - **Comprehensive API reference**
@@ -222,6 +238,7 @@ This document provides an overview of all the documentation created for the Auth
 
 **Authentication & Security**
 - [02-AUTHENTICATION.md](./02-AUTHENTICATION.md)
+- [08-OAUTH-SETUP.md](./08-OAUTH-SETUP.md)
 - [03-RBAC.md](./03-RBAC.md)
 
 **Data & Persistence**
@@ -248,6 +265,7 @@ This document provides an overview of all the documentation created for the Auth
 |------|----------|---------|
 | Understand the system | [01-OVERVIEW.md](./01-OVERVIEW.md) | Architecture |
 | Set up authentication | [02-AUTHENTICATION.md](./02-AUTHENTICATION.md) | Setup |
+| Configure OAuth | [08-OAUTH-SETUP.md](./08-OAUTH-SETUP.md) | OAuth Providers |
 | Implement permissions | [03-RBAC.md](./03-RBAC.md) | RBAC Service |
 | Work with database | [04-DATABASE.md](./04-DATABASE.md) | Schema |
 | Build APIs | [05-API-ROUTES.md](./05-API-ROUTES.md) | API Structure |
@@ -428,9 +446,9 @@ Please:
 
 ---
 
-**Last Updated**: December 2024  
-**Total Documentation**: 12 major files  
-**Total Words**: ~50,000  
+**Last Updated**: November 2025  
+**Total Documentation**: 14 major files  
+**Total Words**: ~55,000  
 **Status**: Complete ✨
 
 ---

@@ -17,7 +17,7 @@ AuthPay's authentication system is built on **NextAuth.js 5** (Auth.js), providi
 ### Features
 
 - ✅ **Email/Password Authentication**: Traditional login with secure password hashing
-- ✅ **OAuth Providers**: Google, GitHub, and extensible to other providers
+- ✅ **OAuth Providers**: Google, GitHub, Microsoft (Azure AD), Facebook, Apple - See [OAuth Setup Guide](./08-OAUTH-SETUP.md)
 - ✅ **Email Verification**: Required verification before account activation
 - ✅ **Password Reset**: Secure token-based password recovery
 - ✅ **Session Management**: JWT-based sessions with auto-refresh
