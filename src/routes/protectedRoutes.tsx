@@ -32,15 +32,15 @@ async function validateUserInDatabase(userId: string): Promise<{ exists: boolean
       body: JSON.stringify({ userId }),
       credentials: 'include'
     });
-    
+
     if (!response.ok) {
       return { exists: false, shouldSignOut: true };
     }
-    
+
     const data = await response.json();
-    return { 
-      exists: data.exists === true, 
-      shouldSignOut: data.shouldSignOut === true 
+    return {
+      exists: data.exists === true,
+      shouldSignOut: data.shouldSignOut === true
     };
   } catch (error) {
     console.error('[PROTECTED_ROUTE] Error validating user:', error);
@@ -52,14 +52,14 @@ async function validateUserInDatabase(userId: string): Promise<{ exists: boolean
  * A component that protects routes by checking authentication status
  * Enhanced with database validation to handle deleted users
  */
-export function ProtectedRoute({ 
+export function ProtectedRoute({
   children
 }: ProtectedRouteProps) {
   const { loading, user, logout } = useAuth()
   const pathname = usePathname()
   const [userValidated, setUserValidated] = useState<boolean | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
-  
+
   // Memoize the auth state to prevent unnecessary re-renders
   const authState = useMemo(() => ({
     isAuthenticated: !!user,
@@ -72,13 +72,13 @@ export function ProtectedRoute({
   useEffect(() => {
     let isMounted = true;
     let isValidating = false;
-    
+
     async function checkUserInDatabase() {
       // Prevent concurrent validations
       if (isValidating) {
         return;
       }
-      
+
       // Skip validation if user is on verify page
       if (pathname === '/auth/verify') {
         if (isMounted && userValidated === null) {
@@ -86,25 +86,25 @@ export function ProtectedRoute({
         }
         return;
       }
-      
+
       // Only validate once per session, not on every render
       if (
-        authState.isAuthenticated && 
-        authState.user?.id && 
+        authState.isAuthenticated &&
+        authState.user?.id &&
         !authState.loading &&
         userValidated === null // Only run if we haven't validated yet
       ) {
         isValidating = true;
-        
+
         try {
           const { exists, shouldSignOut } = await validateUserInDatabase(authState.user.id);
-          
+
           if (!isMounted) return;
-          
+
           if (!exists) {
             setValidationError('Your account was not found. Please sign in again.');
             setUserValidated(false);
-            
+
             if (shouldSignOut && logout) {
               try {
                 await logout();
@@ -112,13 +112,13 @@ export function ProtectedRoute({
                 console.error('[PROTECTED_ROUTE] Error signing out:', error);
               }
             }
-            
+
             if (typeof window !== 'undefined') {
               window.location.href = '/auth/login';
             }
             return;
           }
-          
+
           setUserValidated(true);
           setValidationError(null);
         } catch (error) {
@@ -137,11 +137,11 @@ export function ProtectedRoute({
     }
 
     checkUserInDatabase();
-    
+
     return () => {
       isMounted = false;
     };
-  }, [authState.isAuthenticated, authState.user?.id, authState.loading, logout, userValidated, pathname]);
+  }, [authState.isAuthenticated, authState.user?.id, authState.loading, logout, pathname]);
 
   // Show loading only during initial authentication check or database validation
   if (authState.loading || (authState.isAuthenticated && userValidated === null)) {

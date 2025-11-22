@@ -1,7 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext } from 'react';
 import { useSession } from 'next-auth/react';
+import useSWR from 'swr';
+import { swrConfigFrequent } from '@/lib/swr-config';
 
 interface SubscriptionStatus {
   hasSubscription: boolean;
@@ -23,7 +25,7 @@ interface SubscriptionContextType {
 const SubscriptionContext = createContext<SubscriptionContextType>({
   subscriptionStatus: null,
   isLoading: true,
-  refreshSubscription: async () => {},
+  refreshSubscription: async () => { },
 });
 
 export function useSubscription() {
@@ -32,86 +34,27 @@ export function useSubscription() {
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
-  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Use refs to track fetch state and prevent duplicate calls
-  const hasFetchedRef = useRef(false);
-  const isFetchingRef = useRef(false);
-  const currentUserIdRef = useRef<string | null>(null);
+  const userId = session?.user?.id;
 
-  // Stable fetch function that doesn't change on every render
-  const fetchSubscriptionStatus = useCallback(async (userId: string) => {
-    // Prevent duplicate fetches
-    if (isFetchingRef.current) {
-      console.log('[SubscriptionContext] Fetch already in progress, skipping...');
-      return;
-    }
+  // Use SWR for automatic caching and revalidation
+  const { data, error, isLoading, mutate } = useSWR(
+    status === 'authenticated' && userId ? '/api/user/subscription-status' : null,
+    swrConfigFrequent
+  );
 
-    // If user hasn't changed and we've already fetched, skip
-    if (hasFetchedRef.current && currentUserIdRef.current === userId) {
-      console.log('[SubscriptionContext] Data already fetched for this user, skipping...');
-      return;
-    }
+  const subscriptionStatus: SubscriptionStatus | null = data?.success
+    ? data.data
+    : { hasSubscription: false };
 
-    try {
-      isFetchingRef.current = true;
-      setIsLoading(true);
-      
-      // Use standard fetch - duplicates are now prevented by refs
-      const response = await fetch('/api/user/subscription-status');
-      const data = await response.json() as { success: boolean; data: SubscriptionStatus };
-      
-      if (data.success) {
-        setSubscriptionStatus(data.data);
-      } else {
-        setSubscriptionStatus({ hasSubscription: false });
-      }
-      
-      hasFetchedRef.current = true;
-      currentUserIdRef.current = userId;
-    } catch (error) {
-      console.error('Error fetching subscription status:', error);
-      setSubscriptionStatus({ hasSubscription: false });
-    } finally {
-      setIsLoading(false);
-      isFetchingRef.current = false;
-    }
-  }, []); // ← Empty deps! Function is stable
-
-  // Fetch subscription status once when authenticated
-  useEffect(() => {
-    const userId = session?.user?.id;
-    
-    if (status === 'authenticated' && userId) {
-      // Check if we need to fetch for a different user
-      if (currentUserIdRef.current !== userId) {
-        hasFetchedRef.current = false;
-      }
-      
-      fetchSubscriptionStatus(userId);
-    } else if (status === 'unauthenticated') {
-      setSubscriptionStatus(null);
-      setIsLoading(false);
-      hasFetchedRef.current = false;
-      currentUserIdRef.current = null;
-    }
-  }, [status, session?.user?.id, fetchSubscriptionStatus]); // fetchSubscriptionStatus is now stable
-
-  const refreshSubscription = useCallback(async () => {
-    const userId = session?.user?.id;
-    if (!userId) return;
-    
-    // Force a refresh by resetting the fetch flag
-    hasFetchedRef.current = false;
-    await fetchSubscriptionStatus(userId);
-  }, [session?.user?.id, fetchSubscriptionStatus]);
+  const refreshSubscription = async () => {
+    await mutate();
+  };
 
   return (
     <SubscriptionContext.Provider
       value={{
-        subscriptionStatus,
-        isLoading,
+        subscriptionStatus: status === 'authenticated' ? subscriptionStatus : null,
+        isLoading: status === 'loading' || isLoading,
         refreshSubscription,
       }}
     >
