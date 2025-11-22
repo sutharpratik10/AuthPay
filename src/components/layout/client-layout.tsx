@@ -10,6 +10,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { useOAuthSessionTracking } from "@/hooks/use-oauth-session-tracking";
 import CookieBanner from "@/components/shared/CookieBanner";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import { UserValidationProvider } from "@/contexts/UserValidationContext";
+import { SWRConfig } from "swr";
+import { swrConfig } from "@/lib/swr-config";
 
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -60,22 +63,26 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
       enableSystem
       disableTransitionOnChange
     >
-      <AuthProvider>
-        <SubscriptionProvider>
-          {/* Track OAuth sessions with Suspense boundary for useSearchParams */}
-          <Suspense fallback={null}>
-            <OAuthSessionTracker />
-          </Suspense>
-          <Navigationbar />
-          <div className="h-16"></div>
-          <main className="min-h-[calc(100vh-148px)]">
-            {children}
-          </main>
-          {!isAuthenticated && <Footer />}
-          <CookieBanner />
-          <Toaster />
-        </SubscriptionProvider>
-      </AuthProvider>
+      <SWRConfig value={swrConfig}>
+        <AuthProvider>
+          <UserValidationProvider>
+            <SubscriptionProvider>
+              {/* Track OAuth sessions with Suspense boundary for useSearchParams */}
+              <Suspense fallback={null}>
+                <OAuthSessionTracker />
+              </Suspense>
+              <Navigationbar />
+              <div className="h-16"></div>
+              <main className="min-h-[calc(100vh-148px)]">
+                {children}
+              </main>
+              {!isAuthenticated && <Footer />}
+              <CookieBanner />
+              <Toaster />
+            </SubscriptionProvider>
+          </UserValidationProvider>
+        </AuthProvider>
+      </SWRConfig>
     </ThemeProvider>
   );
 }

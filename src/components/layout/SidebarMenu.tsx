@@ -14,11 +14,9 @@ import {
 } from "@/components/ui/sidebar";
 import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils/helpers";
-import { signOut } from "next-auth/react";
 import { useEffect, useState, useMemo } from "react";
 import { useSubscription } from "@/contexts/SubscriptionContext";
-import { useUserStatus } from "@/hooks/use-UserStatus";
-import { useUserValidation } from "@/hooks/use-UserValidation";
+import { useUserData } from "@/hooks/use-user-data";
 
 
 interface NavItem {
@@ -31,15 +29,8 @@ interface NavItem {
 export function AppSidebar() {
   const pathname = usePathname();
   const { subscriptionStatus } = useSubscription();
-  const { isAdmin } = useUserStatus();
-  const { exists, shouldSignOut } = useUserValidation();
-
-  // Handle user validation - sign out if user doesn't exist in database
-  useEffect(() => {
-    if (shouldSignOut && !exists) {
-      signOut({ callbackUrl: '/auth/signin' });
-    }
-  }, [shouldSignOut, exists]);
+  const { isAdmin } = useUserData();
+  // Note: User validation and sign-out is handled globally by UserValidationProvider
 
   const navigation: NavItem[] = useMemo(() => {
     const nav: NavItem[] = [

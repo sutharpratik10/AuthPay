@@ -59,7 +59,6 @@ export const GET = withApiHandler(
 
     // No subscription found
     if (!sub || (!sub.planId && !sub.razorpaySubscriptionId)) {
-      logger.log('No subscription found');
       logger.end(userId);
       return successResponse({ 
         hasSubscription: false, 
@@ -101,7 +100,6 @@ export const GET = withApiHandler(
       console.error('Background update expired subscriptions failed:', err)
     );
 
-    logger.log('Subscription retrieved');
     logger.end(userId);
 
     return successResponse({
