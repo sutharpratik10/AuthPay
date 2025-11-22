@@ -1,17 +1,51 @@
-"use client"
-
 import React from 'react';
-import { Shield, Lock, Users, Zap, Globe, CheckCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+
+// Inline SVG icon components for performance
+const ShieldIcon = () => (
+  <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+  </svg>
+);
+
+const LockIcon = () => (
+  <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+  </svg>
+);
+
+const UsersIcon = () => (
+  <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+  </svg>
+);
+
+const ZapIcon = () => (
+  <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+  </svg>
+);
+
+const GlobeIcon = () => (
+  <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const CheckCircleIcon = () => (
+  <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const oauthProviders = [
+  { name: "Google", color: "bg-red-500" },
+  { name: "GitHub", color: "bg-gray-800" },
+  { name: "Facebook", color: "bg-blue-600" },
+  { name: "Microsoft", color: "bg-blue-500" },
+  { name: "Apple", color: "bg-black" }
+];
 
 export default function HomePage() {
-  const oauthProviders = [
-    { name: "Google", color: "bg-red-500" },
-    { name: "GitHub", color: "bg-gray-800" },
-    { name: "Facebook", color: "bg-blue-600" },
-    { name: "Microsoft", color: "bg-blue-500" },
-    { name: "Apple", color: "bg-black" }
-  ];
 
   return (
     <main className="min-h-screen bg-white dark:bg-neutral-950 transition-colors duration-300">
@@ -22,7 +56,7 @@ export default function HomePage() {
         <div className="relative max-w-6xl mx-auto text-center">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 text-sm font-medium bg-blue-50/60 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-800 shadow-sm ring-1 ring-blue-200/20 hover:ring-blue-300 transition-all">
-            <Shield className="w-4 h-4" />
+            <div className="w-4 h-4"><ShieldIcon /></div>
             Trusted Authentication & Payment
           </div>
 
@@ -39,12 +73,12 @@ export default function HomePage() {
 
           {/* CTA Buttons */}
           <div className="mt-6 mb-10 flex items-center justify-center gap-3">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg shadow-md transform transition hover:-translate-y-0.5">
+            <a href="/auth/signup" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg shadow-md transform transition hover:-translate-y-0.5 font-medium">
               Get Started — Free Trial
-            </Button>
-            <Button className="bg-transparent border border-blue-600 text-blue-600 hover:bg-blue-600/10 px-6 py-3 rounded-lg transition">
+            </a>
+            <a href="/docs" className="inline-block bg-transparent border border-blue-600 text-blue-600 hover:bg-blue-600/10 px-6 py-3 rounded-lg transition font-medium">
               View Documentation
-            </Button>
+            </a>
           </div>
 
           <div className="text-xs text-gray-500 mb-8">No credit card required • 14-day free trial</div>
@@ -78,7 +112,7 @@ export default function HomePage() {
             <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-xl transform transition-transform duration-300 hover:-translate-y-2 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-lg">
-                  <Users className="w-6 h-6" />
+                  <div className="w-6 h-6"><UsersIcon /></div>
                 </div>
                 <h4 className="font-semibold text-gray-900 dark:text-white">User & Role Management</h4>
               </div>
@@ -91,7 +125,7 @@ export default function HomePage() {
             <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-xl transform transition-transform duration-300 hover:-translate-y-2 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-lg">
-                  <Shield className="w-6 h-6" />
+                  <div className="w-6 h-6"><ShieldIcon /></div>
                 </div>
                 <h4 className="font-semibold text-gray-900 dark:text-white">Fine-Grained Permissions</h4>
               </div>
@@ -103,7 +137,7 @@ export default function HomePage() {
             <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-xl transform transition-transform duration-300 hover:-translate-y-2 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-lg">
-                  <CheckCircle className="w-6 h-6" />
+                  <div className="w-6 h-6"><CheckCircleIcon /></div>
                 </div>
                 <h4 className="font-semibold text-gray-900 dark:text-white">Audit & Activity Logs</h4>
               </div>
@@ -143,7 +177,7 @@ export default function HomePage() {
             <div>
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
-                  <Lock className="w-8 h-8" />
+                  <div className="w-8 h-8"><LockIcon /></div>
                 </div>
                 <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white">
                   Email/Password Authentication
@@ -164,7 +198,7 @@ export default function HomePage() {
                 ].map((item, idx) => (
                   <div key={idx} className="flex items-start gap-3">
                     <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center mt-1">
-                      <CheckCircle className="w-4 h-4 text-white" />
+                      <div className="w-4 h-4 text-white"><CheckCircleIcon /></div>
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900 dark:text-white">{item.title}</h4>
@@ -202,7 +236,7 @@ export default function HomePage() {
               <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-lg">
                 <div className="text-center mb-6">
                           <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
-                            <Shield className="w-8 h-8 text-green-600 dark:text-green-400" />
+                            <div className="w-8 h-8 text-green-600 dark:text-green-400"><ShieldIcon /></div>
                           </div>
                           <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Email One-Time Codes</h4>
                           <div className="grid grid-cols-3 gap-1 max-w-32 mx-auto">
@@ -225,7 +259,7 @@ export default function HomePage() {
             <div className="order-1 lg:order-2">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-3 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-xl">
-                  <Shield className="w-8 h-8" />
+                  <div className="w-8 h-8"><ShieldIcon /></div>
                 </div>
                 <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white">
                   Two-Factor Authentication
@@ -246,7 +280,7 @@ export default function HomePage() {
                 ].map((item, idx) => (
                   <div key={idx} className="flex items-start gap-3">
                     <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center mt-1">
-                      <CheckCircle className="w-4 h-4 text-white" />
+                      <div className="w-4 h-4 text-white"><CheckCircleIcon /></div>
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900 dark:text-white">{item.title}</h4>
@@ -266,7 +300,7 @@ export default function HomePage() {
           <div className="text-center mb-16">
             <div className="flex items-center justify-center gap-3 mb-6">
               <div className="p-3 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-xl">
-                <Globe className="w-8 h-8" />
+                <div className="w-8 h-8"><GlobeIcon /></div>
               </div>
               <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white">
                 OAuth Integration
@@ -300,7 +334,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Zap className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                <div className="w-8 h-8 text-purple-600 dark:text-purple-400"><ZapIcon /></div>
               </div>
               <h4 className="font-semibold text-gray-900 dark:text-white mb-2">One-Click Login</h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -310,7 +344,7 @@ export default function HomePage() {
             
             <div className="text-center">
               <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                <div className="w-8 h-8 text-purple-600 dark:text-purple-400"><ShieldIcon /></div>
               </div>
               <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Secure Flow</h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -320,7 +354,7 @@ export default function HomePage() {
             
             <div className="text-center">
               <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                <div className="w-8 h-8 text-purple-600 dark:text-purple-400"><UsersIcon /></div>
               </div>
               <h4 className="font-semibold text-gray-900 dark:text-white mb-2">User Profiles</h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -375,7 +409,7 @@ export default function HomePage() {
             <div className="order-1 lg:order-2">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-3 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-xl">
-                  <Zap className="w-8 h-8" />
+                  <div className="w-8 h-8"><ZapIcon /></div>
                 </div>
                 <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white">
                   Payment Integration
@@ -395,7 +429,7 @@ export default function HomePage() {
                 ].map((item, idx) => (
                   <div key={idx} className="flex items-start gap-3">
                     <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center mt-1">
-                      <CheckCircle className="w-4 h-4 text-white" />
+                      <div className="w-4 h-4 text-white"><CheckCircleIcon /></div>
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900 dark:text-white">{item.title}</h4>
@@ -416,7 +450,7 @@ export default function HomePage() {
             <div>
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                  <Lock className="w-8 h-8" />
+                  <div className="w-8 h-8"><LockIcon /></div>
                 </div>
                 <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white">
                   JWT Session Management
@@ -436,7 +470,7 @@ export default function HomePage() {
                 ].map((item, idx) => (
                   <div key={idx} className="flex items-start gap-3">
                     <div className="w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center mt-1">
-                      <CheckCircle className="w-4 h-4 text-white" />
+                      <div className="w-4 h-4 text-white"><CheckCircleIcon /></div>
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900 dark:text-white">{item.title}</h4>
@@ -490,7 +524,7 @@ export default function HomePage() {
               <div className="space-y-6">
                 <div className="flex items-start gap-4">
                   <div className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg mt-1">
-                    <Shield className="w-5 h-5" />
+                    <div className="w-5 h-5"><ShieldIcon /></div>
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
@@ -504,7 +538,7 @@ export default function HomePage() {
                 
                 <div className="flex items-start gap-4">
                   <div className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg mt-1">
-                    <Zap className="w-5 h-5" />
+                    <div className="w-5 h-5"><ZapIcon /></div>
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
@@ -518,7 +552,7 @@ export default function HomePage() {
                 
                 <div className="flex items-start gap-4">
                   <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg mt-1">
-                    <Lock className="w-5 h-5" />
+                    <div className="w-5 h-5"><LockIcon /></div>
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
@@ -587,9 +621,9 @@ export default function HomePage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button className="px-8 py-5 text-white font-medium rounded-lg transition-transform duration-200 transform hover:scale-105">
+            <a href="/auth/signup" className="inline-block px-8 py-5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-transform duration-200 transform hover:scale-105">
               Get Started — Free Trial
-            </Button>
+            </a>
           </div>
         </div>
       </section> 
