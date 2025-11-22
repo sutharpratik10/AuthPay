@@ -7,8 +7,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/rbac";
 import { db } from "@/server/db";
 import { roles } from "@/server/db/schema";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function POST(req: NextRequest) {
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const POST = rateLimiters.api(async (req: NextRequest) =>req: NextRequest) {
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
     return authCheck.response;
@@ -56,4 +60,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

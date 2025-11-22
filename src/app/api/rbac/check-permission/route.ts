@@ -1,13 +1,15 @@
 /**
  * API: Check if current user has a specific policy
  * POST /api/rbac/check-permission
+ * Rate Limited: 60 requests per minute
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/rbac";
 import { RBACService } from "@/lib/rbac";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function POST(req: NextRequest) {
+export const POST = rateLimiters.api(async (req: NextRequest) => {
   const authCheck = await getAuthenticatedUser(req);
   if (!authCheck.authorized) {
     return authCheck.response;
@@ -61,4 +63,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

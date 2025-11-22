@@ -8,8 +8,12 @@ import { requireAdmin } from "@/lib/rbac";
 import { db } from "@/server/db";
 import { roles } from "@/server/db/schema";
 import { desc } from "drizzle-orm";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function GET(req: NextRequest) {
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const GET = rateLimiters.api(async (req: NextRequest) =>req: NextRequest) {
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
     return authCheck.response;
@@ -31,4 +35,4 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

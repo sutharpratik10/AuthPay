@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from "@/server/db";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function POST(request: NextRequest) {
+/**
+ * POST /api/auth/validate-credentials - Validate user credentials
+ * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
+ */
+export const POST = rateLimiters.auth(async (request: NextRequest) => {
   try {
     const { email, password } = await request.json();
 
@@ -95,4 +100,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

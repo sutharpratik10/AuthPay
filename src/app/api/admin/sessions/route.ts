@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withSessionValidation } from '@/lib/auth/session-validation';
 import { SessionService } from '@/server/services/session';
 import { RBACService } from '@/lib/rbac/rbac-service';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 // Get session statistics (admin only - uses policy-based check)
-export async function GET(request: NextRequest) {
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const GET = rateLimiters.api(async (req: NextRequest) =>request: NextRequest) {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
@@ -41,7 +45,7 @@ export async function GET(request: NextRequest) {
 }
 
 // Manual session cleanup (admin only - uses policy-based check)
-export async function POST(request: NextRequest) {
+export const POST = rateLimiters.api(async (req: NextRequest) =>request: NextRequest) {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
@@ -92,4 +96,4 @@ export async function POST(request: NextRequest) {
       }
     }
   );
-}
+});

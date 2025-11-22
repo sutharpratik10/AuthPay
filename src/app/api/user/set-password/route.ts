@@ -4,8 +4,12 @@ import { db } from '@/server/db'
 import { users } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function POST(request: NextRequest) {
+/**
+ * Rate Limited: 3 requests per hour (VERY STRICT - sensitive operation)
+ */
+export const POST = rateLimiters.sensitive(async (req: NextRequest) =>request: NextRequest) {
   try {
     const session = await auth()
     
@@ -77,4 +81,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+});

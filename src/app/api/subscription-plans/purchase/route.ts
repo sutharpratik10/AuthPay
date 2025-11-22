@@ -13,6 +13,7 @@ import { getPaymentProvider } from '@/lib/payments/gateway';
 import '@/lib/payments/providers/razorpay';
 import Razorpay from 'razorpay';
 import { emailService } from "@/server/services/email";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 interface PaymentInfo {
   provider: string;
@@ -24,7 +25,10 @@ interface PaymentInfo {
   [key: string]: unknown;
 }
 
-export async function POST(req: NextRequest) {
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const POST = rateLimiters.api(async (req: NextRequest) =>req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -251,4 +255,4 @@ export async function POST(req: NextRequest) {
     console.error('Error purchasing subscription:', error);
     return NextResponse.json({ error: 'Failed to purchase subscription' }, { status: 500 });
   }
-}
+});

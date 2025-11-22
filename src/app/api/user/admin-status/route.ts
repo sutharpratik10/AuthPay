@@ -19,13 +19,16 @@ import {
   createPerformanceLogger 
 } from '@/lib/api/helpers';
 import { RBACService } from '@/lib/rbac/rbac-service';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
  * GET /api/user/admin-status - Check if current user has admin access
+ * Rate Limited: 60 requests per minute
  * 
  * Uses policy-based RBAC: checks for 'admin:access' policy
  */
-export const GET = withApiHandler(
+export const GET = rateLimiters.api(
+  withApiHandler(
   async (request: NextRequest, { user }) => {
     const logger = createPerformanceLogger(request);
     
@@ -37,4 +40,5 @@ export const GET = withApiHandler(
     return successResponse({ isAdmin });
   },
   { requireAuth: true } // Automatic auth check
+  )
 );

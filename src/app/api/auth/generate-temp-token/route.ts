@@ -5,8 +5,12 @@ import { eq, and } from 'drizzle-orm';
 import { emailService } from '@/server/services/email';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function POST(req: NextRequest) {
+/**
+ * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
+ */
+export const POST = rateLimiters.auth(async (req: NextRequest) =>req: NextRequest) {
   try {
     const body = await req.json();
     const { email, password } = body;
@@ -103,4 +107,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

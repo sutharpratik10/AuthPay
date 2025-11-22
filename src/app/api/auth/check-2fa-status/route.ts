@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/server/db';
 import { users } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function POST(req: NextRequest) {
+/**
+ * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
+ */
+export const POST = rateLimiters.auth(async (req: NextRequest) =>req: NextRequest) {
   try {
     const body = await req.json();
     const { email } = body;
@@ -42,4 +46,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

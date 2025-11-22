@@ -24,16 +24,19 @@ import { RBACService } from '@/lib/rbac/rbac-service';
 import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
  * GET /api/user/data - Get comprehensive user data
+ * Rate Limited: 60 requests per minute
  * 
  * Returns:
  * - isAdmin: Whether user has admin access
  * - exists: Whether user exists in database
  * - shouldSignOut: Whether user should be signed out (for deleted/inactive users)
  */
-export const GET = withApiHandler(
+export const GET = rateLimiters.api(
+  withApiHandler(
   async (request: NextRequest, { user }) => {
     const logger = createPerformanceLogger(request);
     
@@ -75,4 +78,5 @@ export const GET = withApiHandler(
     });
   },
   { requireAuth: true } // Automatic auth check
+  )
 );

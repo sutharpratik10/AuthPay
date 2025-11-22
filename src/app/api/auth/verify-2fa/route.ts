@@ -3,6 +3,7 @@ import { db } from '@/server/db';
 import { users, otpCodes } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 interface TempTokenPayload {
   email: string;
@@ -11,7 +12,10 @@ interface TempTokenPayload {
   type: string;
 }
 
-export async function POST(req: NextRequest) {
+/**
+ * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
+ */
+export const POST = rateLimiters.auth(async (req: NextRequest) =>req: NextRequest) {
   try {
     const body = await req.json();
     const { email, otp, tempToken } = body;
@@ -98,4 +102,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

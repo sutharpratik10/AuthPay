@@ -9,8 +9,12 @@ import { RBACService } from "@/lib/rbac";
 import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function GET(
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const GET = rateLimiters.api(async (req: NextRequest) =>
   req: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
 ) {
@@ -55,4 +59,4 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});

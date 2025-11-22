@@ -3,9 +3,13 @@ import { auth } from '@/config/auth';
 import { db } from '@/server/db';
 import { userPreferences } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 // Fixed variable name issue in debugging logs.
-export async function GET() {
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const GET = rateLimiters.api(async (req: NextRequest) =>) {
   try {
     const session = await auth();
 
@@ -59,7 +63,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: NextRequest) {
+export const POST = rateLimiters.api(async (req: NextRequest) =>request: NextRequest) {
   try {
     const session = await auth();
     
@@ -124,4 +128,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

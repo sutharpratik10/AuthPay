@@ -3,12 +3,16 @@ import { db } from '@/server/db'
 import { otpCodes } from '@/server/db/schema'
 import { eq, and, gt } from 'drizzle-orm'
 import crypto from 'crypto'
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
  * SECURE PASSWORD RESET: Step 2 - Verify the OTP code
  * Requires sessionToken from Step 1 to prevent unauthorized access
  */
-export async function POST(request: NextRequest) {
+/**
+ * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
+ */
+export const POST = rateLimiters.auth(async (req: NextRequest) =>request: NextRequest) {
   try {
     const { code, sessionToken } = await request.json()
 
@@ -78,4 +82,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+});

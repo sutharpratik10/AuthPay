@@ -1,12 +1,14 @@
 import { AuthService } from '@/server/services/auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
  * SECURE PASSWORD RESET: Step 3 - Reset password with verified token
  * This endpoint now ONLY handles password reset, not code verification
  * Code verification is handled by /api/auth/verify-reset-code
+ * Rate Limited: 5 requests per 15 minutes (STRICT - prevents abuse)
  */
-export async function POST(req: NextRequest) {
+export const POST = rateLimiters.auth(async (req: NextRequest) => {
   try {
     const body = await req.json();
     
@@ -76,4 +78,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

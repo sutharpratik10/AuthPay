@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/server/db';
 import { userSubscriptions, subscriptionStatuses } from '@/server/db/schema';
 import { eq, inArray, and, count } from 'drizzle-orm';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 // /api/admin/subscription-plans/[planId]/active-user-count
-export async function GET(
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const GET = rateLimiters.api(async (req: NextRequest) =>
   req: NextRequest,
   { params }: { params: Promise<{ planId: string }> }
 ) {
@@ -31,4 +35,4 @@ export async function GET(
     console.error('Error fetching active user count:', error);
     return NextResponse.json({ count: 0, error: 'Failed to fetch active user count' }, { status: 500 });
   }
-}
+});

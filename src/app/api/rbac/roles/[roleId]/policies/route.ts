@@ -9,11 +9,15 @@ import { requireAdmin } from "@/lib/rbac";
 import { db } from "@/server/db";
 import { roles, permissions, rolePermissions } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
  * Assign a policy to a role
  */
-export async function POST(
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const POST = rateLimiters.api(async (req: NextRequest) =>
   req: NextRequest,
   { params }: { params: Promise<{ roleId: string }> }
 ) {
@@ -95,7 +99,7 @@ export async function POST(
 /**
  * Remove a policy from a role
  */
-export async function DELETE(
+export const DELETE = rateLimiters.api(async (req: NextRequest) =>
   req: NextRequest,
   { params }: { params: Promise<{ roleId: string }> }
 ) {
@@ -140,7 +144,7 @@ export async function DELETE(
 /**
  * Get all policies for a role
  */
-export async function GET(
+export const GET = rateLimiters.api(async (req: NextRequest) =>
   req: NextRequest,
   { params }: { params: Promise<{ roleId: string }> }
 ) {
@@ -178,4 +182,4 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});

@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/config/auth';
 import { SessionService } from '@/server/services/session';
 import { getClientInfo } from '@/lib/utils/client-info';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function POST(request: NextRequest) {
+/**
+ * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
+ */
+export const POST = rateLimiters.auth(async (req: NextRequest) =>request: NextRequest) {
   try {
     const requestStart = Date.now();
     console.log('[track-session] Starting request');
@@ -90,4 +94,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

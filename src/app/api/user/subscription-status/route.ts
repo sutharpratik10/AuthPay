@@ -25,11 +25,14 @@ import { db } from '@/server/db';
 import { userSubscriptions, subscriptionPlans } from '@/server/db/schema';
 import { eq, desc, lt, and, ne } from 'drizzle-orm';
 import { getExpiryStatus } from '@/lib/utils/subscription-utils';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
  * GET /api/user/subscription-status - Get current user's subscription status
+ * Rate Limited: 100 requests per minute (read-only)
  */
-export const GET = withApiHandler(
+export const GET = rateLimiters.readOnly(
+  withApiHandler(
   async (request: NextRequest, { user }) => {
     const logger = createPerformanceLogger(request);
     const userId = user!.id;
@@ -121,12 +124,15 @@ export const GET = withApiHandler(
     });
   },
   { requireAuth: true }
+  )
 );
 
 /**
  * POST /api/user/subscription-status - Update expired subscriptions
+ * Rate Limited: 60 requests per minute
  */
-export const POST = withApiHandler(
+export const POST = rateLimiters.api(
+  withApiHandler(
   async (request: NextRequest, { user }) => {
     const logger = createPerformanceLogger(request);
     const userId = user!.id;
@@ -140,6 +146,7 @@ export const POST = withApiHandler(
     });
   },
   { requireAuth: true }
+  )
 );
 
 /**

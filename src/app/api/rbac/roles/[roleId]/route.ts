@@ -8,8 +8,12 @@ import { requireAdmin } from "@/lib/rbac";
 import { db } from "@/server/db";
 import { roles } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function PUT(
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const PUT = rateLimiters.api(async (req: NextRequest) =>
   req: NextRequest,
   { params }: { params: Promise<{ roleId: string }> }
 ) {
@@ -71,7 +75,7 @@ export async function PUT(
  * API: Delete a role
  * DELETE /api/rbac/roles/[roleId]
  */
-export async function DELETE(
+export const DELETE = rateLimiters.api(async (req: NextRequest) =>
   req: NextRequest,
   { params }: { params: Promise<{ roleId: string }> }
 ) {
@@ -117,4 +121,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+});

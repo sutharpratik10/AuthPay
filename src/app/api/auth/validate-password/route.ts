@@ -1,11 +1,15 @@
 import { AuthService } from '@/server/services/auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
  * Validate password reset code route
  * This endpoint validates a password reset OTP code without resetting the password
  */
-export async function POST(req: NextRequest) {
+/**
+ * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
+ */
+export const POST = rateLimiters.auth(async (req: NextRequest) =>req: NextRequest) {
   try {
     const body = await req.json();
     const { code } = body;
@@ -39,4 +43,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/config/auth';
 import { db } from '@/server/db';
 import bcrypt from 'bcryptjs';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 // Simple in-memory rate limiting
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -28,7 +29,10 @@ function checkRateLimit(userId: string): boolean {
   return true;
 }
 
-export async function POST(request: NextRequest) {
+/**
+ * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
+ */
+export const POST = rateLimiters.auth(async (req: NextRequest) =>request: NextRequest) {
   try {
     const session = await auth();
     
@@ -91,4 +95,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

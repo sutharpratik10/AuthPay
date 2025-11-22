@@ -3,8 +3,12 @@ import { auth } from '@/config/auth'
 import { db } from '@/server/db'
 import { users } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function GET() {
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const GET = rateLimiters.api(async (req: NextRequest) =>) {
   try {
     const session = await auth()
     
@@ -42,4 +46,4 @@ export async function GET() {
       { status: 500 }
     )
   }
-}
+});

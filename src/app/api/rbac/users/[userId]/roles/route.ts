@@ -10,11 +10,15 @@ import { RBACService } from "@/lib/rbac";
 import { db } from "@/server/db";
 import { users, userRoles, roles } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
  * Assign a role to a user
  */
-export async function POST(
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const POST = rateLimiters.api(async (req: NextRequest) =>
   req: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
 ) {
@@ -89,7 +93,7 @@ export async function POST(
 /**
  * Remove a role from a user
  */
-export async function DELETE(
+export const DELETE = rateLimiters.api(async (req: NextRequest) =>
   req: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
 ) {
@@ -140,7 +144,7 @@ export async function DELETE(
 /**
  * Get all roles for a user
  */
-export async function GET(
+export const GET = rateLimiters.api(async (req: NextRequest) =>
   req: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
 ) {
@@ -176,4 +180,4 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});

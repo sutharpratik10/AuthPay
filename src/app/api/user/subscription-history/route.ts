@@ -3,8 +3,12 @@ import { auth } from '@/config/auth';
 import { db } from '@/server/db';
 import { userSubscriptions, subscriptionPlans, subscriptionStatuses } from '@/server/db/schema';
 import { eq, desc, inArray } from 'drizzle-orm';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function GET() {
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const GET = rateLimiters.api(async (req: NextRequest) =>) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -52,4 +56,4 @@ export async function GET() {
   } catch {
     return NextResponse.json({ error: 'Failed to fetch subscription history' }, { status: 500 });
   }
-}
+});

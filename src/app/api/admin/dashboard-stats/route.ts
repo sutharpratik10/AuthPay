@@ -2,8 +2,12 @@ import { db } from '@/server/db';
 import { users, subscriptionPlans } from '@/server/db/schema';
 import { eq, count, sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function GET() {
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const GET = rateLimiters.api(async (req: NextRequest) =>) {
   try {
     // Active users: isActive true
     const activeUsersResult = await db.select({ count: count() }).from(users).where(eq(users.isActive, true));
@@ -31,4 +35,4 @@ export async function GET() {
     console.error('Error fetching dashboard stats:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch stats' }, { status: 500 });
   }
-}
+});
