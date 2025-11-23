@@ -9,7 +9,8 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
 /**
  * Rate Limited: 60 requests per minute
  */
-export const GET = rateLimiters.api(async (req: NextRequest) =>) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const GET = rateLimiters.api(async (_req: NextRequest) => {
   try {
     const session = await auth();
 
@@ -61,15 +62,15 @@ export const GET = rateLimiters.api(async (req: NextRequest) =>) {
     return NextResponse.json(preferences[0]);  } catch {
     return NextResponse.json({ error: 'Failed to fetch preferences' }, { status: 500 });
   }
-}
+});
 
-export const POST = rateLimiters.api(async (req: NextRequest) =>request: NextRequest) {
+export const POST = rateLimiters.api(async (req: NextRequest) => {
   try {
     const session = await auth();
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }    const body = await request.json();
+    }    const body = await req.json();
     const {
       emailNotifications,
       securityAlerts,

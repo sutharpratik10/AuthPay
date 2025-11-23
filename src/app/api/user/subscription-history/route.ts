@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/config/auth';
 import { db } from '@/server/db';
 import { userSubscriptions, subscriptionPlans, subscriptionStatuses } from '@/server/db/schema';
@@ -8,7 +8,8 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
 /**
  * Rate Limited: 60 requests per minute
  */
-export const GET = rateLimiters.api(async (req: NextRequest) =>) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const GET = rateLimiters.api(async (_req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user?.id) {

@@ -11,7 +11,7 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
 /**
  * Rate Limited: 60 requests per minute
  */
-export const GET = rateLimiters.api(async (req: NextRequest) =>req: NextRequest) {
+export const GET = rateLimiters.api(async (req: NextRequest) => {
   const authCheck = await getAuthenticatedUser(req);
   
   if (!authCheck.authorized || !authCheck.userId) {

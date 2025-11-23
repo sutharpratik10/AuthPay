@@ -1249,12 +1249,11 @@ export default function AccountPage() {
         <div className="border border-red-200 rounded-lg p-6 bg-red-50 dark:bg-red-950 dark:border-red-800">
           <h2 className="flex items-center text-lg font-semibold mb-4 text-red-600 dark:text-red-400">
             <Trash2 className="w-5 h-5 mr-2" />
-            Danger Zone
+            Delete Account
           </h2>
           <div className="space-y-4">
             <div>
-              <h3 className="font-medium text-red-600 dark:text-red-400">Delete Account</h3>
-              <p className="text-sm text-red-500 dark:text-red-300 mb-2">
+              <p className="text-sm text-red-500 dark:text-red-100 mb-2">
                 Once you delete your account, there is no going back. Please be certain.
               </p>
               <Button 
