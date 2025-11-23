@@ -43,7 +43,7 @@ async function hasRequiredPolicy(userId: string, path: string): Promise<boolean>
   }
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
   
   // Skip middleware for:

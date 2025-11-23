@@ -4,32 +4,32 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   poweredByHeader: false,
   images: {
-    domains: [
-      'avatars.githubusercontent.com',
-      // add other domains as needed
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'avatars.githubusercontent.com',
+      },
+      // add other remote patterns as needed
     ],
   },
-  webpack: (config, { isServer }) => {
-    // Exclude Node.js built-in modules from client-side bundles
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        crypto: false,
-        stream: false,
-        path: false,
-        os: false,
-        http: false,
-        https: false,
-        zlib: false,
-        dns: false,
-        child_process: false,
-      };
-    }
-    return config;
+  turbopack: {
+    resolveAlias: {
+      // Resolve alias fallback for Node.js built-in modules in client bundles
+      fs: { browser: './empty.js' },
+      net: { browser: './empty.js' },
+      tls: { browser: './empty.js' },
+      crypto: { browser: './empty.js' },
+      stream: { browser: './empty.js' },
+      path: { browser: './empty.js' },
+      os: { browser: './empty.js' },
+      http: { browser: './empty.js' },
+      https: { browser: './empty.js' },
+      zlib: { browser: './empty.js' },
+      dns: { browser: './empty.js' },
+      child_process: { browser: './empty.js' },
+    },
   },
 };
 
 export default nextConfig;
+
