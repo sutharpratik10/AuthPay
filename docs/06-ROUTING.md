@@ -6,6 +6,7 @@
 - [Route Configuration](#route-configuration)
 - [Dynamic Routing](#dynamic-routing)
 - [Middleware Protection](#middleware-protection)
+- [Rate Limiting & DDoS Protection](#rate-limiting--ddos-protection)
 - [Navigation Components](#navigation-components)
 - [Route Utilities](#route-utilities)
 - [Best Practices](#best-practices)
@@ -21,6 +22,7 @@ AuthPay implements a **centralized routing system** that provides consistent nav
 - ✅ **Maintainable**: Easy to update and refactor
 - ✅ **Policy-Based**: Automatic access control
 - ✅ **Dynamic**: Routes adapt to user permissions
+- ✅ **Rate Limited**: DDoS protection on all API routes
 - ✅ **Consistent**: Same navigation patterns everywhere
 
 ## Centralized Routing
@@ -545,6 +547,563 @@ export const config = {
   ],
 };
 ```
+
+### Rate Limiting & DDoS Protection
+
+> 📘 **Complete Guide**: See [09-DDOS-PROTECTION.md](./09-DDOS-PROTECTION.md) for comprehensive DDoS protection documentation.
+
+All API routes in AuthPay are protected with token-bucket rate limiting to prevent abuse, brute force attacks, and DDoS attempts. The rate limiting system integrates seamlessly with the routing and middleware architecture.
+
+#### Rate Limiting Architecture
+
+**Core Components:**
+
+1. **Rate Limiter** (`src/lib/utils/rate-limiter.ts`)
+   - Token bucket algorithm implementation
+   - In-memory storage (development)
+   - Redis-compatible interface (production)
+   - Configurable tiers with different limits
+
+2. **Middleware Wrappers** (`src/lib/middleware/rate-limit.ts`)
+   - Pre-configured limiters: `auth`, `sensitive`, `api`, `readOnly`
+   - Automatic header injection
+   - Client identification (IP/user-based)
+   - Error response formatting
+
+3. **Route Protection** (Applied per-route)
+   - Wraps Next.js route handlers
+   - Returns 429 when limit exceeded
+   - Includes retry-after timing
+
+#### Rate Limit Tiers for Routes
+
+| Tier | Limit | Window | Routes | Purpose |
+|------|-------|--------|--------|---------|
+| **🔴 auth** | 5 req | 15 min | `/api/auth/*` | Brute force prevention |
+| **🟠 sensitive** | 3 req | 1 hour | Delete account, password changes | Critical operation protection |
+| **🟡 api** | 60 req | 1 min | `/api/user/*`, `/api/rbac/*`, `/api/payments/*` | Standard protection |
+| **🟢 readOnly** | 100 req | 1 min | `/api/subscription-plans` | Public access |
+
+#### Implementation in Routes
+
+**Standard API Route:**
+
+```typescript
+// src/app/api/user/data/route.ts
+import { rateLimiters } from '@/lib/middleware/rate-limit';
+import { NextRequest, NextResponse } from 'next/server';
+
+/**
+ * Get user data
+ * Rate Limited: 60 requests per minute (standard API tier)
+ */
+export const GET = rateLimiters.api(async (req: NextRequest) => {
+  // Your handler logic
+  return NextResponse.json({ success: true, data: userData });
+});
+```
+
+**Authentication Route (Strict):**
+
+```typescript
+// src/app/api/auth/login/route.ts
+import { rateLimiters } from '@/lib/middleware/rate-limit';
+
+/**
+ * User login
+ * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
+ */
+export const POST = rateLimiters.auth(async (req: NextRequest) => {
+  // Login logic
+  return NextResponse.json({ success: true, token });
+});
+```
+
+**Sensitive Operation (Very Strict):**
+
+```typescript
+// src/app/api/user/delete-account/route.ts
+import { rateLimiters } from '@/lib/middleware/rate-limit';
+
+/**
+ * Delete user account
+ * Rate Limited: 3 requests per hour (VERY STRICT - critical operation)
+ */
+export const DELETE = rateLimiters.sensitive(async (req: NextRequest) => {
+  // Account deletion logic
+  return NextResponse.json({ success: true });
+});
+```
+
+**With `withApiHandler` Wrapper:**
+
+```typescript
+// src/app/api/rbac/check-permission/route.ts
+import { rateLimiters } from '@/lib/middleware/rate-limit';
+import { withApiHandler } from '@/lib/api/helpers';
+
+/**
+ * Check user permissions
+ * Rate Limited: 60 requests per minute (standard API tier)
+ */
+export const POST = rateLimiters.api(
+  withApiHandler(
+    async (request: NextRequest, { user }) => {
+      // Permission check logic
+      return { hasPermission: true };
+    },
+    { requireAuth: true }
+  )
+);
+```
+
+#### Client Identification Strategy
+
+The rate limiter identifies clients using a multi-layered approach:
+
+```typescript
+// src/lib/middleware/rate-limit.ts
+function getClientIdentifier(req: NextRequest): string {
+  // 1. Authenticated user (most accurate)
+  const session = await auth();
+  if (session?.user?.id) {
+    return `user:${session.user.id}`;
+  }
+  
+  // 2. API key (for API clients)
+  const apiKey = req.headers.get('x-api-key');
+  if (apiKey) {
+    return `api:${apiKey}`;
+  }
+  
+  // 3. IP address (fallback)
+  // Handle proxies and load balancers
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const realIp = req.headers.get('x-real-ip');
+  const ip = forwardedFor?.split(',')[0].trim() || 
+             realIp || 
+             req.ip || 
+             'unknown';
+  
+  return `ip:${ip}`;
+}
+```
+
+**Benefits:**
+- ✅ Per-user limits for authenticated requests
+- ✅ Per-IP limits for anonymous requests
+- ✅ API key support for programmatic access
+- ✅ Proxy-aware IP detection
+
+#### Rate Limit Response Headers
+
+All protected routes return these headers:
+
+```http
+HTTP/1.1 200 OK
+X-RateLimit-Limit: 60              # Maximum requests allowed
+X-RateLimit-Remaining: 45           # Requests remaining in window
+X-RateLimit-Reset: 2025-11-23T...   # When limit resets (ISO 8601)
+```
+
+When rate limit is exceeded:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 45                     # Seconds until reset
+Content-Type: application/json
+
+{
+  "error": "Too many requests, please try again later.",
+  "retryAfter": 45
+}
+```
+
+#### Integration with RBAC Middleware
+
+Rate limiting works alongside RBAC policy checks:
+
+```typescript
+// Execution order:
+// 1. Rate limiter checks limit
+// 2. If allowed, passes to handler
+// 3. Handler checks RBAC policies
+// 4. Handler executes business logic
+
+export const POST = rateLimiters.api(  // 1. Rate limit check
+  withApiHandler(                       // 2. Wrapper
+    async (request, { user }) => {      // 3. Handler with RBAC check
+      // Business logic here              4. Execution
+    },
+    { requireAuth: true }
+  )
+);
+```
+
+**Flow Diagram:**
+
+```
+Request
+  ↓
+Rate Limiter
+  ├─ Exceeded? → 429 Response
+  ↓
+Authentication Check (if required)
+  ├─ Not authenticated? → 401 Response
+  ↓
+RBAC Policy Check
+  ├─ No permission? → 403 Response
+  ↓
+Business Logic
+  ↓
+Response
+```
+
+#### Testing Rate Limits on Routes
+
+**Single Route Test:**
+
+```bash
+# Test authentication endpoint (should block after 5 requests)
+node scripts/test-rate-limit.js /api/auth/check-email 10
+
+# Expected output:
+# ✓ Request 1: HTTP 200
+# ✓ Request 2: HTTP 200
+# ✓ Request 3: HTTP 200
+# ✓ Request 4: HTTP 200
+# ✓ Request 5: HTTP 200
+# ✗ Request 6: HTTP 429 (Rate limit exceeded)
+# ✗ Request 7: HTTP 429 (Rate limit exceeded)
+```
+
+**Manual Testing:**
+
+```bash
+# Test with curl
+for i in {1..10}; do 
+  echo "Request $i:"
+  curl -X POST http://localhost:3000/api/auth/check-email \
+    -H "Content-Type: application/json" \
+    -d '{"email":"test@example.com"}' \
+    -i | grep -E "HTTP|X-RateLimit|Retry-After"
+  sleep 1
+done
+```
+
+**Load Testing All Routes:**
+
+```bash
+# Medium load test (50 connections, 30 seconds)
+node scripts/load-test.js medium
+
+# Tests these critical routes:
+# - /api/auth/check-email (auth tier)
+# - /api/user/data (api tier)
+# - /api/subscription-plans (readOnly tier)
+# - /api/rbac/check-permission (api tier)
+```
+
+#### Production Deployment Considerations
+
+**1. Use Redis for Multi-Instance Deployments**
+
+For production with multiple server instances, replace in-memory storage with Redis:
+
+```typescript
+// src/lib/utils/rate-limiter.ts
+import { Redis } from 'ioredis';
+
+const redis = new Redis(process.env.REDIS_URL);
+
+export class RateLimiter {
+  private async getCount(key: string): Promise<number> {
+    const count = await redis.get(key);
+    return count ? parseInt(count) : 0;
+  }
+  
+  private async incrementCount(key: string, ttl: number): Promise<number> {
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, ttl);
+    }
+    return count;
+  }
+  
+  async checkLimit(
+    clientId: string,
+    tier: RateLimitTier
+  ): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
+    const config = RATE_LIMIT_CONFIGS[tier];
+    const key = `rate-limit:${tier}:${clientId}`;
+    
+    const count = await this.incrementCount(
+      key,
+      Math.floor(config.windowMs / 1000)
+    );
+    
+    const allowed = count <= config.maxRequests;
+    const remaining = Math.max(0, config.maxRequests - count);
+    const resetAt = new Date(Date.now() + config.windowMs);
+    
+    return { allowed, remaining, resetAt };
+  }
+}
+```
+
+**2. CDN/Proxy Integration**
+
+For additional protection, use CDN-level rate limiting:
+
+- **Cloudflare Rate Limiting**: Blocks requests before they hit your server
+- **AWS CloudFront**: Custom rate limiting with Lambda@Edge
+- **Fastly**: Edge rate limiting with VCL
+
+**3. Monitoring and Alerts**
+
+Add logging for rate limit violations:
+
+```typescript
+// src/lib/middleware/rate-limit.ts
+if (!result.allowed) {
+  console.warn('[Rate Limit] Violation detected', {
+    clientId,
+    tier,
+    path: req.nextUrl.pathname,
+    userAgent: req.headers.get('user-agent'),
+    timestamp: new Date().toISOString(),
+  });
+  
+  // Send to monitoring system
+  // await sendToDatadog({ metric: 'rate_limit.violation', tags: { tier, path } });
+  // await sendToNewRelic({ eventType: 'RateLimitViolation', tier, path });
+}
+```
+
+**4. Graceful Degradation**
+
+Implement fallback behavior if rate limiter fails:
+
+```typescript
+try {
+  const result = await rateLimiter.checkLimit(clientId, tier);
+  if (!result.allowed) {
+    return new NextResponse(
+      JSON.stringify({ error: 'Rate limit exceeded' }),
+      { status: 429 }
+    );
+  }
+} catch (error) {
+  console.error('[Rate Limit] Error:', error);
+  
+  // Choose strategy:
+  // Option A: Fail open (allow request) - prioritize availability
+  // return handler(req);
+  
+  // Option B: Fail closed (block request) - prioritize security
+  return new NextResponse(
+    JSON.stringify({ error: 'Service temporarily unavailable' }),
+    { status: 503 }
+  );
+}
+```
+
+#### Route-Specific Customization
+
+**Custom Rate Limit for Specific Route:**
+
+```typescript
+// src/app/api/special/endpoint/route.ts
+import { createRateLimiter } from '@/lib/middleware/rate-limit';
+
+// Create custom limiter for this route
+const customLimiter = createRateLimiter({
+  windowMs: 5 * 60 * 1000,  // 5 minutes
+  maxRequests: 20,           // 20 requests
+  message: 'Special endpoint rate limit exceeded',
+});
+
+export const POST = customLimiter(async (req: NextRequest) => {
+  // Handler logic
+});
+```
+
+**Allowlist for Trusted IPs:**
+
+```typescript
+// src/lib/middleware/rate-limit.ts
+const TRUSTED_IPS = new Set([
+  '192.168.1.100',     // Office IP
+  '10.0.0.50',         // CI/CD server
+  // Add trusted IPs
+]);
+
+function shouldBypassRateLimit(clientId: string): boolean {
+  // Check if client is in allowlist
+  if (clientId.startsWith('ip:')) {
+    const ip = clientId.substring(3);
+    return TRUSTED_IPS.has(ip);
+  }
+  
+  // Check for admin users
+  if (clientId.startsWith('user:')) {
+    const userId = clientId.substring(5);
+    // return await isAdminUser(userId);
+  }
+  
+  return false;
+}
+```
+
+**Dynamic Limits Based on User Tier:**
+
+```typescript
+// src/lib/middleware/rate-limit.ts
+async function getRateLimitForUser(userId: string): Promise<RateLimitConfig> {
+  const subscription = await getUserSubscription(userId);
+  
+  switch (subscription.tier) {
+    case 'premium':
+      return { windowMs: 60000, maxRequests: 200 }; // Higher limit
+    case 'enterprise':
+      return { windowMs: 60000, maxRequests: 1000 }; // Much higher
+    default:
+      return RATE_LIMIT_CONFIGS.api; // Standard limit
+  }
+}
+```
+
+#### Best Practices for Route Protection
+
+**1. Always protect authentication endpoints:**
+
+```typescript
+// ❌ DON'T: Leave auth endpoints unprotected
+export const POST = async (req: NextRequest) => {
+  // Vulnerable to brute force attacks
+};
+
+// ✅ DO: Apply strict auth tier
+export const POST = rateLimiters.auth(async (req: NextRequest) => {
+  // Protected against brute force
+});
+```
+
+**2. Choose appropriate tier for each route:**
+
+```typescript
+// ❌ DON'T: Use auth tier for read operations
+export const GET = rateLimiters.auth(async (req) => {
+  return NextResponse.json({ publicData });
+});
+
+// ✅ DO: Use readOnly tier for public reads
+export const GET = rateLimiters.readOnly(async (req) => {
+  return NextResponse.json({ publicData });
+});
+```
+
+**3. Document rate limits in route comments:**
+
+```typescript
+/**
+ * Update user profile
+ * 
+ * @route POST /api/user/profile
+ * @access Private
+ * @rateLimit 60 requests per minute (api tier)
+ * @requires Authentication
+ * @requires Permission: user:update
+ */
+export const POST = rateLimiters.api(
+  withApiHandler(async (req, { user }) => {
+    // Handler logic
+  }, { requireAuth: true })
+);
+```
+
+**4. Handle rate limit errors gracefully in client:**
+
+```typescript
+// Client-side error handling
+async function makeApiRequest(url: string, options: RequestInit) {
+  const response = await fetch(url, options);
+  
+  if (response.status === 429) {
+    const retryAfter = response.headers.get('Retry-After');
+    const remaining = response.headers.get('X-RateLimit-Remaining');
+    
+    throw new RateLimitError(
+      `Rate limit exceeded. Retry after ${retryAfter} seconds.`,
+      parseInt(retryAfter || '60')
+    );
+  }
+  
+  return response.json();
+}
+
+// Usage with retry logic
+try {
+  const data = await makeApiRequest('/api/user/data', { method: 'GET' });
+} catch (error) {
+  if (error instanceof RateLimitError) {
+    // Show user-friendly message
+    toast.error(`Too many requests. Please wait ${error.retryAfter} seconds.`);
+    
+    // Optional: Auto-retry after delay
+    setTimeout(() => {
+      makeApiRequest('/api/user/data', { method: 'GET' });
+    }, error.retryAfter * 1000);
+  }
+}
+```
+
+#### Troubleshooting
+
+**Issue: Rate limits not working**
+
+1. Verify middleware is applied:
+   ```typescript
+   // Check route file
+   export const POST = rateLimiters.auth(handler); // ✅
+   export const POST = handler; // ❌ Missing rate limiter
+   ```
+
+2. Check tier configuration:
+   ```typescript
+   // Verify in src/lib/utils/rate-limiter.ts
+   console.log(RATE_LIMIT_CONFIGS.auth);
+   // Should show: { windowMs: 900000, maxRequests: 5, ... }
+   ```
+
+3. Verify client identification:
+   ```typescript
+   // Add logging to see client IDs
+   console.log('Rate limit client:', getClientIdentifier(req));
+   ```
+
+**Issue: Legitimate users getting blocked**
+
+1. Increase limits for specific routes
+2. Implement user-based limiting instead of IP-based
+3. Add allowlist for trusted IPs/users
+4. Consider implementing CAPTCHA after N failures instead of hard blocking
+
+**Issue: Rate limits not syncing across instances**
+
+1. Verify Redis connection:
+   ```bash
+   redis-cli ping
+   ```
+
+2. Check Redis keys:
+   ```bash
+   redis-cli keys "rate-limit:*"
+   ```
+
+3. Monitor Redis logs for errors
+
+For complete details on testing, monitoring, and advanced configurations, see [09-DDOS-PROTECTION.md](./09-DDOS-PROTECTION.md) and [05-API-ROUTES.md](./05-API-ROUTES.md#rate-limiting--ddos-protection).
 
 ## Navigation Components
 

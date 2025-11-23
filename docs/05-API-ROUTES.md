@@ -2,6 +2,7 @@
 
 ## Table of Contents
 - [Overview](#overview)
+- [Rate Limiting & DDoS Protection](#rate-limiting--ddos-protection)
 - [API Structure](#api-structure)
 - [Authentication APIs](#authentication-apis)
 - [RBAC APIs](#rbac-apis)
@@ -26,9 +27,473 @@ AuthPay provides a comprehensive REST API built with Next.js API Routes. All API
 - ✅ **RESTful**: Standard HTTP methods (GET, POST, PUT, DELETE)
 - ✅ **Type-Safe**: Full TypeScript support
 - ✅ **Protected**: RBAC-based authorization
+- ✅ **Rate Limited**: DDoS protection on all routes
 - ✅ **Consistent**: Standardized response patterns
 - ✅ **Error Handling**: Comprehensive error responses
 - ✅ **Validation**: Request/response validation with Zod
+
+## Rate Limiting & DDoS Protection
+
+> 📘 **Complete Guide**: See [09-DDOS-PROTECTION.md](./09-DDOS-PROTECTION.md) for comprehensive DDoS protection documentation.
+
+All API routes are protected with token-bucket rate limiting to prevent abuse, brute force attacks, and DDoS attempts. Rate limits vary by endpoint sensitivity.
+
+### Rate Limit Tiers
+
+| Tier | Limit | Window | Use Case | Routes |
+|------|-------|--------|----------|--------|
+| **🔴 auth** | 5 requests | 15 minutes | Authentication, prevents brute force | `/api/auth/*` login, password reset, 2FA |
+| **🟠 sensitive** | 3 requests | 1 hour | Critical operations | Account deletion, password changes |
+| **🟡 api** | 60 requests | 1 minute | Standard API operations | Most `/api/*` endpoints |
+| **🟢 readOnly** | 100 requests | 1 minute | Public read endpoints | `/api/subscription-plans` |
+
+### Rate Limit Response Headers
+
+All responses include these headers:
+
+```http
+X-RateLimit-Limit: 60              # Maximum requests allowed in window
+X-RateLimit-Remaining: 45           # Requests remaining in current window
+X-RateLimit-Reset: 2025-11-23T...   # ISO timestamp when limit resets
+```
+
+When rate limit is exceeded (HTTP 429):
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 45                     # Seconds to wait before retrying
+Content-Type: application/json
+
+{
+  "error": "Too many requests, please try again later.",
+  "retryAfter": 45
+}
+```
+
+### Implementation Examples
+
+#### Standard Route Handler
+
+```typescript
+// src/app/api/user/profile/route.ts
+import { rateLimiters } from '@/lib/middleware/rate-limit';
+import { NextRequest, NextResponse } from 'next/server';
+
+/**
+ * Get user profile
+ * Rate Limited: 60 requests per minute (standard API tier)
+ */
+export const GET = rateLimiters.api(async (req: NextRequest) => {
+  // Your handler logic
+  return NextResponse.json({ success: true, data: profile });
+});
+```
+
+#### Authentication Route (Strict Limiting)
+
+```typescript
+// src/app/api/auth/login/route.ts
+import { rateLimiters } from '@/lib/middleware/rate-limit';
+
+/**
+ * User login
+ * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
+ */
+export const POST = rateLimiters.auth(async (req: NextRequest) => {
+  // Login logic
+  return NextResponse.json({ success: true });
+});
+```
+
+#### Sensitive Operations (Very Strict)
+
+```typescript
+// src/app/api/user/delete-account/route.ts
+import { rateLimiters } from '@/lib/middleware/rate-limit';
+
+/**
+ * Delete user account
+ * Rate Limited: 3 requests per hour (VERY STRICT - critical operation)
+ */
+export const DELETE = rateLimiters.sensitive(async (req: NextRequest) => {
+  // Account deletion logic
+  return NextResponse.json({ success: true });
+});
+```
+
+#### With `withApiHandler` Wrapper
+
+```typescript
+// src/app/api/rbac/check-permission/route.ts
+import { rateLimiters } from '@/lib/middleware/rate-limit';
+import { withApiHandler } from '@/lib/api/helpers';
+
+/**
+ * Check user permissions
+ * Rate Limited: 60 requests per minute (standard API tier)
+ */
+export const POST = rateLimiters.api(
+  withApiHandler(
+    async (request: NextRequest, { user }) => {
+      // Permission check logic
+      return { hasPermission: true };
+    },
+    { requireAuth: true }
+  )
+);
+```
+
+### Route-Specific Rate Limits
+
+#### 🔴 AUTH Tier (5 req/15min) - Brute Force Prevention
+
+**Authentication & Security Routes:**
+- `POST /api/auth/check-email` - Email validation
+- `POST /api/auth/validate-credentials` - Credential verification
+- `POST /api/auth/validate-password` - Password strength check
+- `POST /api/auth/verify-password` - Password verification
+- `POST /api/auth/forgot-password` - Password reset initiation
+- `POST /api/auth/reset-password` - Password reset completion
+- `POST /api/auth/send-otp` - OTP generation
+- `POST /api/auth/verify-2fa` - 2FA verification
+- `POST /api/auth/resend-2fa` - 2FA resend
+- `POST /api/auth/check-2fa-status` - 2FA status check
+- `POST /api/auth/verify-reset-code` - Reset code verification
+- `POST /api/auth/check-suspension` - Account suspension check
+- `POST /api/auth/generate-temp-token` - Temporary token generation
+- `POST /api/auth/validate-user` - User validation
+- `POST /api/auth/track-session` - Session tracking
+- `POST /api/auth/validate-current-password` - Current password validation
+
+#### 🟠 SENSITIVE Tier (3 req/hour) - Critical Operations
+
+**Account & Security Changes:**
+- `DELETE /api/user/delete-account` - Permanent account deletion
+- `POST /api/user/set-password` - Set new password
+- `POST /api/auth/change-password` - Change existing password
+- `POST /api/auth/force-logout` - Force logout all sessions
+
+#### 🟡 API Tier (60 req/min) - Standard Operations
+
+**User Management:**
+- `GET /api/user/data` - User profile data
+- `GET /api/user/admin-status` - Admin status check
+- `GET /api/user/subscription-status` - Subscription details
+- `POST /api/user/subscription-status` - Update subscription
+- `GET /api/user/subscription-history` - Subscription history
+- `GET /api/user/password-status` - Password status
+- `GET /api/user/sessions` - Active sessions list
+- `POST /api/user/sessions` - Create session
+- `DELETE /api/user/sessions` - Revoke sessions
+- `GET /api/user/preferences` - User preferences
+- `POST /api/user/preferences` - Update preferences
+
+**RBAC Management:**
+- `POST /api/rbac/check-permission` - Permission checks
+- `GET /api/rbac/roles` - List roles
+- `POST /api/rbac/roles/create` - Create role
+- `PUT /api/rbac/roles/[roleId]` - Update role
+- `DELETE /api/rbac/roles/[roleId]` - Delete role
+- `GET /api/rbac/roles/[roleId]/policies` - Role policies
+- `POST /api/rbac/roles/[roleId]/policies` - Assign policies
+- `DELETE /api/rbac/roles/[roleId]/policies` - Remove policies
+- `GET /api/rbac/policies` - List policies
+- `POST /api/rbac/policies/create` - Create policy
+- `PUT /api/rbac/policies/[policyId]` - Update policy
+- `DELETE /api/rbac/policies/[policyId]` - Delete policy
+- `GET /api/rbac/users/[userId]/roles` - User roles
+- `POST /api/rbac/users/[userId]/roles` - Assign role
+- `DELETE /api/rbac/users/[userId]/roles` - Remove role
+- `GET /api/rbac/users/[userId]/policies` - User policies
+- `GET /api/rbac/user/dashboard` - RBAC dashboard URL
+
+**Payment Processing:**
+- `POST /api/subscription-plans/purchase` - Purchase subscription
+- `POST /api/payments/razorpay-create-order` - Create payment order
+- `GET /api/payments/razorpay-subscriptions` - List subscriptions
+- `POST /api/payments/razorpay-subscriptions` - Create subscription
+- `PATCH /api/payments/razorpay-subscriptions` - Update subscription
+
+**Admin Operations:**
+- `GET /api/admin/sessions` - List all sessions
+- `POST /api/admin/sessions` - Manage sessions
+- `GET /api/admin/dashboard-stats` - Dashboard statistics
+- `GET /api/admin/subscription-plans/[planId]/active-user-count` - Active users
+
+#### 🟢 READ-ONLY Tier (100 req/min) - Public Access
+
+**Public Endpoints:**
+- `GET /api/subscription-plans` - List available plans
+- `GET /api/health/newrelic` - Health check endpoint
+
+### Testing Rate Limits
+
+#### Using Test Script
+
+```bash
+# Test specific endpoint (sends 30 requests)
+node scripts/test-rate-limit.js /api/auth/check-email 30
+
+# Expected output:
+# Request 1: HTTP 200
+# Request 2: HTTP 200
+# ...
+# Request 5: HTTP 200
+# Request 6: HTTP 429 (Rate limit exceeded)
+```
+
+#### Manual Testing with curl
+
+```bash
+# Test auth endpoint (should block after 5 requests)
+for i in {1..10}; do 
+  echo "Request $i:"
+  curl -X POST http://localhost:3000/api/auth/check-email \
+    -H "Content-Type: application/json" \
+    -d '{"email":"test@example.com"}' \
+    -w "\nHTTP Status: %{http_code}\n\n"
+  sleep 1
+done
+```
+
+#### Load Testing
+
+```bash
+# Light load test (10 connections, 10 seconds)
+node scripts/load-test.js low
+
+# Medium load test (50 connections, 30 seconds)
+node scripts/load-test.js medium
+
+# High load test (100 connections, 60 seconds)
+node scripts/load-test.js high
+
+# Extreme load test - DDoS simulation (500 connections, 120 seconds)
+node scripts/load-test.js extreme
+```
+
+### Best Practices for Rate Limiting
+
+#### 1. Choose Appropriate Tier
+
+```typescript
+// ❌ DON'T: Use auth tier for read operations
+export const GET = rateLimiters.auth(async (req) => {
+  return NextResponse.json({ data: publicData });
+});
+
+// ✅ DO: Use readOnly tier for public reads
+export const GET = rateLimiters.readOnly(async (req) => {
+  return NextResponse.json({ data: publicData });
+});
+```
+
+#### 2. Always Protect Authentication Endpoints
+
+```typescript
+// ❌ DON'T: Leave auth endpoints unprotected
+export const POST = async (req: NextRequest) => {
+  // Vulnerable to brute force!
+  return NextResponse.json({ token });
+};
+
+// ✅ DO: Apply strict auth tier
+export const POST = rateLimiters.auth(async (req: NextRequest) => {
+  // Protected against brute force
+  return NextResponse.json({ token });
+});
+```
+
+#### 3. Document Rate Limits in Comments
+
+```typescript
+/**
+ * Update user profile
+ * 
+ * Rate Limited: 60 requests per minute (standard API tier)
+ * 
+ * @requires Authentication
+ * @requires Permission: user:update
+ */
+export const PUT = rateLimiters.api(
+  withApiHandler(async (req, { user }) => {
+    // Handler logic
+  }, { requireAuth: true })
+);
+```
+
+#### 4. Handle Rate Limit Errors in Client
+
+```typescript
+// Client-side error handling
+async function makeApiCall() {
+  const response = await fetch('/api/user/data');
+  
+  if (response.status === 429) {
+    const retryAfter = response.headers.get('Retry-After');
+    console.error(`Rate limited. Retry after ${retryAfter} seconds`);
+    
+    // Show user-friendly message
+    toast.error(`Too many requests. Please wait ${retryAfter} seconds.`);
+    return;
+  }
+  
+  return await response.json();
+}
+```
+
+#### 5. Monitor Rate Limit Headers
+
+```typescript
+// Check remaining requests before critical operations
+async function criticalOperation() {
+  const response = await fetch('/api/sensitive/operation');
+  
+  const remaining = response.headers.get('X-RateLimit-Remaining');
+  const limit = response.headers.get('X-RateLimit-Limit');
+  
+  if (parseInt(remaining) < 2) {
+    console.warn(`Low rate limit: ${remaining}/${limit} remaining`);
+  }
+}
+```
+
+### Production Considerations
+
+#### 1. Redis for Multi-Instance Deployments
+
+For production with multiple server instances, use Redis:
+
+```typescript
+// src/lib/utils/rate-limiter.ts
+import { Redis } from 'ioredis';
+
+const redis = new Redis(process.env.REDIS_URL);
+
+export class RateLimiter {
+  async checkLimit(clientId: string, tier: string): Promise<boolean> {
+    // Use Redis instead of in-memory Map
+    const key = `rate-limit:${tier}:${clientId}`;
+    const count = await redis.incr(key);
+    
+    if (count === 1) {
+      await redis.expire(key, windowSeconds);
+    }
+    
+    return count <= maxRequests;
+  }
+}
+```
+
+#### 2. Client Identification
+
+Current implementation uses IP address. Enhance for production:
+
+```typescript
+function getClientIdentifier(req: NextRequest): string {
+  // Check for authenticated user first
+  const userId = req.headers.get('x-user-id');
+  if (userId) return `user:${userId}`;
+  
+  // Check for API key
+  const apiKey = req.headers.get('x-api-key');
+  if (apiKey) return `api:${apiKey}`;
+  
+  // Fallback to IP (handle proxies/load balancers)
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const realIp = req.headers.get('x-real-ip');
+  const ip = forwardedFor?.split(',')[0] || realIp || 'unknown';
+  
+  return `ip:${ip}`;
+}
+```
+
+#### 3. Logging and Monitoring
+
+```typescript
+// Add logging for rate limit violations
+if (!allowed) {
+  console.warn('[Rate Limit] Blocked request', {
+    clientId,
+    tier,
+    path: req.nextUrl.pathname,
+    timestamp: new Date().toISOString(),
+    userAgent: req.headers.get('user-agent'),
+  });
+  
+  // Send to monitoring system
+  // metrics.increment('rate_limit.violations', { tier, path });
+}
+```
+
+#### 4. Graceful Degradation
+
+```typescript
+// Fallback if rate limiter fails
+try {
+  const allowed = await rateLimiter.checkLimit(clientId, tier);
+  if (!allowed) {
+    return new NextResponse(JSON.stringify({ error: 'Rate limit exceeded' }), {
+      status: 429,
+    });
+  }
+} catch (error) {
+  console.error('[Rate Limit] Error checking limit:', error);
+  // Allow request to proceed if rate limiter is down (fail open)
+  // OR reject for security (fail closed) - choose based on requirements
+}
+```
+
+### Troubleshooting
+
+#### Rate Limits Not Working
+
+1. **Check middleware is applied:**
+   ```typescript
+   // Ensure rateLimiters.* wrapper is present
+   export const POST = rateLimiters.auth(handler); // ✅
+   export const POST = handler; // ❌
+   ```
+
+2. **Verify tier configuration:**
+   ```typescript
+   // Check src/lib/utils/rate-limiter.ts
+   console.log(RATE_LIMIT_CONFIGS.auth); // Should show { windowMs: 900000, maxRequests: 5 }
+   ```
+
+3. **Check client identification:**
+   ```typescript
+   // Add logging to see client IDs
+   console.log('Client ID:', getClientIdentifier(req));
+   ```
+
+#### Legitimate Users Getting Blocked
+
+1. **Adjust limits for specific routes:**
+   ```typescript
+   // Create custom tier for high-traffic endpoints
+   const customLimiter = createRateLimiter({
+     windowMs: 60 * 1000,
+     maxRequests: 200, // Increased limit
+     message: 'Custom message',
+   });
+   ```
+
+2. **Implement allowlists:**
+   ```typescript
+   const ALLOWLIST = new Set(['trusted-ip-1', 'trusted-ip-2']);
+   
+   if (ALLOWLIST.has(clientId)) {
+     return handler(req); // Bypass rate limiting
+   }
+   ```
+
+3. **Use per-user limits instead of IP:**
+   ```typescript
+   // Authenticate first, then use userId instead of IP
+   const session = await auth();
+   const clientId = session?.user?.id || getIpAddress(req);
+   ```
 
 ## API Structure
 
