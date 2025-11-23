@@ -58,26 +58,57 @@ interface SubscriptionPlansProps {
   onPlanSelected?: (planId: string) => void;
   showTitle?: boolean;
   className?: string;
+  lazyLoad?: boolean; // New prop to enable lazy loading
 }
 
 export default function SubscriptionPlansSelector({
   onPlanSelected,
   showTitle = true,
   className = "",
+  lazyLoad = true, // Default to true to avoid unnecessary fetches
 }: SubscriptionPlansProps) {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [selectedBillingCycle, setSelectedBillingCycle] =
     useState<"monthly" | "yearly">("yearly");
+  const [isVisible, setIsVisible] = useState(!lazyLoad); // If not lazy loading, start as visible
+  const containerRef = React.useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { refreshSubscription } = useSubscription();
 
   const isRazorpayLoaded = () =>
     typeof window !== "undefined" && typeof window.Razorpay === "function";
 
-  // Load subscription plans
+  // Intersection Observer for lazy loading
   useEffect(() => {
+    if (!lazyLoad || isVisible) return;
+
+    const currentRef = containerRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.1, rootMargin: '50px' }
+    );
+
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [lazyLoad, isVisible]);
+
+  // Load subscription plans only when visible
+  useEffect(() => {
+    if (!isVisible) return;
+
     const loadPlans = async () => {
       try {
         // Fetch both local plans and Razorpay plans in parallel for faster loading
@@ -151,7 +182,7 @@ export default function SubscriptionPlansSelector({
     };
 
     loadPlans();
-  }, [toast]);
+  }, [toast, isVisible]);
 
   const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -341,7 +372,7 @@ export default function SubscriptionPlansSelector({
   }
 
   return (
-    <div className={`relative ₹{className}`}>
+    <div ref={containerRef} className={`relative ${className}`}>
       {/* Load Razorpay script lazily */}
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"

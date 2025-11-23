@@ -32,7 +32,7 @@ function checkRateLimit(userId: string): boolean {
 /**
  * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
  */
-export const POST = rateLimiters.auth(async (req: NextRequest) =>request: NextRequest) {
+export const POST = rateLimiters.auth(async (request: NextRequest) => {
   try {
     const session = await auth();
     

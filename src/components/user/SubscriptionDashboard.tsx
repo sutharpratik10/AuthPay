@@ -42,6 +42,7 @@ export default function SubscriptionDashboard() {
         {/* Subscription Plans */}
         <SubscriptionPlansSelector 
           showTitle={false}
+          lazyLoad={false}
           onPlanSelected={(planId) => {
             console.log('Plan selected:', planId);
           }}

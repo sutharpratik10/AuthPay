@@ -987,6 +987,17 @@ export default function AccountPage() {
                             )}
                           </div>
                         )}
+
+                        {/* Warning if new password is same as current password */}
+                        {hasPassword !== false && passwordForm.currentPassword && passwordForm.newPassword && 
+                         passwordForm.currentPassword === passwordForm.newPassword && (
+                          <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                              <XCircle className="w-3 h-3" />
+                              New password must be different from current password
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       <div>
@@ -1045,7 +1056,8 @@ export default function AccountPage() {
                             passwordForm.newPassword !== passwordForm.confirmPassword ||
                             passwordForm.newPassword.length < 8 ||
                             passwordStrength.score < 2 ||
-                            (hasPassword !== false && !passwordForm.currentPassword)
+                            (hasPassword !== false && !passwordForm.currentPassword) ||
+                            (hasPassword !== false && passwordForm.currentPassword === passwordForm.newPassword)
                           }
                           onClick={() => {
                             console.log('=== BUTTON CLICKED ===')

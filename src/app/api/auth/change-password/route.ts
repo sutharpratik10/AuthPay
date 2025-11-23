@@ -9,7 +9,7 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
 /**
  * Rate Limited: 3 requests per hour (VERY STRICT - sensitive operation)
  */
-export const POST = rateLimiters.sensitive(async (req: NextRequest) =>req: NextRequest) {
+export const POST = rateLimiters.sensitive(async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user?.id) {
