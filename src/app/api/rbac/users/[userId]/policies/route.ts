@@ -14,17 +14,21 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
 /**
  * Rate Limited: 60 requests per minute
  */
-export const GET = rateLimiters.api(async (req: NextRequest) =>
+export const GET = rateLimiters.api(async (
   req: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
-) {
+  ...args: unknown[]
+): Promise<Response> => {
+  const context = args[0] as { params: Promise<{ userId: string }> };
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
-    return authCheck.response;
+    return authCheck.response || NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    const { userId } = await params;
+    const { userId } = await context.params;
 
     // Check if user exists
     const user = await db.query.users.findFirst({

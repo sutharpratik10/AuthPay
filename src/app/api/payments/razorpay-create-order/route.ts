@@ -21,7 +21,7 @@ interface CreateOrderBody {
 /**
  * Rate Limited: 60 requests per minute
  */
-export const POST = rateLimiters.api(async (req: NextRequest) =>req: NextRequest) {
+export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response> => {
   try {
     const body = (await req.json()) as Partial<CreateOrderBody>;
     const rawAmount = Number(body?.amount);

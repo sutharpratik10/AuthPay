@@ -5,11 +5,17 @@ import { useSession } from "next-auth/react"
 import SubscriptionDashboard from "@/components/user/SubscriptionDashboard"
 import PaywallContainer from "@/components/Paywall/PaywallContainer"
 import { useSubscription } from "@/contexts/SubscriptionContext"
+import EmailVerificationBanner from "@/components/shared/EmailVerificationBanner"
 
 export default function UserDashboard() {
   const { data: session } = useSession()
   const [userName, setUserName] = useState("User")
+  const [showBanner, setShowBanner] = useState(true)
   const { subscriptionStatus, isLoading } = useSubscription()
+
+  // Check if email is verified
+  const isEmailVerified = session?.user?.isEmailVerified === true
+  const userEmail = session?.user?.email || ""
 
   // Update user name when session is available
   useEffect(() => {
@@ -35,27 +41,37 @@ export default function UserDashboard() {
   const isActiveSub = !!subscriptionStatus && subscriptionStatus.isActive === true;
 
   return (
-    <div className="w-full max-w-full px-2 sm:px-4 py-6 mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Welcome back, {userName}! {isActiveSub
-              ? `You have an active ${subscriptionStatus?.planName ?? ''} subscription.`
-              : 'Manage your subscription and explore our features.'}
-          </p>
+    <div className="w-full max-w-full mx-auto">
+      {/* Email Verification Banner - shown at the very top if email is not verified */}
+      {!isEmailVerified && userEmail && showBanner && (
+        <EmailVerificationBanner 
+          email={userEmail} 
+          onDismiss={() => setShowBanner(false)}
+        />
+      )}
+
+      <div className="px-2 sm:px-4 py-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground text-sm sm:text-base">
+              Welcome back, {userName}! {isActiveSub
+                ? `You have an active ${subscriptionStatus?.planName ?? ''} subscription.`
+                : 'Manage your subscription and explore our features.'}
+            </p>
+          </div>
         </div>
+
+        {!isActiveSub && (
+          <SubscriptionDashboard />
+        )}
+
+        {isActiveSub && (
+          <div>
+            <PaywallContainer />
+          </div>
+        )}
       </div>
-
-      {!isActiveSub && (
-        <SubscriptionDashboard />
-      )}
-
-      {isActiveSub && (
-        <div>
-          <PaywallContainer />
-        </div>
-      )}
     </div>
   )
 }

@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (result?.error) {
-        // This shouldn't happen if validation passed, but handle it anyway
+        // Generic error for failed login
         return { error: "Invalid credentials" };
       }
 
@@ -147,33 +147,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!res.ok) {
         return { error: data.error }
-      }      // After successful registration, automatically sign in the user
-      const loginResult = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-
-      if (loginResult?.error) {
-        // If auto-login fails, still redirect to verify page but user won't be logged in
-        console.warn("Auto-login after registration failed:", loginResult.error)
-        try {
-          router.push("/auth/verify?email=" + encodeURIComponent(email))
-        } catch (routerError) {
-          console.error("Failed to redirect after registration:", routerError)
-        }
-        return { error: "Registration successful but auto-login failed. Please sign in manually." }
       }
 
-      // Session is already created by NextAuth credentials callback in auth.config.ts
-      // No need to call track-session here - it would be redundant
-
-      // User is now authenticated but email not verified - redirect to verify page
+      // After successful registration, redirect to email verification page
+      // DO NOT pass email in URL - it's stored in a secure cookie
       try {
         router.push("/auth/verify")
-      } catch (routerError) {        console.error("Failed to redirect to verification page:", routerError)
+      } catch (routerError) {
+        console.error("Failed to redirect to verification page:", routerError)
       }
-      return {}
+      
+      return { success: true, message: "Registration successful! Please check your email for the verification code." }
     } catch (error) {
       console.error("Registration error:", error)
       return { error: "An unexpected error occurred" }

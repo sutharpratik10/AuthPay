@@ -14,21 +14,23 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
  * Assign a role to a user
- */
-/**
  * Rate Limited: 60 requests per minute
  */
-export const POST = rateLimiters.api(async (req: NextRequest) =>
+export const POST = rateLimiters.api(async (
   req: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
-) {
+  ...args: unknown[]
+): Promise<Response> => {
+  const context = args[0] as { params: Promise<{ userId: string }> };
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
-    return authCheck.response;
+    return authCheck.response || NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    const { userId } = await params;
+    const { userId } = await context.params;
     const body = await req.json();
     const { roleId } = body;
 
@@ -88,22 +90,27 @@ export const POST = rateLimiters.api(async (req: NextRequest) =>
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * Remove a role from a user
+ * Rate Limited: 60 requests per minute
  */
-export const DELETE = rateLimiters.api(async (req: NextRequest) =>
+export const DELETE = rateLimiters.api(async (
   req: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
-) {
+  ...args: unknown[]
+): Promise<Response> => {
+  const context = args[0] as { params: Promise<{ userId: string }> };
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
-    return authCheck.response;
+    return authCheck.response || NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    const { userId } = await params;
+    const { userId } = await context.params;
     const body = await req.json();
     const { roleId } = body;
 
@@ -139,22 +146,27 @@ export const DELETE = rateLimiters.api(async (req: NextRequest) =>
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * Get all roles for a user
+ * Rate Limited: 60 requests per minute
  */
-export const GET = rateLimiters.api(async (req: NextRequest) =>
+export const GET = rateLimiters.api(async (
   req: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
-) {
+  ...args: unknown[]
+): Promise<Response> => {
+  const context = args[0] as { params: Promise<{ userId: string }> };
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
-    return authCheck.response;
+    return authCheck.response || NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    const { userId } = await params;
+    const { userId } = await context.params;
 
     // Get all roles for this user
     const userRolesRecords = await db

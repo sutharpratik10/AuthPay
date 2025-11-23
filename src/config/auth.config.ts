@@ -59,7 +59,12 @@ const authConfig: NextAuthConfig = {
 
           if (!user || !user.password) {
             return null;
-          }          // Skip password check if this is a 2FA completion (already verified)
+          }
+
+          // Note: We allow unverified users to log in, but they'll see a verification banner
+          // This provides better UX than blocking them completely
+
+          // Skip password check if this is a 2FA completion (already verified)
           if (!skipPasswordCheck) {
             const isPasswordValid = await bcrypt.compare(
               password,

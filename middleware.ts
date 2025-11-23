@@ -148,21 +148,21 @@ export async function middleware(request: NextRequest) {
 
   // Handle verification page access
   if (path === verificationRoute) {
-    if (!isAuthenticated) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[MIDDLEWARE] 🔒 Unauthenticated user trying to access verify page`);
-      }
-      return NextResponse.redirect(new URL('/auth/login', request.url));
-    }
-    if (isEmailVerified) {
+    // Allow both authenticated and unauthenticated users to access verify page
+    // Unauthenticated: Have verification token from registration
+    // Authenticated: Want to verify their email from dashboard
+    
+    if (isAuthenticated && isEmailVerified) {
+      // Already verified, redirect to dashboard
       const dashboardUrl = getDashboardUrl();
       if (process.env.NODE_ENV === 'development') {
-        console.log(`[MIDDLEWARE] ✅ Email verified, redirecting to dashboard`);
+        console.log(`[MIDDLEWARE] ✅ Email already verified, redirecting to dashboard`);
       }
       return NextResponse.redirect(new URL(dashboardUrl, request.url));
     }
+    
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[MIDDLEWARE] ✅ Authenticated unverified user accessing verify page`);
+      console.log(`[MIDDLEWARE] ✅ Allowing access to verify page`);
     }
     return NextResponse.next();
   }
@@ -170,18 +170,13 @@ export async function middleware(request: NextRequest) {
   // Handle auth pages (login, signup, forgot-password)
   if (authRoutes.includes(path)) {
     if (isAuthenticated) {
-      if (isEmailVerified) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[MIDDLEWARE] ✅ Authenticated verified user, redirecting to dashboard`);
-        }
-        const dashboardUrl = getDashboardUrl();
-        return NextResponse.redirect(new URL(dashboardUrl, request.url));
-      } else {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[MIDDLEWARE] ⚠️ Authenticated unverified user, redirecting to verify`);
-        }
-        return NextResponse.redirect(new URL('/auth/verify', request.url));
+      // Authenticated users should go to their dashboard
+      // No need to check email verification - they can verify from dashboard
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[MIDDLEWARE] ✅ Authenticated user, redirecting to dashboard`);
       }
+      const dashboardUrl = getDashboardUrl();
+      return NextResponse.redirect(new URL(dashboardUrl, request.url));
     }
     if (process.env.NODE_ENV === 'development') {
       console.log(`[MIDDLEWARE] ✅ Unauthenticated user accessing auth page: ${path}`);
@@ -198,17 +193,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/auth/login', request.url));
     }
 
+    // Allow unverified users to access protected routes
+    // They will see a verification banner on the dashboard instead of being blocked
     if (!isEmailVerified) {
       if (process.env.NODE_ENV === 'development') {
-        console.log(`[MIDDLEWARE] ⚠️ Unverified email accessing protected route: ${path}`);
-      }
-      // Only redirect to verify if we're not already in a verification flow
-      if (!request.headers.get('referer')?.includes('/auth/verify')) {
-        return NextResponse.redirect(new URL('/auth/verify', request.url));
-      }
-      // If coming from verify page, allow access (user might be in verification process)
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[MIDDLEWARE] ⚠️ User coming from verify page, allowing temporary access`);
+        console.log(`[MIDDLEWARE] ⚠️ Unverified email accessing protected route (allowed with banner): ${path}`);
       }
     }
 

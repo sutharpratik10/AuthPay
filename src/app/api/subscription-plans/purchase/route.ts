@@ -28,7 +28,7 @@ interface PaymentInfo {
 /**
  * Rate Limited: 60 requests per minute
  */
-export const POST = rateLimiters.api(async (req: NextRequest) =>req: NextRequest) {
+export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response> => {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });

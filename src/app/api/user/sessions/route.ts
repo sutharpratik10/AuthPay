@@ -7,7 +7,7 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
 /**
  * Rate Limited: 60 requests per minute
  */
-export const GET = rateLimiters.api(async (req: NextRequest) =>request: NextRequest) {
+export const GET = rateLimiters.api(async (request: NextRequest) => {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
@@ -43,10 +43,10 @@ export const GET = rateLimiters.api(async (req: NextRequest) =>request: NextRequ
       requireActiveUser: true,
     }
   );
-}
+});
 
 // Example: Invalidate a specific session
-export const DELETE = rateLimiters.api(async (req: NextRequest) =>request: NextRequest) {
+export const DELETE = rateLimiters.api(async (request: NextRequest) => {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
@@ -86,10 +86,10 @@ export const DELETE = rateLimiters.api(async (req: NextRequest) =>request: NextR
       }
     }
   );
-}
+});
 
 // Example: Invalidate all other sessions (logout from other devices)
-export const POST = rateLimiters.api(async (req: NextRequest) =>request: NextRequest) {
+export const POST = rateLimiters.api(async (request: NextRequest) => {
   return withSessionValidation(
     request,
     async (req, sessionData) => {

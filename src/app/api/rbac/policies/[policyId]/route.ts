@@ -13,17 +13,21 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
 /**
  * Rate Limited: 60 requests per minute
  */
-export const PUT = rateLimiters.api(async (req: NextRequest) =>
+export const PUT = rateLimiters.api(async (
   req: NextRequest,
-  { params }: { params: Promise<{ policyId: string }> }
-) {
+  ...args: unknown[]
+): Promise<Response> => {
+  const context = args[0] as { params: Promise<{ policyId: string }> };
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
-    return authCheck.response;
+    return authCheck.response || NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    const { policyId } = await params;
+    const { policyId } = await context.params;
     const body = await req.json();
     const { name, description, category, displayName, resource, action } = body;
 
@@ -72,19 +76,23 @@ export const PUT = rateLimiters.api(async (req: NextRequest) =>
       { status: 500 }
     );
   }
-}
+});
 
-export const DELETE = rateLimiters.api(async (req: NextRequest) =>
+export const DELETE = rateLimiters.api(async (
   req: NextRequest,
-  { params }: { params: Promise<{ policyId: string }> }
-) {
+  ...args: unknown[]
+): Promise<Response> => {
+  const context = args[0] as { params: Promise<{ policyId: string }> };
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
-    return authCheck.response;
+    return authCheck.response || NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    const { policyId } = await params;
+    const { policyId } = await context.params;
 
     // Check if policy exists
     const existingPolicy = await db.query.permissions.findFirst({

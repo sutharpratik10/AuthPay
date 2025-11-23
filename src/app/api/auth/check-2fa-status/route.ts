@@ -7,7 +7,7 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
 /**
  * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
  */
-export const POST = rateLimiters.auth(async (req: NextRequest) =>req: NextRequest) {
+export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response> => {
   try {
     const body = await req.json();
     const { email } = body;

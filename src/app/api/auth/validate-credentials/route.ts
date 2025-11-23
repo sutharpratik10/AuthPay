@@ -44,13 +44,8 @@ export const POST = rateLimiters.auth(async (request: NextRequest) => {
       );
     }
 
-    // Check if email is verified
-    if (!user.isEmailVerified) {
-      return NextResponse.json(
-        { error: 'Email not verified' },
-        { status: 403 }
-      );
-    }
+    // Note: We allow unverified users to log in
+    // They will see a verification banner on their dashboard
 
     // Check password
     if (!user.password) {

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
@@ -11,7 +11,8 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
 /**
  * Rate Limited: 100 requests per minute
  */
-export const GET = rateLimiters.readOnly(async (req: NextRequest) =>) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const GET = rateLimiters.readOnly(async (_req: NextRequest): Promise<Response> => {
   try {
     // Try to import newrelic to verify it's available
     await import('newrelic');

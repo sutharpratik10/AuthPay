@@ -146,10 +146,6 @@ export default function LoginForm() {
             setError("Password is wrong! Please try again or use 'Forgot password?' to reset it.")
             setErrorType("error")
             break
-          case "Email not verified":
-            setError("Your email address is not verified yet. Please check your inbox for a verification link we sent you.")
-            setErrorType("warning")
-            break
           case "Account disabled":
             setError("Your account has been disabled. Please contact our support team for assistance.")
             setErrorType("error")

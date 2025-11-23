@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +21,6 @@ export default function EmailVerificationForm({
   description
 }: EmailVerificationFormProps) {
   const { verifyEmail, resendVerificationEmail, logout, user, loading } = useAuth()
-  const searchParams = useSearchParams()
   
   const [code, setCode] = useState("")
   const [email, setEmail] = useState("")
@@ -31,20 +29,37 @@ export default function EmailVerificationForm({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [resendDisabled, setResendDisabled] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const [loadingEmail, setLoadingEmail] = useState(true)
 
-  // Auto-populate email based on context
+  // Fetch email from secure verification token (not from URL)
   useEffect(() => {
-    if (requiresAuth && user?.email) {
-      // For authenticated users, use the email from session
-      setEmail(user.email)
-    } else {
-      // For non-authenticated users, try to get email from URL params
-      const emailFromUrl = searchParams.get("email")
-      if (emailFromUrl) {
-        setEmail(emailFromUrl)
+    const fetchVerificationEmail = async () => {
+      if (requiresAuth && user?.email) {
+        // For authenticated users, use the email from session
+        setEmail(user.email)
+        setLoadingEmail(false)
+      } else {
+        // For non-authenticated users, get email from secure verification token
+        try {
+          const response = await fetch('/api/auth/verification-email')
+          const data = await response.json()
+          
+          if (response.ok && data.email) {
+            setEmail(data.email)
+          } else {
+            setError(data.error || 'Verification session not found. Please register again.')
+          }
+        } catch (err) {
+          console.error('Error fetching verification email:', err)
+          setError('Failed to load verification session. Please try again.')
+        } finally {
+          setLoadingEmail(false)
+        }
       }
     }
-  }, [requiresAuth, user?.email, searchParams])
+
+    fetchVerificationEmail()
+  }, [requiresAuth, user?.email])
 
   // Handle countdown for resend button
   useEffect(() => {
@@ -135,6 +150,20 @@ export default function EmailVerificationForm({
   const defaultDescription = requiresAuth 
     ? "We've sent a 6-digit verification code to your email address. Please enter it below to verify your account."
     : "Enter the verification code we sent to your email address."
+
+  // Show loading while fetching email
+  if (loadingEmail) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <div className="w-full max-w-md p-8 bg-white border-1 border-black dark:bg-neutral-900 dark:border-white rounded-xl shadow-sm">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-muted border-t-primary mb-4" />
+            <p className="text-base font-medium text-foreground">Loading verification session...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">

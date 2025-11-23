@@ -8,7 +8,7 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
 /**
  * Rate Limited: 60 requests per minute
  */
-export const GET = rateLimiters.api(async (req: NextRequest) =>request: NextRequest) {
+export const GET = rateLimiters.api(async (request: NextRequest) => {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
@@ -42,10 +42,10 @@ export const GET = rateLimiters.api(async (req: NextRequest) =>request: NextRequ
       requireActiveUser: true,
     }
   );
-}
+});
 
 // Manual session cleanup (admin only - uses policy-based check)
-export const POST = rateLimiters.api(async (req: NextRequest) =>request: NextRequest) {
+export const POST = rateLimiters.api(async (request: NextRequest) => {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
