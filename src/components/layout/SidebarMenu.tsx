@@ -131,7 +131,11 @@ export function AppSidebar() {
 
 
   // Combine regular navigation with admin navigation if user is admin
-  const finalNavigation = useMemo<NavItem[]>(() => (isAdmin ? [...navigation, ...adminNavigation] : navigation), [isAdmin, navigation, adminNavigation]);
+  // Only show admin navigation if isAdmin is explicitly true (not undefined or null)
+  const finalNavigation = useMemo<NavItem[]>(() => {
+    const shouldShowAdminNav = isAdmin === true;
+    return shouldShowAdminNav ? [...navigation, ...adminNavigation] : navigation;
+  }, [isAdmin, navigation, adminNavigation]);
   // Track which parent menu items are open (for submenus)
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
 
