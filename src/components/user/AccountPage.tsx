@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/lib"
 import { useSession, signOut } from "next-auth/react"
 import { Avatar } from "@/components/ui/avatar"
@@ -66,6 +66,8 @@ export default function AccountPage() {
     currentPassword: string;
     newPassword: string;
   } | null>(null)
+  // Prevent duplicate OTP submissions
+  const lastSubmittedOtp = useRef<string>("")
   // Delete account states
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   // Track if user has password (for OAuth users)
@@ -384,8 +386,15 @@ export default function AccountPage() {
       return
     }
     
+    // Prevent duplicate submission of the same OTP
+    if (lastSubmittedOtp.current === otp) {
+      setMessage({ type: 'error', text: 'This OTP has already been submitted. Please request a new OTP if needed.' })
+      return
+    }
+    
     setIsLoading(true)
     setMessage(null)
+    lastSubmittedOtp.current = otp
     
     try {
       // Verify OTP and change password
@@ -470,6 +479,7 @@ export default function AccountPage() {
       
       setOtpTimer(60) // Reset timer
       setOtp('') // Clear OTP input
+      lastSubmittedOtp.current = '' // Reset submitted OTP tracker to allow new submission
       setMessage({ type: 'success', text: 'New OTP sent to your email address!' })
       
     } catch (error) {
@@ -488,6 +498,7 @@ export default function AccountPage() {
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
     setPasswordStep('form')
     setMessage(null)
+    lastSubmittedOtp.current = '' // Reset submitted OTP tracker
   }
 
   const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {

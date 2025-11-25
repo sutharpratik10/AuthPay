@@ -111,9 +111,10 @@ export async function proxy(request: NextRequest) {
   // SECURITY: Check if JWT token has expired
   if (token && token.exp) {
     const currentTimestamp = Math.floor(Date.now() / 1000);
-    if (token.exp < currentTimestamp) {
+    const tokenExp = token.exp as number;
+    if (tokenExp < currentTimestamp) {
       if (process.env.NODE_ENV === 'development') {
-        console.log(`[MIDDLEWARE] ⚠️ JWT token expired at ${new Date(token.exp * 1000).toISOString()}`);
+        console.log(`[MIDDLEWARE] ⚠️ JWT token expired at ${new Date(tokenExp * 1000).toISOString()}`);
       }
       // Token has expired - redirect to login with session expired message
       if (needsProtection || authRoutes.includes(path)) {

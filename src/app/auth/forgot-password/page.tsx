@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,9 @@ export default function ForgotPasswordPage() {
   // SECURITY: Server-provided tokens for secure flow
   const [sessionToken, setSessionToken] = useState<string | null>(null)
   const [verifiedToken, setVerifiedToken] = useState<string | null>(null)
+  
+  // Prevent duplicate OTP submissions
+  const lastSubmittedCode = useRef<string>("")
 
   // SECURITY: Prevent page refresh from bypassing validation
   useEffect(() => {
@@ -89,9 +92,17 @@ export default function ForgotPasswordPage() {
       return
     }
     
+    // Prevent duplicate submission of the same code
+    if (lastSubmittedCode.current === code) {
+      setError('This code has already been submitted. Please request a new code if needed.')
+      return
+    }
+    
     setIsLoading(true)
     setError("")
-      try {
+    lastSubmittedCode.current = code
+    
+    try {
       // SECURITY: Call new verify endpoint with session token
       const response = await fetch('/api/auth/verify-reset-code', {
         method: 'POST',
@@ -209,6 +220,7 @@ export default function ForgotPasswordPage() {
     setVerifiedToken(null)
     setError("")
     setSuccess("")
+    lastSubmittedCode.current = "" // Reset on going back
   }
 
   const renderEmailStep = () => (

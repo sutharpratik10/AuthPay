@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense, useRef } from "react"
 import Loading from '@/components/Loading'
 import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
@@ -18,6 +18,9 @@ function TwoFactorVerifyContent() {
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  
+  // Prevent duplicate OTP submissions
+  const lastSubmittedOtp = useRef<string>("")
 
   // Redirect if no email or token
   useEffect(() => {
@@ -42,8 +45,14 @@ function TwoFactorVerifyContent() {
       return setError("Please enter a valid 6-digit code")
     }
     
+    // Prevent duplicate submission of the same OTP
+    if (lastSubmittedOtp.current === otp) {
+      return setError("This code has already been submitted. Please request a new code if needed.")
+    }
+    
     try {
       setIsSubmitting(true)
+      lastSubmittedOtp.current = otp
       
       const response = await fetch('/api/auth/verify-2fa', {
         method: 'POST',
