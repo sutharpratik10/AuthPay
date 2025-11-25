@@ -4,6 +4,8 @@ import { users, otpCodes } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { rateLimiters } from '@/lib/middleware/rate-limit';
+import { sanitizeEmail, sanitizeOTPCode, hasSQLInjectionPatterns } from '@/lib/utils/sanitize';
+import { logSecurityEvent } from '@/lib/utils/validation-middleware';
 
 interface TempTokenPayload {
   email: string;
@@ -25,7 +27,36 @@ export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response
         { error: 'Email, OTP, and temporary token are required' },
         { status: 400 }
       );
-    }    // Verify temporary token
+    }
+
+    // Security: Check for injection patterns
+    if (hasSQLInjectionPatterns(email) || hasSQLInjectionPatterns(otp)) {
+      logSecurityEvent('sql_injection_attempt', { field: 'email/otp', ip: req.headers.get('x-forwarded-for') });
+      return NextResponse.json(
+        { error: 'Invalid input detected' },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize email
+    const sanitizedEmail = sanitizeEmail(email);
+    if (!sanitizedEmail) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize OTP (must be 6 digits)
+    const sanitizedOtp = sanitizeOTPCode(otp);
+    if (!sanitizedOtp) {
+      return NextResponse.json(
+        { error: 'Invalid OTP format' },
+        { status: 400 }
+      );
+    }
+
+    // Verify temporary token
     let decodedToken: TempTokenPayload;
     try {
       decodedToken = jwt.verify(tempToken, process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'fallback-secret') as TempTokenPayload;
@@ -36,16 +67,16 @@ export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response
       );
     }
 
-    if (decodedToken.email !== email) {
+    if (decodedToken.email !== sanitizedEmail) {
       return NextResponse.json(
         { error: 'Token email mismatch' },
         { status: 401 }
       );
     }
 
-    // Find user
+    // Find user (using sanitized email)
     const user = await db.query.users.findFirst({
-      where: eq(users.email, email.toLowerCase())
+      where: eq(users.email, sanitizedEmail)
     });
 
     if (!user) {
@@ -55,11 +86,11 @@ export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response
       );
     }
 
-    // Verify OTP
+    // Verify OTP (using sanitized OTP)
     const otpRecord = await db.query.otpCodes.findFirst({
       where: and(
         eq(otpCodes.userId, user.id),
-        eq(otpCodes.code, otp),
+        eq(otpCodes.code, sanitizedOtp),
         eq(otpCodes.type, "2fa_login"),
         eq(otpCodes.isValid, true)
       )

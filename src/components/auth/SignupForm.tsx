@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { AlertCircle, Mail, Github, CreditCard, Eye, EyeOff, Check, X, Loader2 } from "lucide-react"
 import { calculatePasswordStrength, getPasswordStrengthWidth, type PasswordStrength } from "@/lib/auth/password-strength"
+import { hasSQLInjectionPatterns, EMAIL_REGEX } from "@/lib/utils/sanitize"
 
 export default function SignupForm() {
   const { register, socialLogin, loading } = useAuth()
@@ -22,6 +23,14 @@ export default function SignupForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  
+  // Field-level validation errors
+  const [fieldErrors, setFieldErrors] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  })
   
   // Email validation states
   const [emailStatus, setEmailStatus] = useState<{
@@ -41,15 +50,25 @@ export default function SignupForm() {
     color: 'bg-red-500',
     suggestions: []
   })
+  
+  // Track last checked email to avoid duplicate API calls
+  const lastCheckedEmail = useRef<string>("")
 
   // Debounced email check
   const checkEmailAvailability = useCallback(async (email: string) => {
+    // Skip if email hasn't changed or is invalid
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setEmailStatus({ checking: false, available: null, message: "" })
       return
     }
+    
+    // Skip if already checked this email
+    if (email === lastCheckedEmail.current) {
+      return
+    }
 
     setEmailStatus(prev => ({ ...prev, checking: true }))
+    lastCheckedEmail.current = email
     
     try {
       const response = await fetch('/api/auth/check-email', {
@@ -102,14 +121,63 @@ export default function SignupForm() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+    
+    // Validate field and set inline error
+    validateField(name, value)
+    
+    // Reset email status when user modifies email
+    if (name === "email") {
+      setEmailStatus({ checking: false, available: null, message: "" })
+      // Reset last checked email to allow re-checking after modification
+      lastCheckedEmail.current = ""
+    }
+  }
+  
+  // Field validation function
+  const validateField = (name: string, value: string) => {
+    let errorMessage = ""
+    
+    if (name === "name") {
+      if (hasSQLInjectionPatterns(value)) {
+        errorMessage = "Invalid input detected. Please enter a valid name."
+      }
+    } else if (name === "email") {
+      if (hasSQLInjectionPatterns(value)) {
+        errorMessage = "Invalid input detected. Please enter a valid email address."
+      } else if (value && !EMAIL_REGEX.test(value)) {
+        errorMessage = "Please enter a valid email address (e.g., user@example.com)"
+      }
+    } else if (name === "password") {
+      if (hasSQLInjectionPatterns(value)) {
+        errorMessage = "Invalid input detected. Please enter a valid password."
+      }
+    } else if (name === "confirmPassword") {
+      if (hasSQLInjectionPatterns(value)) {
+        errorMessage = "Invalid input detected. Please enter a valid password."
+      }
+    }
+    
+    setFieldErrors(prev => ({ ...prev, [name]: errorMessage }))
   }
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
+    
+    // Check for field-level validation errors
+    const hasFieldErrors = Object.values(fieldErrors).some(err => err !== "")
+    if (hasFieldErrors) {
+      return setError("Please fix the validation errors before submitting.")
+    }
 
     // Basic validation
     if (!formData.email || !formData.password) {
       return setError("Email and password are required")
+    }
+    
+    // Validate email format
+    if (!EMAIL_REGEX.test(formData.email)) {
+      setFieldErrors(prev => ({ ...prev, email: "Please enter a valid email address" }))
+      return
     }
 
     // Email availability check
@@ -184,7 +252,7 @@ export default function SignupForm() {
       )}
       
       {/* Signup Form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div className="space-y-2">
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Name
@@ -196,8 +264,19 @@ export default function SignupForm() {
             value={formData.name}
             onChange={handleChange}
             placeholder="Your name"
-            className="w-full"
+            className={`w-full ${
+              fieldErrors.name
+                ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
+                : ""
+            }`}
           />
+          {/* Inline field error for name */}
+          {fieldErrors.name && (
+            <p className="text-sm mt-1 text-red-600 dark:text-red-400 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {fieldErrors.name}
+            </p>
+          )}
         </div>
           <div className="space-y-2">
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -207,18 +286,19 @@ export default function SignupForm() {
             <Input
               id="email"
               name="email"
-              type="email"
+              type="text"
               value={formData.email}
               onChange={handleChange}
               placeholder="your@email.com"
               className={`w-full pr-10 ${
-                emailStatus.available === false 
+                fieldErrors.email
+                  ? 'border-red-500 focus:border-red-500'
+                  : emailStatus.available === false 
                   ? 'border-red-500 focus:border-red-500' 
                   : emailStatus.available === true 
                   ? 'border-green-500 focus:border-green-500' 
                   : ''
               }`}
-              required
             />
             <div className="absolute inset-y-0 right-0 flex items-center pr-3">
               {emailStatus.checking ? (
@@ -230,7 +310,14 @@ export default function SignupForm() {
               ) : null}
             </div>
           </div>
-          {emailStatus.message && (
+          {/* Inline field error for email */}
+          {fieldErrors.email && (
+            <p className="text-sm mt-1 text-red-600 dark:text-red-400 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {fieldErrors.email}
+            </p>
+          )}
+          {emailStatus.message && !fieldErrors.email && (
             <p className={`text-xs ${
               emailStatus.available === true 
                 ? 'text-green-600' 
@@ -254,8 +341,11 @@ export default function SignupForm() {
               value={formData.password}
               onChange={handleChange}
               placeholder="********"
-              className="w-full pr-10"
-              required
+              className={`w-full pr-10 ${
+                fieldErrors.password
+                  ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
+                  : ""
+              }`}
             />
             <button
               type="button"
@@ -270,8 +360,16 @@ export default function SignupForm() {
             </button>
           </div>
           
+          {/* Inline field error for password */}
+          {fieldErrors.password && (
+            <p className="text-sm mt-1 text-red-600 dark:text-red-400 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {fieldErrors.password}
+            </p>
+          )}
+          
           {/* Password Strength Indicator */}
-          {formData.password && (
+          {formData.password && !fieldErrors.password && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-600 dark:text-gray-400">
@@ -319,13 +417,14 @@ export default function SignupForm() {
               onChange={handleChange}
               placeholder="********"
               className={`w-full pr-10 ${
-                formData.confirmPassword && formData.password !== formData.confirmPassword
+                fieldErrors.confirmPassword
+                  ? 'border-red-500 focus:border-red-500'
+                  : formData.confirmPassword && formData.password !== formData.confirmPassword
                   ? 'border-red-500 focus:border-red-500'
                   : formData.confirmPassword && formData.password === formData.confirmPassword
                   ? 'border-green-500 focus:border-green-500'
                   : ''
               }`}
-              required
             />
             <button
               type="button"
@@ -340,8 +439,16 @@ export default function SignupForm() {
             </button>
           </div>
           
+          {/* Inline field error for confirm password */}
+          {fieldErrors.confirmPassword && (
+            <p className="text-sm mt-1 text-red-600 dark:text-red-400 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {fieldErrors.confirmPassword}
+            </p>
+          )}
+          
           {/* Password Match Indicator */}
-          {formData.confirmPassword && (
+          {formData.confirmPassword && !fieldErrors.confirmPassword && (
             <p className={`text-xs ${
               formData.password === formData.confirmPassword
                 ? 'text-green-600'
@@ -362,7 +469,11 @@ export default function SignupForm() {
             emailStatus.checking || 
             emailStatus.available === false ||
             (!!formData.password && passwordStrength.score < 2) ||
-            (!!formData.confirmPassword && formData.password !== formData.confirmPassword)
+            (!!formData.confirmPassword && formData.password !== formData.confirmPassword) ||
+            !!fieldErrors.name ||
+            !!fieldErrors.email ||
+            !!fieldErrors.password ||
+            !!fieldErrors.confirmPassword
           }
         >
           {isSubmitting ? (

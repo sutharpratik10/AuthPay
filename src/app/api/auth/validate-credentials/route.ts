@@ -3,6 +3,8 @@ import { db } from "@/server/db";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { rateLimiters } from '@/lib/middleware/rate-limit';
+import { sanitizeEmail, validatePassword, hasSQLInjectionPatterns } from '@/lib/utils/sanitize';
+import { logSecurityEvent } from '@/lib/utils/validation-middleware';
 
 /**
  * POST /api/auth/validate-credentials - Validate user credentials
@@ -20,9 +22,36 @@ export const POST = rateLimiters.auth(async (request: NextRequest) => {
       );
     }
 
-    // Find user by email
+    // Security: Check for injection patterns
+    if (hasSQLInjectionPatterns(email)) {
+      logSecurityEvent('sql_injection_attempt', { field: 'email', ip: request.headers.get('x-forwarded-for') });
+      return NextResponse.json(
+        { error: 'Invalid input detected' },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize and validate email
+    const sanitizedEmail = sanitizeEmail(email);
+    if (!sanitizedEmail) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
+        { status: 400 }
+      );
+    }
+
+    // Validate password format
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return NextResponse.json(
+        { error: passwordValidation.error },
+        { status: 400 }
+      );
+    }
+
+    // Find user by email (using sanitized email)
     const user = await db.query.users.findFirst({
-      where: (usersTable) => eq(usersTable.email, email.toLowerCase()),
+      where: (usersTable) => eq(usersTable.email, sanitizedEmail),
       with: {
         userPreferences: true
       }

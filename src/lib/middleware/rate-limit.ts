@@ -110,6 +110,10 @@ export const rateLimiters = {
   auth: <T extends (req: NextRequest, ...args: unknown[]) => Promise<Response>>(handler: T) => 
     withRateLimit(handler, 'auth'),
   
+  /** Relaxed rate limiting for validation endpoints like email check (30 requests per minute) */
+  validation: <T extends (req: NextRequest, ...args: unknown[]) => Promise<Response>>(handler: T) => 
+    withRateLimit(handler, 'validation'),
+  
   /** Moderate rate limiting for general API (60 requests per minute) */
   api: <T extends (req: NextRequest, ...args: unknown[]) => Promise<Response>>(handler: T) => 
     withRateLimit(handler, 'api'),

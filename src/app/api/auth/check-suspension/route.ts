@@ -6,9 +6,9 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
  * POST /api/auth/check-suspension - Check if user is suspended
- * Rate Limited: 5 requests per 15 minutes (auth endpoint)
+ * Rate Limited: 30 requests per minute (validation endpoint)
  */
-export const POST = rateLimiters.auth(async (request: NextRequest) => {
+export const POST = rateLimiters.validation(async (request: NextRequest) => {
   try {
     const { email } = await request.json();
     

@@ -106,11 +106,18 @@ const rateLimiter = new RateLimiter();
  * Rate limiting configurations for different endpoint types
  */
 export const RATE_LIMIT_CONFIGS = {
-  // Strict limits for authentication endpoints
+  // Strict limits for authentication endpoints (login, signup submit)
   auth: {
     windowMs: 15 * 60 * 1000, // 15 minutes
     maxRequests: 5,           // 5 requests per 15 minutes
     message: 'Too many authentication attempts. Please try again later.',
+  },
+  
+  // Relaxed limits for validation endpoints (email check, field validation)
+  validation: {
+    windowMs: 60 * 1000,      // 1 minute
+    maxRequests: 30,          // 30 requests per minute
+    message: 'Too many validation requests. Please slow down.',
   },
   
   // Moderate limits for API endpoints

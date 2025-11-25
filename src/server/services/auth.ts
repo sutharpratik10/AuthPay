@@ -4,6 +4,7 @@ import { EmailQueueService } from "./email-queue";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { eq, and, lt, gt } from "drizzle-orm";
+import { sanitizeEmail, sanitizeName, validatePassword, hasSQLInjectionPatterns } from "@/lib/utils/sanitize";
 
 type ServiceResult<T extends object = object> = { success: true } & T | { success: false; error: string };
 
@@ -13,9 +14,30 @@ export class AuthService {
    */
   static async registerUser(email: string, password: string, name?: string): Promise<ServiceResult<{ user: { id: string; email: string; name?: string | null; isEmailVerified: boolean } }>> {
     try {
-      // Check if user already exists
+      // Sanitize and validate email
+      const sanitizedEmail = sanitizeEmail(email);
+      if (!sanitizedEmail) {
+        return { success: false, error: "Invalid email format" };
+      }
+
+      // Validate password
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        return { success: false, error: passwordValidation.error || "Invalid password" };
+      }
+
+      // Sanitize name if provided
+      const sanitizedName = name ? sanitizeName(name) : null;
+
+      // Security check for injection patterns
+      if (hasSQLInjectionPatterns(email) || (name && hasSQLInjectionPatterns(name))) {
+        console.warn('[SECURITY] Potential injection attempt in registration');
+        return { success: false, error: "Invalid input detected" };
+      }
+
+      // Check if user already exists (using sanitized email)
       const existingUser = await db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.email, email.toLowerCase())
+        where: (users, { eq }) => eq(users.email, sanitizedEmail)
       });
       if (existingUser) {
         return { success: false, error: "Email already in use" };
@@ -37,12 +59,12 @@ export class AuthService {
         return { success: false, error: 'Default user role not found. Please contact administrator.' };
       }
       
-      // Create the user
+      // Create the user (using sanitized values)
       const [newUser] = await db.insert(users).values({
         id: uuidv4(),
-        email: email.toLowerCase(),
+        email: sanitizedEmail,
         password: hashedPassword,
-        name: name || null,
+        name: sanitizedName,
         isEmailVerified: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -157,8 +179,20 @@ export class AuthService {
    */
   static async resendVerificationEmail(email: string): Promise<ServiceResult> {
     try {
+      // Sanitize and validate email
+      const sanitizedEmail = sanitizeEmail(email);
+      if (!sanitizedEmail) {
+        return { success: false, error: "Invalid email format" };
+      }
+
+      // Security check for injection patterns
+      if (hasSQLInjectionPatterns(email)) {
+        console.warn('[SECURITY] Potential injection attempt in resend verification');
+        return { success: false, error: "Invalid input detected" };
+      }
+
       const user = await db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.email, email.toLowerCase())
+        where: (users, { eq }) => eq(users.email, sanitizedEmail)
       });
       if (!user) {
         return { success: false, error: "User not found" };
@@ -198,8 +232,27 @@ export class AuthService {
    */
   static async initiatePasswordReset(email: string): Promise<ServiceResult<{ message: string; sessionToken?: string }>> {
     try {
+      // Sanitize and validate email
+      const sanitizedEmail = sanitizeEmail(email);
+      if (!sanitizedEmail) {
+        // Return generic message to prevent email enumeration
+        return {
+          success: true,
+          message: "If an account exists with this email, a reset code has been sent"
+        };
+      }
+
+      // Security check for injection patterns
+      if (hasSQLInjectionPatterns(email)) {
+        console.warn('[SECURITY] Potential injection attempt in password reset');
+        return {
+          success: true,
+          message: "If an account exists with this email, a reset code has been sent"
+        };
+      }
+
       const user = await db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.email, email.toLowerCase())
+        where: (users, { eq }) => eq(users.email, sanitizedEmail)
       });
       
       // SECURITY: Always return success even if user doesn't exist
