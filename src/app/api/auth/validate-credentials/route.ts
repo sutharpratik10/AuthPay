@@ -3,14 +3,14 @@ import { db } from "@/server/db";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { rateLimiters } from '@/lib/middleware/rate-limit';
-import { sanitizeEmail, validatePassword, hasSQLInjectionPatterns } from '@/lib/utils/sanitize';
+import { sanitizeEmail, hasSQLInjectionPatterns } from '@/lib/utils/sanitize';
 import { logSecurityEvent } from '@/lib/utils/validation-middleware';
 
 /**
  * POST /api/auth/validate-credentials - Validate user credentials
- * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
+ * Rate Limited: 30 requests per minute (validation tier - allows reasonable typing attempts)
  */
-export const POST = rateLimiters.auth(async (request: NextRequest) => {
+export const POST = rateLimiters.validation(async (request: NextRequest) => {
   try {
     const { email, password } = await request.json();
 
@@ -40,14 +40,8 @@ export const POST = rateLimiters.auth(async (request: NextRequest) => {
       );
     }
 
-    // Validate password format
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.valid) {
-      return NextResponse.json(
-        { error: passwordValidation.error },
-        { status: 400 }
-      );
-    }
+    // Note: We don't validate password format on login - users should be able to 
+    // log in with any password they created, even if it doesn't meet current requirements
 
     // Find user by email (using sanitized email)
     const user = await db.query.users.findFirst({

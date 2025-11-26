@@ -33,16 +33,31 @@ export default function LoginForm() {
   
   // Track last checked email to avoid duplicate API calls
   const lastCheckedEmail = useRef<string>("")
+  // Track validated emails to avoid re-checking the same email
+  const validatedEmails = useRef<Map<string, { status: "registered" | "not-registered", isSuspended: boolean }>>(new Map())
+
+  // Helper function to check if email format is valid
+  const isValidEmailFormat = useCallback((email: string): boolean => {
+    return email.length > 0 && EMAIL_REGEX.test(email) && !hasSQLInjectionPatterns(email)
+  }, [])
 
   // Function to check if email is suspended
   const checkSuspensionStatus = useCallback(async (email: string) => {
-    if (!email || !email.includes('@')) {
+    // Only check if email format is valid
+    if (!isValidEmailFormat(email)) {
       setIsSuspended(false)
       return
     }
     
     // Skip if already checked this email
     if (email === lastCheckedEmail.current) {
+      return
+    }
+    
+    // Check cache first
+    const cachedResult = validatedEmails.current.get(email)
+    if (cachedResult) {
+      setIsSuspended(cachedResult.isSuspended)
       return
     }
 
@@ -67,18 +82,33 @@ export default function LoginForm() {
     } finally {
       setIsCheckingSuspension(false)
     }
-  }, [])
+  }, [isValidEmailFormat])
 
   // Function to check if email is registered
   const checkEmailRegistration = useCallback(async (email: string) => {
-    if (!email || !email.includes('@')) {
+    // Only check if email format is valid
+    if (!isValidEmailFormat(email)) {
       setEmailStatus("unknown")
       setEmailMessage("")
       return
     }
     
-    // Skip if already checked this email (suspension check already validated)
+    // Skip if already checked this email
     if (email === lastCheckedEmail.current) {
+      return
+    }
+    
+    // Check cache first - if we've already validated this email, use cached result
+    const cachedResult = validatedEmails.current.get(email)
+    if (cachedResult) {
+      setEmailStatus(cachedResult.status)
+      if (cachedResult.status === "not-registered") {
+        setEmailMessage("This email is not registered with us. Please sign up!")
+      } else {
+        setEmailMessage("")
+      }
+      setIsSuspended(cachedResult.isSuspended)
+      lastCheckedEmail.current = email
       return
     }
 
@@ -99,6 +129,14 @@ export default function LoginForm() {
 
       if (response.ok) {
         const data = await response.json()
+        const status = data.emailExists ? "registered" : "not-registered"
+        
+        // Cache the result
+        validatedEmails.current.set(email, { 
+          status, 
+          isSuspended: isSuspended 
+        })
+        
         if (data.emailExists) {
           setEmailStatus("registered")
         } else {
@@ -114,17 +152,36 @@ export default function LoginForm() {
       setEmailStatus("unknown")
       setEmailMessage("")
     }
-  }, [])
+  }, [isValidEmailFormat, isSuspended])
 
-  // Debounce email check
+  // Debounce email check - only check when email format is valid
   useEffect(() => {
+    // Only proceed if email has valid format
+    if (!isValidEmailFormat(formData.email)) {
+      return
+    }
+    
+    // Skip if already validated this exact email
+    if (validatedEmails.current.has(formData.email)) {
+      const cachedResult = validatedEmails.current.get(formData.email)!
+      setEmailStatus(cachedResult.status)
+      setIsSuspended(cachedResult.isSuspended)
+      if (cachedResult.status === "not-registered") {
+        setEmailMessage("This email is not registered with us. Please sign up!")
+      } else {
+        setEmailMessage("")
+      }
+      lastCheckedEmail.current = formData.email
+      return
+    }
+    
     const timeoutId = setTimeout(() => {
       checkSuspensionStatus(formData.email)
       checkEmailRegistration(formData.email)
     }, 500) // Wait 500ms after user stops typing
 
     return () => clearTimeout(timeoutId)
-  }, [formData.email, checkSuspensionStatus, checkEmailRegistration])
+  }, [formData.email, checkSuspensionStatus, checkEmailRegistration, isValidEmailFormat])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -141,10 +198,26 @@ export default function LoginForm() {
 
     // Reset email status when user modifies email
     if (name === "email") {
-      setEmailStatus("unknown")
-      setEmailMessage("")
-      // Reset last checked email to allow re-checking after modification
-      lastCheckedEmail.current = ""
+      // Check if the new value is already in cache
+      const cachedResult = validatedEmails.current.get(value)
+      if (cachedResult) {
+        setEmailStatus(cachedResult.status)
+        setIsSuspended(cachedResult.isSuspended)
+        if (cachedResult.status === "not-registered") {
+          setEmailMessage("This email is not registered with us. Please sign up!")
+        } else {
+          setEmailMessage("")
+        }
+        lastCheckedEmail.current = value
+      } else {
+        // Only reset if not in cache and value changed
+        if (value !== lastCheckedEmail.current) {
+          setEmailStatus("unknown")
+          setEmailMessage("")
+          // Reset last checked email to allow re-checking after modification
+          lastCheckedEmail.current = ""
+        }
+      }
     }
   }
   
@@ -169,6 +242,12 @@ export default function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    
+    // Prevent double submission
+    if (isSubmitting) {
+      return
+    }
+    
     setError("")
     setErrorType("error")
     
@@ -218,11 +297,36 @@ export default function LoginForm() {
             setErrorType("info")
             break
           case "Too many attempts":
+          case "Too Many Requests":
             setError("Too many login attempts. Please wait a few minutes before trying again.")
             setErrorType("warning")
             break
+          case "Please enter both your email and password.":
+            setError("Please enter both your email and password.")
+            setErrorType("warning")
+            break
+          case "Password must be at least 8 characters":
+            setFieldErrors(prev => ({ ...prev, password: "Password must be at least 8 characters" }))
+            setIsSubmitting(false)
+            return
+          case "Password is required":
+            setFieldErrors(prev => ({ ...prev, password: "Password is required" }))
+            setIsSubmitting(false)
+            return
+          case "Invalid email format":
+            setFieldErrors(prev => ({ ...prev, email: "Please enter a valid email address" }))
+            setIsSubmitting(false)
+            return
+          case "Invalid input detected":
+            setError("Invalid input detected. Please check your email and password.")
+            setErrorType("error")
+            break
           default:
-            setError("We're having trouble signing you in. Please check your credentials and try again.")
+            // Log unknown errors in development
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Unhandled login error:', result.error)
+            }
+            setError(result.error || "We're having trouble signing you in. Please check your credentials and try again.")
             setErrorType("error")
         }
       }
