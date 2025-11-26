@@ -80,21 +80,26 @@ export const APP_CONFIG = {
     ANALYTICS: false,
   },
   
-  // Routes
+  // Routes - Import from routeUtils for single source of truth
+  // See src/routes/routeUtils.ts for the main route definitions
   ROUTES: {
-    HOME: '/',    LOGIN: '/auth/login',
+    // Auth routes (aligned with routeUtils.ROUTES.AUTH)
+    HOME: '/',
+    LOGIN: '/auth/login',
     REGISTER: '/auth/signup',
     FORGOT_PASSWORD: '/auth/forgot-password',
+    // Protected routes (aligned with routeUtils.ROUTES.PROTECTED)
     VERIFY: '/auth/verify',
     ADMIN_DASHBOARD: '/protected/admin/dashboard',
     USER_DASHBOARD: '/protected/user/dashboard',
     PROFILE: '/protected/profile',
     ACCOUNT: '/protected/account',
     SETTINGS: '/protected/settings',
+    // Admin routes
     ADMIN: '/admin',
-    ROLES: '/roles',
-    PERMISSIONS: '/permissions',
-    USERS: '/users',
+    ROLES: '/admin/roles',
+    PERMISSIONS: '/admin/permissions',
+    USERS: '/admin/users',
   },
   
   // Messages

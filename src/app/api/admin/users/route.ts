@@ -1,20 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { withPolicy, API_POLICIES, requireAdmin } from '@/lib/api/permissions';
+import { 
+  withApiHandler, 
+  successResponse, 
+  errorResponse,
+  parseRequestBody,
+  getPaginationParams,
+  getSearchParam
+} from '@/lib/api/helpers';
 import { db } from '@/server/db';
 import { users, subscriptionPlans, roles, userSubscriptions, userRoles } from '@/server/db/schema';
 import { eq, or, ilike, count } from 'drizzle-orm';
 
 /**
  * GET /api/admin/users - List all users (Admin only)
+ * Uses centralized API helpers for auth, pagination, and response handling
  */
-async function getUsers(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const search = searchParams.get('search') || '';
-
-    const offset = (page - 1) * limit;
+const getUsers = withApiHandler(
+  async (req: NextRequest) => {
+    const { page, limit, offset } = getPaginationParams(req);
+    const search = getSearchParam(req);
 
     // Build where condition for search
     const whereCondition = search.trim() 
@@ -89,46 +94,41 @@ async function getUsers(req: NextRequest) {
     
     const totalCount = totalCountResult[0]?.count || 0;
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        users: usersWithData,
-        pagination: {
-          page,
-          limit,
-          total: totalCount,
-          pages: Math.ceil(totalCount / limit),
-        }
+    return successResponse({
+      users: usersWithData,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        pages: Math.ceil(totalCount / limit),
       }
     });
-
-  } catch (error) {
-    console.error('Get users error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch users' },
-      { status: 500 }
-    );
-  }
-}
+  },
+  { requireAdmin: true }
+);
 
 /**
  * PATCH /api/admin/users - Update user roles (Admin only)
  * Supports both single role (roleName) and multiple roles (roleNames)
+ * Uses centralized API helpers for auth and response handling
  */
-async function updateUserRole(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { userId, roleName, roleNames } = body;
+const updateUserRole = withApiHandler(
+  async (req: NextRequest) => {
+    const { data: body, error: parseError } = await parseRequestBody<{
+      userId: string;
+      roleName?: string;
+      roleNames?: string[];
+    }>(req);
+    if (parseError) return parseError;
+
+    const { userId, roleName, roleNames } = body!;
 
     // Support both single role and multiple roles
     const rolesToAssign = roleNames || (roleName ? [roleName] : []);
 
     // Validate input
     if (!userId || !rolesToAssign || rolesToAssign.length === 0) {
-      return NextResponse.json(
-        { error: 'User ID and at least one role are required' },
-        { status: 400 }
-      );
+      return errorResponse('User ID and at least one role are required', 400);
     }
 
     // Check if user exists
@@ -138,19 +138,13 @@ async function updateUserRole(req: NextRequest) {
     });
 
     if (!existingUser) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return errorResponse('User not found', 404);
     }
 
     // Get admin user ID for the service call
     const adminCheck = await requireAdmin();
     if (!adminCheck.isAdmin || !adminCheck.userId) {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
+      return errorResponse('Admin access required', 403);
     }
 
     // Find all roles by name
@@ -161,10 +155,7 @@ async function updateUserRole(req: NextRequest) {
     if (roleRecords.length !== rolesToAssign.length) {
       const foundRoles = roleRecords.map(r => r.name);
       const missingRoles = rolesToAssign.filter((r: string) => !foundRoles.includes(r));
-      return NextResponse.json(
-        { error: `Role(s) not found: ${missingRoles.join(', ')}` },
-        { status: 400 }
-      );
+      return errorResponse(`Role(s) not found: ${missingRoles.join(', ')}`, 400);
     }
 
     // Get user's current roles
@@ -185,24 +176,17 @@ async function updateUserRole(req: NextRequest) {
       }))
     );
 
-    return NextResponse.json({
-      success: true,
-      message: `User roles updated to: ${rolesToAssign.join(', ')}`,
-      data: {
+    return successResponse(
+      {
         userId,
         oldRoles: currentRoles.map(r => r.role.name),
         newRoles: rolesToAssign
-      }
-    });
-
-  } catch (error) {
-    console.error('Update user role error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update user roles' },
-      { status: 500 }
+      },
+      `User roles updated to: ${rolesToAssign.join(', ')}`
     );
-  }
-}
+  },
+  { requireAdmin: true }
+);
 
 // Export route handlers with policy checking
 export const GET = withPolicy(getUsers, API_POLICIES.USER_MANAGE);

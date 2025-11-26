@@ -1,5 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/config/auth'
+import { NextRequest } from 'next/server'
+import { 
+  withApiHandler, 
+  successResponse, 
+  errorResponse,
+  parseRequestBody 
+} from '@/lib/api/helpers'
 import { db } from '@/server/db'
 import { users } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
@@ -7,78 +12,57 @@ import bcrypt from 'bcryptjs'
 import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
+ * POST /api/user/set-password - Set password for OAuth users
  * Rate Limited: 3 requests per hour (VERY STRICT - sensitive operation)
+ * Uses centralized API helpers for auth and response handling
  */
-export const POST = rateLimiters.sensitive(async (request: NextRequest) => {
-  try {
-    const session = await auth()
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized. Please log in.' },
-        { status: 401 }
-      )
-    }
+export const POST = rateLimiters.sensitive(
+  withApiHandler(
+    async (request: NextRequest, { user }) => {
+      const userId = user!.id;
 
-    const { password } = await request.json()
+      const { data: body, error: parseError } = await parseRequestBody<{ password: string }>(request);
+      if (parseError) return parseError;
 
-    if (!password || typeof password !== 'string') {
-      return NextResponse.json(
-        { error: 'Password is required' },
-        { status: 400 }
-      )
-    }
+      const { password } = body!;
 
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: 'Password must be at least 8 characters long' },
-        { status: 400 }
-      )
-    }
+      if (!password || typeof password !== 'string') {
+        return errorResponse('Password is required', 400);
+      }
 
-    // Fetch user from database
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, session.user.id),
-      columns: { id: true, password: true }
-    })
+      if (password.length < 8) {
+        return errorResponse('Password must be at least 8 characters long', 400);
+      }
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
-    }
+      // Fetch user from database
+      const dbUser = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { id: true, password: true }
+      });
 
-    // Check if user already has a password
-    if (user.password !== null && user.password !== undefined) {
-      return NextResponse.json(
-        { error: 'User already has a password set. Use change password instead.' },
-        { status: 400 }
-      )
-    }
+      if (!dbUser) {
+        return errorResponse('User not found', 404);
+      }
 
-    // Hash the new password
-    const hashedPassword = await bcrypt.hash(password, 10)
+      // Check if user already has a password
+      if (dbUser.password !== null && dbUser.password !== undefined) {
+        return errorResponse('User already has a password set. Use change password instead.', 400);
+      }
 
-    // Update user with new password
-    await db
-      .update(users)
-      .set({ 
-        password: hashedPassword,
-        updatedAt: new Date().toISOString() 
-      })
-      .where(eq(users.id, user.id))
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-    return NextResponse.json({
-      success: true,
-      message: 'Password set successfully'
-    })
+      // Update user with new password
+      await db
+        .update(users)
+        .set({ 
+          password: hashedPassword,
+          updatedAt: new Date().toISOString() 
+        })
+        .where(eq(users.id, dbUser.id));
 
-  } catch (error) {
-    console.error('Set password error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-});
+      return successResponse(null, 'Password set successfully');
+    },
+    { requireAuth: true }
+  )
+);
