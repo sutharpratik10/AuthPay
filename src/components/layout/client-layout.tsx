@@ -57,7 +57,8 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  return (    <ThemeProvider
+  return (    
+    <ThemeProvider
       attribute="class"
       defaultTheme="system"
       enableSystem

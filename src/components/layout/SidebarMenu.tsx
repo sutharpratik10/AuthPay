@@ -11,7 +11,14 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarMenuSub,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils/helpers";
 import { useEffect, useState, useMemo } from "react";
@@ -30,6 +37,8 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { subscriptionStatus } = useSubscription();
   const { isAdmin } = useUserData();
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
   // Note: User validation and sign-out is handled globally by UserValidationProvider
 
   const navigation: NavItem[] = useMemo(() => {
@@ -155,13 +164,13 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <SidebarHeader className="border-b border-sidebar-border">
+      <SidebarHeader>
         <div className="flex h-16 items-center px-4">
           <Logo />
         </div>
       </SidebarHeader>
       <SidebarContent className={cn(
-        "px-3 py-4",
+        "px-3",
         "group-data-[collapsible=icon]:px-2"
       )}>
         <SidebarMenu className="space-y-1">
@@ -301,13 +310,22 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className={cn(
-        "border-t border-sidebar-border p-4",
+        "p-4",
         "group-data-[collapsible=icon]:px-2"
       )}>
         <div className={cn(
           "flex",
         )}>
-          <SidebarTrigger className="h-8 w-8 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-0 focus-visible:outline-none" />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarTrigger className="mb-1.5 h-8 w-8 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-0 focus-visible:outline-none" />
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>{isCollapsed ? "Expand sidebar" : "Collapse sidebar"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </SidebarFooter>
     </Sidebar>
