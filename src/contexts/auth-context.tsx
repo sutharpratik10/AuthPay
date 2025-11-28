@@ -132,7 +132,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
     const socialLogin = async (provider: string) => {
-    await signIn(provider, { callbackUrl: "/protected/user/dashboard" })
+    // Redirect to /protected which will route to the correct dashboard based on role
+    await signIn(provider, { callbackUrl: "/protected" })
   }
 
   const register = async (email: string, password: string, name?: string) => {

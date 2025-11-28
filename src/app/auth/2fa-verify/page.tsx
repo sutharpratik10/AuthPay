@@ -83,10 +83,9 @@ function TwoFactorVerifyContent() {
           return
         }
 
-        // Authentication successful - redirect to role-based dashboard
-        // Note: After signIn, we should get user role from session
-        // For now, default to user dashboard and let middleware handle proper redirect
-        router.push('/protected/user/dashboard')
+        // Authentication successful - redirect to /protected which will route to correct dashboard
+        // The /protected page handles role-based routing (admin vs user dashboard)
+        router.push('/protected')
       } else {
         setError('Invalid response from server')
       }

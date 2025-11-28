@@ -1,7 +1,7 @@
 "use client"
 import * as React from "react"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { cn } from "@/lib/utils/helpers"
 import { APP_CONFIG } from "@/lib/utils/constants"
@@ -12,6 +12,7 @@ import { useSession } from "next-auth/react"
 import { signOut } from "next-auth/react"
 import { ROUTES } from "@/routes/routeUtils"
 import { ROUTE_POLICIES } from "@/lib/rbac/routing-utils"
+import { useUserValidation } from "@/contexts/UserValidationContext"
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -36,36 +37,34 @@ export function Navigationbar() {
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
-  const [dashboardPath, setDashboardPath] = useState(ROUTE_POLICIES.USER_DASHBOARD.path)
   const sidebarRef = React.useRef<HTMLDivElement>(null)
+  
+  // Get isAdmin from UserValidation context (already fetched, no extra API call)
+  const { isAdmin, isLoading: isUserLoading } = useUserValidation()
 
   // Check if user is authenticated and email is verified
   const isAuthenticated = status === "authenticated" && !!session?.user
   const isEmailVerified = session?.user?.isEmailVerified
   const user = session?.user
 
+  // Use /protected as the dashboard link - it will redirect to the correct dashboard server-side
+  // This avoids race conditions where isAdmin hasn't loaded yet
+  const dashboardPath = useMemo(() => {
+    // If we know the user's role, use the specific dashboard path for better UX
+    // Otherwise, use /protected which handles the redirect server-side
+    if (!isUserLoading && isAuthenticated) {
+      return isAdmin 
+        ? ROUTE_POLICIES.ADMIN_DASHBOARD.path 
+        : ROUTE_POLICIES.USER_DASHBOARD.path
+    }
+    // While loading or not authenticated, use the generic /protected path
+    return '/protected'
+  }, [isAdmin, isUserLoading, isAuthenticated])
+
   // Ensure component is mounted on client side
   useEffect(() => {
     setMounted(true)
   }, [])
-
-  // Fetch dashboard URL based on user's policies
-  useEffect(() => {
-    async function fetchDashboard() {
-      if (user?.id && isAuthenticated) {
-        try {
-          const response = await fetch('/api/rbac/user/dashboard');
-          const data = await response.json();
-          if (data.dashboardUrl) {
-            setDashboardPath(data.dashboardUrl);
-          }
-        } catch (error) {
-          console.error('Error fetching dashboard URL:', error);
-        }
-      }
-    }
-    fetchDashboard();
-  }, [user, isAuthenticated]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
