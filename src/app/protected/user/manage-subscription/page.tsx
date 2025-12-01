@@ -373,7 +373,7 @@ export default function ManageSubscriptionPage() {
       <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-slate-50/30 to-gray-50/20 dark:from-gray-800 dark:via-slate-950/20 dark:to-slate-950/10 backdrop-blur-sm">
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center text-2xl">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 mr-3">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-neutral-700 to-neutral-500 mr-3">
               <Crown className="h-6 w-6 text-white" />
             </div>
             Current Subscription
