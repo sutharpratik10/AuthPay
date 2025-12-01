@@ -8,7 +8,7 @@ The system consists of four integrated protection mechanisms:
 
 | Component | Purpose | When It Activates |
 |-----------|---------|-------------------|
-| **Global Rate Limiter** | Protects total system capacity | System load > 5000 req/sec |
+| **Global Rate Limiter** | Protects total system capacity | System load > 10M req/sec |
 | **Request Queue** | Graceful degradation under load | Queue when load > 70% |
 | **Response Cache** | Reduces database/compute load | GET requests with caching enabled |
 | **Circuit Breaker** | Prevents cascade failures | Service failure threshold exceeded |
@@ -24,8 +24,8 @@ The system consists of four integrated protection mechanisms:
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     1. Global Rate Limiter                          │
 │   ┌─────────────┐                                                   │
-│   │ 5000 req/s  │  System capacity check (all users combined)       │
-│   │ burst: 10k  │  ──▶ If exceeded, queue or reject                │
+│   │ 10M req/s   │  System capacity check (all users combined)       │
+│   │ burst: 15M  │  ──▶ If exceeded, queue or reject                │
 │   └─────────────┘                                                   │
 └─────────────────────────────────────────────────────────────────────┘
                                    │
@@ -75,25 +75,21 @@ Protects total system capacity regardless of IP address. When 10,000+ legitimate
 ### Configuration
 
 ```typescript
-import { globalRateLimiter, GLOBAL_RATE_LIMIT_PRESETS } from '@/lib/utils/rate-limiter';
+import { GlobalTokenBucketLimiter } from '@/lib/utils/rate-limiter';
 
-// Default configuration (production)
-{
-  maxRequestsPerSecond: 5000,   // 5000 requests/second system-wide
-  burstSize: 10000,             // Allow bursts up to 10000
-  windowMs: 1000,               // 1 second window
+// Default configuration (hyperscale production)
+const globalLimiter = new GlobalTokenBucketLimiter({
+  maxRequestsPerSecond: 10_000_000,   // 10 million requests/second
+  burstSize: 15_000_000,              // Allow bursts up to 15 million
   enabled: true,
-}
-
-// Apply preset
-globalRateLimiter.updateConfig(GLOBAL_RATE_LIMIT_PRESETS.highCapacity);
+});
 ```
 
 ### Usage
 
 ```typescript
 // Check system capacity
-const { allowed, currentRate, maxRate } = globalRateLimiter.check();
+const { allowed, currentRate, maxRate } = globalLimiter.check();
 
 if (!allowed) {
   // System at capacity - queue or reject

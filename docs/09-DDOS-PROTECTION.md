@@ -71,18 +71,18 @@ The rate limiting system consists of three main components:
 
 ### 📊 Complete Protection Summary
 
-#### 🔐 Auth Routes - STRICT (5 req/15min)
+#### 🔐 Auth Routes - STRICT (45 req/15min)
 **Total: 16 routes** - Prevents brute force attacks
 
-1. ✅ POST `/api/auth/check-email`
-2. ✅ POST `/api/auth/check-suspension`
-3. ✅ POST `/api/auth/validate-credentials`
-4. ✅ POST `/api/auth/forgot-password`
-5. ✅ POST `/api/auth/reset-password`
-6. ✅ POST `/api/auth/send-otp`
-7. ✅ POST `/api/auth/verify-2fa`
-8. ✅ POST `/api/auth/resend-2fa`
-9. ✅ POST `/api/auth/verify-password`
+01. ✅ POST `/api/auth/check-email`
+02. ✅ POST `/api/auth/check-suspension`
+03. ✅ POST `/api/auth/validate-credentials`
+04. ✅ POST `/api/auth/forgot-password`
+05. ✅ POST `/api/auth/reset-password`
+06. ✅ POST `/api/auth/send-otp`
+07. ✅ POST `/api/auth/verify-2fa`
+08. ✅ POST `/api/auth/resend-2fa`
+09. ✅ POST `/api/auth/verify-password`
 10. ✅ POST `/api/auth/validate-password`
 11. ✅ POST `/api/auth/validate-user`
 12. ✅ POST `/api/auth/check-2fa-status`
@@ -91,7 +91,7 @@ The rate limiting system consists of three main components:
 15. ✅ POST `/api/auth/track-session`
 16. ✅ POST `/api/auth/validate-current-password`
 
-#### 🚨 Sensitive Routes - VERY STRICT (3 req/hour)
+#### 🚨 Sensitive Routes - VERY STRICT (2 req/sec)
 **Total: 4 routes** - Critical operations protection
 
 1. ✅ DELETE `/api/user/delete-account`
@@ -146,8 +146,8 @@ The rate limiting system consists of three main components:
 
 | Category | Routes | Rate Limit | Window | Purpose |
 |----------|--------|------------|--------|---------|
-| **Auth** | 16 | 5 requests | 15 minutes | Brute force prevention |
-| **Sensitive** | 4 | 3 requests | 1 hour | Critical ops protection |
+| **Auth** | 16 | 45 requests | 15 minutes | Brute force prevention |
+| **Sensitive** | 4 | 2 requests | 1 second | Critical ops protection |
 | **API** | 21 | 60 requests | 1 minute | General protection |
 | **ReadOnly** | 2 | 100 requests | 1 minute | Public access |
 | **TOTAL** | **43** | - | - | **FULL COVERAGE** |
@@ -241,11 +241,11 @@ Located in `src/lib/utils/rate-limiter.ts`:
 export const RATE_LIMIT_CONFIGS = {
   auth: {
     windowMs: 15 * 60 * 1000,  // 15 minutes
-    maxRequests: 5,
+    maxRequests: 45,           // 45 requests per 15 minutes
   },
   sensitive: {
-    windowMs: 60 * 60 * 1000,  // 1 hour
-    maxRequests: 3,
+    windowMs: 1000,            // 1 second
+    maxRequests: 2,            // 2 requests per second
   },
   api: {
     windowMs: 60 * 1000,       // 1 minute
@@ -364,7 +364,7 @@ The application is:
 #### Public Routes (100 req/min - readOnly)
 - ✅ `/api/subscription-plans` - GET
 
-#### Auth Routes (5 req/15min - auth)
+#### Auth Routes (45 req/15min - auth)
 - ✅ `/api/auth/check-email` - POST
 
 #### User Routes (60 req/min - api)
@@ -373,7 +373,7 @@ The application is:
 
 ### ⚠️ Routes Requiring Rate Limiting
 
-#### Critical Auth Routes (Need `rateLimiters.auth` - 5 req/15min)
+#### Critical Auth Routes (Need `rateLimiters.auth` - 45 req/15min)
 - [ ] `/api/auth/validate-credentials` - POST
 - [ ] `/api/auth/validate-password` - POST
 - [ ] `/api/auth/verify-password` - POST
@@ -387,7 +387,7 @@ The application is:
 - [ ] `/api/auth/check-suspension` - POST
 - [ ] `/api/auth/generate-temp-token` - POST
 
-#### Sensitive User Routes (Need `rateLimiters.sensitive` - 3 req/hour)
+#### Sensitive User Routes (Need `rateLimiters.sensitive` - 2 req/sec)
 - [ ] `/api/user/delete-account` - DELETE
 - [ ] `/api/user/set-password` - POST
 - [ ] `/api/auth/change-password` - POST
@@ -458,8 +458,8 @@ export const POST = rateLimiters.auth(async (req: NextRequest) => {
 |------|--------|----------|
 | `readOnly` | 100 req/min | Public read endpoints |
 | `api` | 60 req/min | Standard API operations |
-| `auth` | 5 req/15min | Authentication endpoints |
-| `sensitive` | 3 req/hour | Account deletion, password changes |
+| `auth` | 45 req/15min | Authentication endpoints |
+| `sensitive` | 2 req/sec | Account deletion, password changes |
 
 ### Priority Implementation Order
 
@@ -650,7 +650,7 @@ export const RATE_LIMIT_CONFIGS = {
    */
   auth: {
     windowMs: 15 * 60 * 1000,  // 15 minutes
-    maxRequests: 5,             // 5 requests
+    maxRequests: 45,            // 45 requests per 15 minutes
     message: 'Too many authentication attempts. Please try again later.',
   },
   
@@ -660,8 +660,8 @@ export const RATE_LIMIT_CONFIGS = {
    * Prevents accidental or malicious bulk operations
    */
   sensitive: {
-    windowMs: 60 * 60 * 1000,   // 1 hour
-    maxRequests: 3,              // 3 requests
+    windowMs: 1000,             // 1 second
+    maxRequests: 2,              // 2 requests per second
     message: 'Too many attempts for sensitive operation. Please try again later.',
   },
   
@@ -704,10 +704,10 @@ export type RateLimitTier = keyof typeof RATE_LIMIT_CONFIGS;
 
 ```
 Is this an authentication endpoint?
-  ├─ YES → Use `auth` tier (5 req/15min)
+  ├─ YES → Use `auth` tier (45 req/15min)
   │
   └─ NO → Is this a destructive/critical operation?
-      ├─ YES → Use `sensitive` tier (3 req/hour)
+      ├─ YES → Use `sensitive` tier (2 req/sec)
       │
       └─ NO → Is this a read-only public endpoint?
           ├─ YES → Use `readOnly` tier (100 req/min)

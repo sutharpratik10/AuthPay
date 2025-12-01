@@ -33,7 +33,7 @@ import {
   globalRateLimiter, 
   RATE_LIMIT_CONFIGS, 
   RateLimitConfig 
-} from '@/lib/utils/rate-limiter';
+} from '@/lib/utils/rate-limiter-bak';
 import { requestQueue } from '@/lib/utils/request-queue';
 import { responseCache, generateCacheKey, CACHE_TTL } from '@/lib/utils/response-cache';
 import { 
