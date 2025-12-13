@@ -817,3 +817,40 @@ export class RateLimiterCompat {
 
 // Legacy export for backward compatibility
 export const rateLimiterV2 = new RateLimiterCompat();
+
+// ============================================================================
+// LEGACY COMPATIBILITY EXPORTS
+// ============================================================================
+
+/**
+ * Legacy rate limiter export (alias for rateLimiterV2)
+ * Used by rate-limit.ts middleware
+ */
+export const rateLimiter = rateLimiterV2;
+
+/**
+ * Legacy global rate limiter wrapper
+ * Provides the check() interface expected by rate-limit.ts middleware
+ */
+export const globalRateLimiter = {
+  check(): { allowed: boolean; currentRate: number; maxRate: number } {
+    const result = globalTokenBucketLimiter.check();
+    const status = globalTokenBucketLimiter.getSystemLoad();
+    return {
+      allowed: result.allowed,
+      currentRate: status.loadPercentage * 100, // Convert to rate
+      maxRate: 100, // Percentage based
+    };
+  },
+  getStatus() {
+    return globalTokenBucketLimiter.getSystemLoad();
+  },
+  getSystemLoad() {
+    return globalTokenBucketLimiter.getSystemLoad();
+  },
+};
+
+/**
+ * Legacy rate limit configs export
+ */
+export const RATE_LIMIT_CONFIGS = RATE_LIMIT_CONFIGS_V2;

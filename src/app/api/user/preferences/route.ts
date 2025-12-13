@@ -117,7 +117,7 @@ export const POST = rateLimiters.api(
             securityAlerts,
             productUpdates,
             profileVisibility,
-            additionalSettings,
+            additionalSettings: additionalSettings ? JSON.stringify(additionalSettings) : null,
             twoFactorAuth,
             updatedAt: new Date().toISOString()
           })
@@ -135,7 +135,7 @@ export const POST = rateLimiters.api(
             emailNotifications,
             securityAlerts,
             productUpdates,
-            additionalSettings,
+            additionalSettings: additionalSettings ? JSON.stringify(additionalSettings) : undefined,
             twoFactorAuth,
             updatedAt: new Date().toISOString()
           })

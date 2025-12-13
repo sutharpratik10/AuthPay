@@ -36,7 +36,7 @@ interface NavItem {
 export function AppSidebar() {
   const pathname = usePathname();
   const { subscriptionStatus } = useSubscription();
-  const { isAdmin } = useUserData();
+  const { isAdmin, isLoading: isUserLoading } = useUserData();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
   // Note: User validation and sign-out is handled globally by UserValidationProvider
@@ -45,7 +45,8 @@ export function AppSidebar() {
     const nav: NavItem[] = [
       {
         name: 'Dashboard',
-        href: isAdmin
+        // Only use admin dashboard if isAdmin is true AND data has loaded
+        href: (isAdmin === true && !isUserLoading)
           ? '/protected/admin/dashboard'
           : '/protected/user/dashboard',
         icon: (
@@ -140,11 +141,18 @@ export function AppSidebar() {
 
 
   // Combine regular navigation with admin navigation if user is admin
-  // Only show admin navigation if isAdmin is explicitly true (not undefined or null)
+  // Only show admin navigation if:
+  // 1. User data has finished loading (not in loading state)
+  // 2. isAdmin is explicitly true (not undefined, null, or false)
   const finalNavigation = useMemo<NavItem[]>(() => {
+    // Don't show admin nav while loading - wait for data
+    if (isUserLoading) {
+      return navigation;
+    }
     const shouldShowAdminNav = isAdmin === true;
     return shouldShowAdminNav ? [...navigation, ...adminNavigation] : navigation;
-  }, [isAdmin, navigation, adminNavigation]);
+  }, [isAdmin, isUserLoading, navigation, adminNavigation]);
+  
   // Track which parent menu items are open (for submenus)
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
 

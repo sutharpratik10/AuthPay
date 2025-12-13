@@ -47,7 +47,7 @@ export async function GET() {
         loadPercentage: health.globalRateLimit.loadPercentage,
         totalRequests: health.globalRateLimit.metrics.totalRequests,
         rejectedRequests: health.globalRateLimit.metrics.rejectedRequests,
-        peakRequestsPerSecond: health.globalRateLimit.metrics.peakRequestsPerSecond,
+        peakRequestsPerSecond: health.globalRateLimit.metrics.peakRate,
       },
       
       // Request Queue

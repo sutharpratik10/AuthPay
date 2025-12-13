@@ -305,6 +305,16 @@ export default function ManageSubscriptionPage() {
     return major.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  // Check if subscription has expired - must be before any conditional returns
+  const isSubscriptionExpired = React.useMemo(() => {
+    if (!subscriptionStatus?.expiryDate) return false;
+    if (subscriptionStatus.status === 'lifetime') return false;
+    return new Date(subscriptionStatus.expiryDate) < new Date();
+  }, [subscriptionStatus?.expiryDate, subscriptionStatus?.status]);
+
+  // Determine the effective display status
+  const displayStatus = isSubscriptionExpired ? 'expired' : subscriptionStatus?.status;
+
   if (loading) {
     // Inline skeletons while subscription data and history load
     return (
@@ -377,7 +387,7 @@ export default function ManageSubscriptionPage() {
               <Crown className="h-6 w-6 text-white" />
             </div>
             Current Subscription
-            {subscriptionStatus?.razorpaySubscriptionId && subscriptionStatus?.status === 'active' && (
+            {subscriptionStatus?.razorpaySubscriptionId && subscriptionStatus?.status === 'active' && !isSubscriptionExpired && (
               <button
                 type="button"
                 onClick={handleCancelClick}
@@ -387,8 +397,11 @@ export default function ManageSubscriptionPage() {
                 {cancelling ? 'Cancelling...' : 'Cancel subscription'}
               </button>
             )}
-            {subscriptionStatus?.status === 'cancelled' && (
+            {subscriptionStatus?.status === 'cancelled' && !isSubscriptionExpired && (
               <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-gray-700 text-white text-sm font-medium">cancelled</span>
+            )}
+            {isSubscriptionExpired && (
+              <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-red-600 text-white text-sm font-medium">expired</span>
             )}
           </CardTitle>
         </CardHeader>
@@ -399,8 +412,8 @@ export default function ManageSubscriptionPage() {
               <p className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
                 {!subscriptionStatus
                   ? "You don't have a subscription yet. Choose a plan to get started!"
-                  : !['active', 'trialing', 'cancelled'].includes(subscriptionStatus.status)
-                    ? 'No plan is active currently'
+                  : isSubscriptionExpired || !['active', 'trialing', 'cancelled'].includes(subscriptionStatus.status)
+                    ? 'No active plan'
                     : (subscriptionStatus.planName || (subscriptionHistory && subscriptionHistory.length > 0 ? subscriptionHistory[0].planName : undefined))}
               </p>
             </div>
@@ -408,23 +421,28 @@ export default function ManageSubscriptionPage() {
             <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
               <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Status</p>
               <div className="space-y-2">
-                {subscriptionStatus?.status && subscriptionStatus.planName && subscriptionStatus.planName !== 'No plan is active currently' && (
+                {displayStatus && subscriptionStatus?.planName && subscriptionStatus.planName !== 'No plan is active currently' && (
                   <>
                     <Badge
                       className={
-                        subscriptionStatus.status === 'trialing'
+                        displayStatus === 'trialing'
                           ? 'bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 dark:from-yellow-900/30 dark:to-yellow-900/30 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800 px-3 py-1.5 font-semibold'
-                          : subscriptionStatus.status === 'cancelled'
+                          : displayStatus === 'cancelled'
                           ? 'bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 dark:from-orange-900/30 dark:to-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800 px-3 py-1.5 font-semibold'
-                          : subscriptionStatus.status === 'expired'
+                          : displayStatus === 'expired'
                           ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 dark:from-red-900/30 dark:to-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800 px-3 py-1.5 font-semibold'
                           : 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300 border-green-200 dark:border-green-800 px-3 py-1.5 font-semibold'
                       }
                     >
-                      <CheckCircle className="h-4 w-4 mr-1.5" />
-                      {subscriptionStatus.status}
+                      {displayStatus === 'expired' ? (
+                        <AlertTriangle className="h-4 w-4 mr-1.5" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 mr-1.5" />
+                      )}
+                      {displayStatus}
                     </Badge>
-                    {subscriptionStatus.status === 'cancelled' && subscriptionStatus.expiryDate && new Date(subscriptionStatus.expiryDate) > new Date() && (
+                    
+                    {displayStatus === 'cancelled' && subscriptionStatus.expiryDate && new Date(subscriptionStatus.expiryDate) > new Date() && (
                       <p className="text-xs text-muted-foreground mt-1">
                         You have access until {formatDate(subscriptionStatus.expiryDate)}
                       </p>
@@ -434,8 +452,8 @@ export default function ManageSubscriptionPage() {
               </div>
             </div>
 
-            {/* Only show Billing and Next Billing/Valid Until if active/trialing */}
-            {subscriptionStatus && (['active', 'trialing'].includes(subscriptionStatus.status) || subscriptionStatus.status === 'cancelled') && (
+            {/* Only show Billing and Next Billing/Valid Until if active/trialing (not cancelled or expired) */}
+            {subscriptionStatus && ['active', 'trialing', 'lifetime'].includes(subscriptionStatus.status) && !isSubscriptionExpired && (
               <>
                 <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
                   <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Billing</p>
@@ -448,20 +466,12 @@ export default function ManageSubscriptionPage() {
                 </div>
                 <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
                   <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                    {subscriptionStatus.status === 'cancelled' 
-                      ? 'Access Until' 
-                      : subscriptionStatus.status === 'lifetime' 
+                    {subscriptionStatus.status === 'lifetime' 
                       ? 'Valid Until' 
                       : 'Next Billing'}
                   </p>
                   <p className="text-xl font-bold">
-                    {subscriptionStatus.status === 'cancelled' ? (
-                      subscriptionStatus.expiryDate ? (
-                        <span className="text-orange-600 dark:text-orange-400">
-                          {formatDate(subscriptionStatus.expiryDate)}
-                        </span>
-                      ) : 'N/A'
-                    ) : subscriptionStatus.expiryDate ? (
+                    {subscriptionStatus.expiryDate ? (
                       subscriptionStatus.status === 'lifetime' ?
                         'Lifetime' :
                         formatDate(subscriptionStatus.expiryDate)

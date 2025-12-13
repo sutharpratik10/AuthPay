@@ -33,7 +33,7 @@ import {
   globalRateLimiter, 
   RATE_LIMIT_CONFIGS, 
   RateLimitConfig 
-} from '@/lib/utils/rate-limiter-bak';
+} from '@/lib/utils/rate-limiter';
 import { requestQueue } from '@/lib/utils/request-queue';
 import { responseCache, generateCacheKey, CACHE_TTL } from '@/lib/utils/response-cache';
 import { 
@@ -251,7 +251,8 @@ export function withRateLimit<T extends RouteHandler>(
 
     // ===== STEP 2: Per-IP Rate Limit =====
     const rateLimitKey = `${clientId}:${path}`;
-    const { allowed, resetTime, remaining } = rateLimiter.check(rateLimitKey, config);
+    const rateLimitResult = await rateLimiter.check(rateLimitKey, config);
+    const { allowed, resetTime, remaining } = rateLimitResult;
 
     const headers = new Headers();
     headers.set('X-RateLimit-Limit', config.maxRequests.toString());
