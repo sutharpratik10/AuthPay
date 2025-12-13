@@ -97,7 +97,22 @@ const DANGEROUS_PATTERNS: RegExp[] = [
   /globalThis\.process/i,
   /this\.constructor\.constructor/i,
   /\[\s*["']constructor["']\s*\]/i,
+  
+  // CVE-2025-55184 / CVE-2025-67779: DoS infinite loop patterns
+  /\$\$typeof.*Symbol.*react/i,  // React element markers
+  /\$\$iterator/i,  // Iterator exploitation
+  /Symbol\.for.*react/i,  // React symbol injection
+  
+  // CVE-2025-55183: Source code exposure patterns
+  /\.toString\s*\(\s*\)/i,  // Function toString attempt
+  /Function\.prototype\.toString/i,  // Function source extraction
+  /arguments\.callee/i,  // Caller extraction
 ];
+
+// DoS protection: Maximum payload sizes
+const MAX_PAYLOAD_SIZE = 1024 * 1024; // 1MB max payload
+const MAX_NESTED_DEPTH = 50; // Maximum nesting depth to prevent stack overflow
+const MAX_ARRAY_LENGTH = 10000; // Maximum array length in payload
 
 // RSC-specific content types
 const RSC_CONTENT_TYPES = [
@@ -125,12 +140,34 @@ const MAX_EVENTS = 1000;
 
 /**
  * Validate payload for malicious content
+ * Protects against:
+ * - CVE-2025-55182: RCE via deserialization
+ * - CVE-2025-55183: Source code exposure
+ * - CVE-2025-55184 / CVE-2025-67779: DoS via infinite loops
  */
 function validatePayload(payload: string): { valid: boolean; threats: string[] } {
   const threats: string[] = [];
   
   if (!payload || payload.length === 0) {
     return { valid: true, threats: [] };
+  }
+  
+  // CVE-2025-55184 / CVE-2025-67779: Check payload size to prevent DoS
+  if (payload.length > MAX_PAYLOAD_SIZE) {
+    threats.push(`Payload too large: ${payload.length} bytes (max: ${MAX_PAYLOAD_SIZE})`);
+    return { valid: false, threats };
+  }
+  
+  // CVE-2025-55184: Check for deeply nested structures that could cause infinite loops
+  const nestingDepth = (payload.match(/[\[{]/g) || []).length;
+  if (nestingDepth > MAX_NESTED_DEPTH) {
+    threats.push(`Excessive nesting depth: ${nestingDepth} (max: ${MAX_NESTED_DEPTH})`);
+    return { valid: false, threats };
+  }
+  
+  // CVE-2025-67779: Check for circular reference patterns
+  if (/\$ref.*\$id/i.test(payload) || /\$id.*\$ref/i.test(payload)) {
+    threats.push('Potential circular reference pattern detected');
   }
   
   // Check raw payload
