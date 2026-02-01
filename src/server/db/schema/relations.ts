@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { subscriptionPlans, adminDashboardStats, userUsageMetrics, users, auditLogs, errorLogs, userNotifications, billings, permissions, roles, rolePermissions, otpCodes, userPreferences, userRoles } from "./schema";
+import { subscriptionPlans, adminDashboardStats, userUsageMetrics, users, auditLogs, errorLogs, userNotifications, billings, permissions, roles, rolePermissions, otpCodes, userPreferences, userRoles, businesses, services, businessHours, blockedDates, appointments } from "./schema";
 
 export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({
   billings: many(billings),
@@ -110,4 +110,54 @@ export const otpCodesRelations = relations(otpCodes, ({ one }) => ({
   }),
 }));
 
+// ============================================
+// APPOINTMENT BOOKING RELATIONS
+// ============================================
 
+export const businessesRelations = relations(businesses, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [businesses.ownerId],
+    references: [users.id],
+  }),
+  services: many(services),
+  businessHours: many(businessHours),
+  blockedDates: many(blockedDates),
+  appointments: many(appointments),
+}));
+
+export const servicesRelations = relations(services, ({ one, many }) => ({
+  business: one(businesses, {
+    fields: [services.businessId],
+    references: [businesses.id],
+  }),
+  appointments: many(appointments),
+}));
+
+export const businessHoursRelations = relations(businessHours, ({ one }) => ({
+  business: one(businesses, {
+    fields: [businessHours.businessId],
+    references: [businesses.id],
+  }),
+}));
+
+export const blockedDatesRelations = relations(blockedDates, ({ one }) => ({
+  business: one(businesses, {
+    fields: [blockedDates.businessId],
+    references: [businesses.id],
+  }),
+}));
+
+export const appointmentsRelations = relations(appointments, ({ one }) => ({
+  business: one(businesses, {
+    fields: [appointments.businessId],
+    references: [businesses.id],
+  }),
+  service: one(services, {
+    fields: [appointments.serviceId],
+    references: [services.id],
+  }),
+  customer: one(users, {
+    fields: [appointments.customerId],
+    references: [users.id],
+  }),
+}));

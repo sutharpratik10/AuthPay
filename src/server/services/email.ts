@@ -9,6 +9,8 @@ import {
   twoFactorAuthTemplate,
   securityAlertTemplate,
   subscriptionPurchaseTemplate,
+  bookingConfirmationCustomerTemplate,
+  bookingNotificationBusinessTemplate,
 } from "@/lib/email/templates";
 
 interface EmailOptions {
@@ -20,6 +22,14 @@ interface EmailOptions {
 class EmailService {
   private transporter: nodemailer.Transporter;
   constructor() {
+    console.log('[EmailService] Initializing with config:', {
+      host: APP_CONFIG.EMAIL.HOST,
+      port: APP_CONFIG.EMAIL.PORT,
+      secure: APP_CONFIG.EMAIL.SECURE,
+      user: APP_CONFIG.EMAIL.USER ? '***configured***' : 'NOT SET',
+      pass: APP_CONFIG.EMAIL.PASS ? '***configured***' : 'NOT SET',
+    });
+
     this.transporter = nodemailer.createTransport({
       host: APP_CONFIG.EMAIL.HOST,
       port: APP_CONFIG.EMAIL.PORT,
@@ -31,6 +41,7 @@ class EmailService {
     });
   }
   async sendEmail({ to, subject, html }: EmailOptions) {
+    console.log('[EmailService] Attempting to send email:', { to, subject });
     try {
       const result = await this.transporter.sendMail({
         from: `"${getAppName()}" <${APP_CONFIG.EMAIL.USER}>`,
@@ -38,10 +49,11 @@ class EmailService {
         subject,
         html,
       });
-      
+
+      console.log('[EmailService] Email sent successfully:', { to, messageId: result.messageId });
       return { success: true, messageId: result.messageId };
     } catch (error) {
-      console.error('Failed to send email:', error);
+      console.error('[EmailService] Failed to send email:', error);
       return { success: false, error };
     }
   }
@@ -53,7 +65,7 @@ class EmailService {
       subject: `Your verification code: ${otpCode}`,
       html,
     });
-  }  async sendWelcomeEmail(email: string, name: string) {
+  } async sendWelcomeEmail(email: string, name: string) {
     const loginUrl = `${APP_CONFIG.APP_URL}/auth/login`;
     const html = welcomeEmailTemplate(name, loginUrl, getAppName() || 'Our App');
 
@@ -111,10 +123,10 @@ class EmailService {
    * Send security alert email for login events
    */
   async sendSecurityAlertEmail(
-    email: string, 
-    name: string, 
-    loginTime: Date, 
-    location: string, 
+    email: string,
+    name: string,
+    loginTime: Date,
+    location: string,
     ipAddress: string,
     deviceInfo: string
   ) {
@@ -147,6 +159,67 @@ class EmailService {
       html,
     });
   }
+
+  /**
+   * Send booking confirmation email to customer
+   */
+  async sendBookingConfirmationToCustomer(booking: {
+    customerName: string;
+    customerEmail: string;
+    customerPhone?: string;
+    serviceName: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    duration: number;
+    price: number;
+    currency: string;
+    businessName: string;
+    businessAddress?: string;
+    businessPhone?: string;
+    businessEmail?: string;
+    bookingId: string;
+    notes?: string;
+  }) {
+    const html = bookingConfirmationCustomerTemplate(booking, getAppName() || 'Our App');
+
+    return this.sendEmail({
+      to: booking.customerEmail,
+      subject: `Booking Confirmed - ${booking.serviceName} at ${booking.businessName}`,
+      html,
+    });
+  }
+
+  /**
+   * Send new booking notification to business owner
+   */
+  async sendBookingNotificationToBusiness(booking: {
+    customerName: string;
+    customerEmail: string;
+    customerPhone?: string;
+    serviceName: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    duration: number;
+    price: number;
+    currency: string;
+    businessName: string;
+    businessAddress?: string;
+    businessPhone?: string;
+    businessEmail?: string;
+    bookingId: string;
+    notes?: string;
+  }, businessOwnerEmail: string) {
+    const html = bookingNotificationBusinessTemplate(booking, getAppName() || 'Our App');
+
+    return this.sendEmail({
+      to: businessOwnerEmail,
+      subject: `New Booking: ${booking.serviceName} - ${booking.customerName}`,
+      html,
+    });
+  }
 }
 
 export const emailService = new EmailService();
+

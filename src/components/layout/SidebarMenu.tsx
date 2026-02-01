@@ -72,10 +72,28 @@ export function AppSidebar() {
           </svg>
         ),
       });
+
+      // Add 'My Business' for appointment booking management
+      nav.push({
+        name: 'My Business',
+        href: '/protected/business',
+        icon: (
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+            <path d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16" />
+            <path d="M1 21h22" />
+            <path d="M9 7h1" />
+            <path d="M9 11h1" />
+            <path d="M9 15h1" />
+            <path d="M14 7h1" />
+            <path d="M14 11h1" />
+            <path d="M14 15h1" />
+          </svg>
+        ),
+      });
     }
 
     return nav;
-  }, [isAdmin, subscriptionStatus?.hasSubscription]);
+  }, [isAdmin, isUserLoading, subscriptionStatus?.hasSubscription]);
 
   const adminNavigation: NavItem[] = useMemo(() => [
     {
@@ -152,7 +170,7 @@ export function AppSidebar() {
     const shouldShowAdminNav = isAdmin === true;
     return shouldShowAdminNav ? [...navigation, ...adminNavigation] : navigation;
   }, [isAdmin, isUserLoading, navigation, adminNavigation]);
-  
+
   // Track which parent menu items are open (for submenus)
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
 
