@@ -1,12 +1,12 @@
-# 📚 AuthPay Documentation
+# 📚 BookEase Documentation
 
-Welcome to the comprehensive documentation for the AuthPay application - a production-ready Next.js authentication and payment processing platform with advanced Role-Based Access Control (RBAC).
+Welcome to the comprehensive documentation for the BookEase application - a production-ready Next.js authentication and payment processing platform with advanced Role-Based Access Control (RBAC).
 
 ---
 
 ## 📖 Core Documentation (New)
 
-Complete, modern documentation covering all aspects of AuthPay:
+Complete, modern documentation covering all aspects of BookEase:
 
 | Document | Description | Audience |
 |----------|-------------|----------|
@@ -80,7 +80,7 @@ Original RBAC documentation - still relevant and comprehensive:
 ## 📖 Documentation by Role
 
 ### 👨‍💼 Project Managers / Product Owners
-Start here to understand what AuthPay can do:
+Start here to understand what BookEase can do:
 1. [01-OVERVIEW.md](./01-OVERVIEW.md) - Features and capabilities
 2. [RBAC-OVERVIEW.md](./RBAC-OVERVIEW.md) - Permission system benefits
 
@@ -335,7 +335,7 @@ Visual representations of system components:
 
 ## 🤝 Contributing
 
-When contributing to AuthPay:
+When contributing to BookEase:
 
 1. **Read Documentation**: Understand existing patterns
 2. **Follow Standards**: Use TypeScript, ESLint rules

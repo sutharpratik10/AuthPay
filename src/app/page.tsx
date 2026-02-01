@@ -3,7 +3,7 @@ import HomePage from "@/components/Home/HomePage";
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'AuthPay - Authentication & Payment Platform',
+  title: 'BookEase - Easy Appointment Booking',
   description: 'Secure authentication and payment gateway solution with OAuth, 2FA, and subscription management.',
 };
 

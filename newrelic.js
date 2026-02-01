@@ -10,7 +10,7 @@ exports.config = {
   /**
    * Array of application names.
    */
-  app_name: [process.env.NEW_RELIC_APP_NAME || 'Auth-Pay'],
+  app_name: [process.env.NEW_RELIC_APP_NAME || 'bookease'],
   /**
    * Your New Relic license key.
    */

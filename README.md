@@ -1,4 +1,4 @@
-# AuthPay – Next.js Authentication, Payments & RBAC Platform
+# BookEase – Next.js Authentication, Payments & RBAC Platform
 
 [![Next.js](https://img.shields.io/badge/Next.js_15-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
@@ -8,18 +8,18 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 [![Razorpay](https://img.shields.io/badge/Razorpay-02042B?style=flat-square&logo=razorpay)](https://razorpay.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=flat-square)](https://github.com/sutharpratik10/AuthPay/graphs/commit-activity)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=flat-square)](https://github.com/sutharpratik10/BookEase/graphs/commit-activity)
 [![Tests](https://img.shields.io/badge/tests-156%20passed-brightgreen?style=flat-square)](./TEST-SUMMARY.md)
 [![Security](https://img.shields.io/badge/security-87%20tests-brightgreen?style=flat-square)](./SECURITY-TEST-REPORT.md)
 [![Coverage](https://img.shields.io/badge/coverage-6.18%25-orange?style=flat-square)](./TEST-SUMMARY.md)
 
 > **A production-ready, full-stack authentication and payment platform built with Next.js 15, featuring advanced RBAC, secure payment processing, and comprehensive user management.**
 
-AuthPay is a modern, scalable authentication and payment platform designed for SaaS applications and enterprise solutions. Built on Next.js 15 with TypeScript, it provides a robust foundation for applications requiring secure authentication, role-based access control, and integrated payment processing.
+BookEase is a modern, scalable authentication and payment platform designed for SaaS applications and enterprise solutions. Built on Next.js 15 with TypeScript, it provides a robust foundation for applications requiring secure authentication, role-based access control, and integrated payment processing.
 
-![AuthPay Dashboard](https://via.placeholder.com/1200x600/1e293b/38bdf8?text=AuthPay+Dashboard)
+![BookEase Dashboard](https://via.placeholder.com/1200x600/1e293b/38bdf8?text=BookEase+Dashboard)
 
-## 🌟 Why AuthPay?
+## 🌟 Why BookEase?
 
 - 🔐 **Enterprise-Grade Security**: Industry-standard authentication with 2FA, email verification, and secure password handling
 - 🏷️ **Advanced RBAC System**: Policy-based access control with fine-grained permissions and multi-role support
@@ -33,7 +33,7 @@ AuthPay is a modern, scalable authentication and payment platform designed for S
 
 ## 📑 Table of Contents
 
-- [What is AuthPay?](#-what-is-authpay)
+- [What is BookEase?](#-what-is-BookEase)
 - [Features](#-features)
 - [Core Modules](#-core-modules)
 - [Tech Stack](#-tech-stack)
@@ -53,9 +53,9 @@ AuthPay is a modern, scalable authentication and payment platform designed for S
 
 ---
 
-## 🎯 What is AuthPay?
+## 🎯 What is BookEase?
 
-AuthPay is a comprehensive authentication and payment platform that combines:
+BookEase is a comprehensive authentication and payment platform that combines:
 
 1. **Authentication System**: Secure user authentication with multiple strategies (email/password, OAuth, 2FA)
 2. **Authorization Layer**: Policy-based RBAC system for fine-grained access control
@@ -389,7 +389,7 @@ Email notification system:
 
 ## 📋 Prerequisites
 
-Before installing AuthPay, ensure you have the following installed:
+Before installing BookEase, ensure you have the following installed:
 
 ### Required Software
 
@@ -447,12 +447,12 @@ git --version
 
 ## ⚡ Quick Start
 
-Get AuthPay running in 5 minutes:
+Get BookEase running in 5 minutes:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/sutharpratik10/AuthPay.git
-cd AuthPay
+git clone https://github.com/sutharpratik10/BookEase.git
+cd BookEase
 
 # 2. Install dependencies
 npm install
@@ -483,13 +483,13 @@ Visit [http://localhost:3000](http://localhost:3000) and login with:
 
 ```bash
 # Using HTTPS
-git clone https://github.com/sutharpratik10/AuthPay.git
+git clone https://github.com/sutharpratik10/BookEase.git
 
 # Or using SSH
-git clone git@github.com:sutharpratik10/AuthPay.git
+git clone git@github.com:sutharpratik10/BookEase.git
 
 # Navigate to project directory
-cd AuthPay
+cd BookEase
 ```
 
 ### Step 2: Install Dependencies
@@ -520,11 +520,11 @@ Choose one of these options:
 psql -U postgres
 
 # Create database
-CREATE DATABASE authpay_db;
+CREATE DATABASE BookEase_db;
 
 # Create user (optional)
-CREATE USER authpay_user WITH PASSWORD 'secure_password';
-GRANT ALL PRIVILEGES ON DATABASE authpay_db TO authpay_user;
+CREATE USER BookEase_user WITH PASSWORD 'secure_password';
+GRANT ALL PRIVILEGES ON DATABASE BookEase_db TO BookEase_user;
 
 # Exit
 \q
@@ -539,11 +539,11 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: authpay_postgres
+    container_name: BookEase_postgres
     environment:
-      POSTGRES_USER: authpay_user
+      POSTGRES_USER: BookEase_user
       POSTGRES_PASSWORD: secure_password
-      POSTGRES_DB: authpay_db
+      POSTGRES_DB: BookEase_db
     ports:
       - "5432:5432"
     volumes:
@@ -577,7 +577,7 @@ nano .env.local  # or use your preferred editor
 
 ```bash
 # Database
-DATABASE_URL="postgresql://authpay_user:secure_password@localhost:5432/authpay_db"
+DATABASE_URL="postgresql://BookEase_user:secure_password@localhost:5432/BookEase_db"
 
 # NextAuth
 NEXTAUTH_URL="http://localhost:3000"
@@ -659,7 +659,7 @@ Create `.env.local` file in the root directory:
 # ============================================
 # Database Configuration
 # ============================================
-DATABASE_URL="postgresql://username:password@localhost:5432/authpay_db"
+DATABASE_URL="postgresql://username:password@localhost:5432/BookEase_db"
 
 # ============================================
 # NextAuth Configuration
@@ -757,7 +757,7 @@ docs/
 ## 📁 Project Structure
 
 ```
-AuthPay/
+BookEase/
 ├── src/
 │   ├── app/                      # Next.js App Router
 │   │   ├── api/                  # API routes
@@ -1006,8 +1006,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### Community
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/sutharpratik10/AuthPay/issues)
-- **Discussions**: [Ask questions and share ideas](https://github.com/sutharpratik10/AuthPay/discussions)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/sutharpratik10/BookEase/issues)
+- **Discussions**: [Ask questions and share ideas](https://github.com/sutharpratik10/BookEase/discussions)
 
 ### Contact
 
@@ -1041,15 +1041,15 @@ Built with amazing open-source technologies:
 
 ## 📊 Project Stats
 
-![GitHub stars](https://img.shields.io/github/stars/sutharpratik10/AuthPay?style=social)
-![GitHub forks](https://img.shields.io/github/forks/sutharpratik10/AuthPay?style=social)
-![GitHub watchers](https://img.shields.io/github/watchers/sutharpratik10/AuthPay?style=social)
+![GitHub stars](https://img.shields.io/github/stars/sutharpratik10/BookEase?style=social)
+![GitHub forks](https://img.shields.io/github/forks/sutharpratik10/BookEase?style=social)
+![GitHub watchers](https://img.shields.io/github/watchers/sutharpratik10/BookEase?style=social)
 
 ---
 
 <div align="center">
 
-**[⬆ Back to Top](#authpay--nextjs-authentication-payments--rbac-platform)**
+**[⬆ Back to Top](#BookEase--nextjs-authentication-payments--rbac-platform)**
 
 Made with ❤️ by [Pratik Suthar](https://github.com/sutharpratik10)
 

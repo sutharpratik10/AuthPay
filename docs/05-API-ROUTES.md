@@ -15,7 +15,7 @@
 
 ## Overview
 
-AuthPay provides a comprehensive REST API built with Next.js API Routes. All APIs follow consistent patterns for authentication, authorization, error handling, and response formatting.
+BookEase provides a comprehensive REST API built with Next.js API Routes. All APIs follow consistent patterns for authentication, authorization, error handling, and response formatting.
 
 ### Base URL
 

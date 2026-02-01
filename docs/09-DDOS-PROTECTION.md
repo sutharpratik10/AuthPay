@@ -19,7 +19,7 @@
 
 ## Overview
 
-AuthPay implements a comprehensive multi-layered DDoS protection and rate limiting strategy to prevent abuse, brute force attacks, and resource exhaustion. This document provides detailed technical guidance for developers implementing, maintaining, and extending the rate limiting system.
+BookEase implements a comprehensive multi-layered DDoS protection and rate limiting strategy to prevent abuse, brute force attacks, and resource exhaustion. This document provides detailed technical guidance for developers implementing, maintaining, and extending the rate limiting system.
 
 ### Why Rate Limiting?
 
@@ -338,7 +338,7 @@ See [Advanced Configurations](#advanced-configurations) for implementation examp
 
 ### 🎉 Conclusion
 
-Your AuthPay application now has **enterprise-grade rate limiting protection** on **ALL API routes**. 
+Your BookEase application now has **enterprise-grade rate limiting protection** on **ALL API routes**. 
 
 The application is:
 - ✅ Protected against DDoS attacks

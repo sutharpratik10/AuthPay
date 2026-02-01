@@ -6,7 +6,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { cn } from "@/lib/utils/helpers"
 import { APP_CONFIG } from "@/lib/utils/constants"
 import { getAppName } from "@/lib/utils/config"
-import type { NavigationItem, NavigationSubItem } from "@/lib/utils/constants" 
+import type { NavigationItem, NavigationSubItem } from "@/lib/utils/constants"
 import { Menu, X, ChevronRight, User, Settings, LogOut, Shield, LayoutDashboard } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { signOut } from "next-auth/react"
@@ -22,11 +22,11 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
-import { 
-  Accordion, 
-  AccordionContent, 
-  AccordionItem, 
-  AccordionTrigger 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger
 } from "@/components/ui/accordion"
 import { ModeToggle } from "@/components/shared/mode-toggle"
 import { UserProfileDropdown } from "@/components/user/UserProfileDropdown"
@@ -38,7 +38,7 @@ export function Navigationbar() {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
   const sidebarRef = React.useRef<HTMLDivElement>(null)
-  
+
   // Get isAdmin from UserValidation context (already fetched, no extra API call)
   const { isAdmin, isLoading: isUserLoading } = useUserValidation()
 
@@ -53,8 +53,8 @@ export function Navigationbar() {
     // If we know the user's role, use the specific dashboard path for better UX
     // Otherwise, use /protected which handles the redirect server-side
     if (!isUserLoading && isAuthenticated) {
-      return isAdmin 
-        ? ROUTE_POLICIES.ADMIN_DASHBOARD.path 
+      return isAdmin
+        ? ROUTE_POLICIES.ADMIN_DASHBOARD.path
         : ROUTE_POLICIES.USER_DASHBOARD.path
     }
     // While loading or not authenticated, use the generic /protected path
@@ -83,47 +83,47 @@ export function Navigationbar() {
   // Handle clicks outside the sidebar to close the menu
   useEffect(() => {
     const handleMouseClickOutside = (event: MouseEvent) => {
-      if (isMenuOpen && 
-          sidebarRef.current && 
-          !sidebarRef.current.contains(event.target as Node)) {
+      if (isMenuOpen &&
+        sidebarRef.current &&
+        !sidebarRef.current.contains(event.target as Node)) {
         closeMenu();
       }
     };
 
     const handleTouchOutside = (event: TouchEvent) => {
-      if (isMenuOpen && 
-          sidebarRef.current && 
-          !sidebarRef.current.contains(event.target as Node)) {
+      if (isMenuOpen &&
+        sidebarRef.current &&
+        !sidebarRef.current.contains(event.target as Node)) {
         closeMenu();
       }
     };
 
     document.addEventListener('mousedown', handleMouseClickOutside);
     document.addEventListener('touchstart', handleTouchOutside);
-    
+
     return () => {
       document.removeEventListener('mousedown', handleMouseClickOutside);
       document.removeEventListener('touchstart', handleTouchOutside);
     };
   }, [isMenuOpen]);
-  
+
   // Prevent background scrolling when menu is open
   useEffect(() => {
     // Create custom event with menu state
     const event = new CustomEvent('mobile-menu-toggle', {
       detail: { isOpen: isMenuOpen }
     });
-    
+
     // Dispatch the event
     window.dispatchEvent(event);
-    
+
     // Prevent background scrolling when menu is open
     if (isMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
-    
+
     return () => {
       document.body.style.overflow = '';
     };
@@ -135,7 +135,7 @@ export function Navigationbar() {
   // After a successful login, redirect users to their role-based dashboard if they landed on an auth page
   // This is a one-time redirect, not on every navigation
   useEffect(() => {
-    if (!mounted) return;    
+    if (!mounted) return;
     if (!isAuthenticated) return;
     // If current path is an auth page, redirect to dashboard once
     if (typeof window !== 'undefined') {
@@ -158,7 +158,7 @@ export function Navigationbar() {
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-sidebar border-b border-sidebar-border">
       <div className="flex items-center justify-between h-16 px-4">
-        {/* Logo on the left */}        
+        {/* Logo on the left */}
         <div className="flex items-center">
           <Link href={ROUTES.PUBLIC.HOME}>
             <div className="flex items-center space-x-2">
@@ -193,7 +193,7 @@ export function Navigationbar() {
                     </Link>
                   </NavigationMenuLink>
                 </NavigationMenuItem>
-              ) : (                
+              ) : (
                 // Dropdown menu
                 <NavigationMenuItem key={index}>
                   <NavigationMenuTrigger>{item.title}</NavigationMenuTrigger>
@@ -214,16 +214,16 @@ export function Navigationbar() {
               )
             ))}
           </NavigationMenuList>
-        </NavigationMenu>        
+        </NavigationMenu>
         {/* Right side with theme toggle and mobile menu button */}
-        <div className="flex items-center gap-2">          
+        <div className="flex items-center gap-2">
           {/* Auth links on desktop - always show buttons first to prevent layout shift */}
           <div className="hidden md:block">
             {mounted && isAuthenticated ? (
               <UserProfileDropdown />
             ) : (
-              <div className="flex items-center space-x-4">                
-              <Link
+              <div className="flex items-center space-x-4">
+                <Link
                   href={ROUTES.AUTH.LOGIN}
                   className="text-sm font-medium text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors"
                 >
@@ -241,7 +241,7 @@ export function Navigationbar() {
 
           {/* Show theme toggle only for non-authenticated users */}
           <ModeToggle />
-          
+
           {/* Mobile menu button - only visible on mobile */}          <button
             onClick={toggleMenu}
             className="md:hidden relative p-2 rounded-xl hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-sidebar-ring transition-all duration-200 cursor-pointer"
@@ -258,25 +258,23 @@ export function Navigationbar() {
           </button>
         </div>
       </div>
-      
+
       {/* Mobile menu - Only show when menu is open */}
       <>
         {/* Overlay background with blur effect */}
-        <div 
-          className={`fixed inset-0 bg-black/20 backdrop-blur-lg z-50 md:hidden transition-all duration-300 ease-out ${
-            isMenuOpen ? 'opacity-100 backdrop-blur-sm' : 'opacity-0 pointer-events-none backdrop-blur-none'
-          }`}
+        <div
+          className={`fixed inset-0 bg-black/20 backdrop-blur-lg z-50 md:hidden transition-all duration-300 ease-out ${isMenuOpen ? 'opacity-100 backdrop-blur-sm' : 'opacity-0 pointer-events-none backdrop-blur-none'
+            }`}
           onClick={closeMenu}
           aria-hidden="true"
-        />        
-        {/* Mobile menu sidebar */}        
-        <div 
+        />
+        {/* Mobile menu sidebar */}
+        <div
           ref={sidebarRef}
-          className={`fixed inset-y-0 right-0 z-[60] w-80 bg-sidebar backdrop-blur-md shadow-2xl md:hidden h-screen flex flex-col overflow-hidden transition-all duration-300 ease-out border-l border-sidebar-border ${
-            isMenuOpen ? 'translate-x-0' : 'translate-x-full'
-          }`}
+          className={`fixed inset-y-0 right-0 z-[60] w-80 bg-sidebar backdrop-blur-md shadow-2xl md:hidden h-screen flex flex-col overflow-hidden transition-all duration-300 ease-out border-l border-sidebar-border ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'
+            }`}
         >
-          {/* Menu header with improved styling */}          
+          {/* Menu header with improved styling */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-sidebar-border bg-gradient-to-r from-sidebar to-sidebar/90">
             <Link href={ROUTES.PUBLIC.HOME} className="flex items-center space-x-3" onClick={closeMenu}>
               <div className="w-8 h-8 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 rounded-lg flex items-center justify-center">
@@ -293,9 +291,9 @@ export function Navigationbar() {
             >
               <X className="h-5 w-5 text-sidebar-foreground" />
             </button>
-          </div>          
+          </div>
           {/* User profile section for authenticated users */}
-          {mounted && isAuthenticated && (            
+          {mounted && isAuthenticated && (
             <div className="px-6 py-4 bg-gradient-to-r from-sidebar-accent/30 to-sidebar-accent/50 border-b border-sidebar-border">
               <div className="flex items-center space-x-3">
                 <div className="relative">
@@ -316,67 +314,66 @@ export function Navigationbar() {
                     {user?.email}
                   </div>
                   <div className="mt-1">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      isEmailVerified 
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isEmailVerified
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                         : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                    }`}>
+                      }`}>
                       {isEmailVerified ? 'Verified' : 'Pending'}
                     </span>
                   </div>
                 </div>
-                
+
               </div>
             </div>
           )}
 
           {/* Menu items with modern accordion styling */}
           <div className="flex-1 overflow-y-auto py-2">
-            <div className="px-3 space-y-1">              {navigationItems.map((item, index) => 
-                hasHref(item) ? (                  
-                <Link 
-                    key={index}
-                    href={item.href}
-                    className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-sidebar-accent transition-all duration-200 group text-sidebar-foreground"
-                    onClick={closeMenu}
-                  >
-                    <span>{item.title}</span>
-                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-sidebar-foreground/70" />
-                  </Link>
-                ) : (
-                  <Accordion key={index} type="single" collapsible className="w-full">
-                    <AccordionItem value={`item-${index}`} className="border-none">                      
-                      <AccordionTrigger className="px-4 py-3 text-sm font-medium rounded-xl hover:bg-sidebar-accent transition-all duration-200 hover:no-underline [&[data-state=open]>svg]:rotate-90 text-sidebar-foreground">
-                        {item.title}
-                      </AccordionTrigger>
-                      <AccordionContent className="pt-1 pb-2">
-                        <div className="space-y-1 ml-4">
-                          {hasItems(item) && item.items.map((subItem: NavigationSubItem, subIndex: number) => (                            
-                            <Link 
-                              key={`${index}-${subIndex}`}
-                              href={subItem.href} 
-                              className="flex items-center justify-between px-4 py-2.5 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground rounded-lg hover:bg-sidebar-accent/50 transition-all duration-200 group"
-                              onClick={closeMenu}
-                            >
-                              <span>{subItem.title}</span>
-                              <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                            </Link>
-                          ))}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                )
-              )}
-            </div>            
+            <div className="px-3 space-y-1">              {navigationItems.map((item, index) =>
+              hasHref(item) ? (
+                <Link
+                  key={index}
+                  href={item.href}
+                  className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-sidebar-accent transition-all duration-200 group text-sidebar-foreground"
+                  onClick={closeMenu}
+                >
+                  <span>{item.title}</span>
+                  <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-sidebar-foreground/70" />
+                </Link>
+              ) : (
+                <Accordion key={index} type="single" collapsible className="w-full">
+                  <AccordionItem value={`item-${index}`} className="border-none">
+                    <AccordionTrigger className="px-4 py-3 text-sm font-medium rounded-xl hover:bg-sidebar-accent transition-all duration-200 hover:no-underline [&[data-state=open]>svg]:rotate-90 text-sidebar-foreground">
+                      {item.title}
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-1 pb-2">
+                      <div className="space-y-1 ml-4">
+                        {hasItems(item) && item.items.map((subItem: NavigationSubItem, subIndex: number) => (
+                          <Link
+                            key={`${index}-${subIndex}`}
+                            href={subItem.href}
+                            className="flex items-center justify-between px-4 py-2.5 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground rounded-lg hover:bg-sidebar-accent/50 transition-all duration-200 group"
+                            onClick={closeMenu}
+                          >
+                            <span>{subItem.title}</span>
+                            <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                          </Link>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              )
+            )}
+            </div>
             {/* Authentication and user actions - always show auth buttons first */}
             <div className="px-3 mt-6 pt-4 border-t border-border/20">
               {mounted && isAuthenticated ? (
                 <div className="space-y-2">
                   {/* Dashboard link for authenticated users - only on home page */}
                   {pathname === "/" && (
-                    <Link 
-                      href={dashboardPath} 
+                    <Link
+                      href={dashboardPath}
                       onClick={closeMenu}
                       className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-muted/60 dark:hover:bg-slate-800/60 transition-all duration-200 group text-foreground"
                     >
@@ -387,8 +384,8 @@ export function Navigationbar() {
                       <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-muted-foreground" />
                     </Link>
                   )}
-                  <Link 
-                    href="/profile" 
+                  <Link
+                    href="/profile"
                     onClick={closeMenu}
                     className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-muted/60 dark:hover:bg-slate-800/60 transition-all duration-200 group text-foreground"
                   >
@@ -398,8 +395,8 @@ export function Navigationbar() {
                     </div>
                     <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-muted-foreground" />
                   </Link>
-                  <Link 
-                    href="/settings" 
+                  <Link
+                    href="/settings"
                     onClick={closeMenu}
                     className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-muted/60 dark:hover:bg-slate-800/60 transition-all duration-200 group text-foreground"
                   >
@@ -409,7 +406,7 @@ export function Navigationbar() {
                     </div>
                     <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-muted-foreground" />
                   </Link>
-                    <button 
+                  <button
                     className="flex items-center space-x-3 w-full px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200 cursor-pointer"
                     onClick={handleLogout}
                   >
@@ -419,15 +416,15 @@ export function Navigationbar() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Link 
-                    href={ROUTES.AUTH.LOGIN} 
+                  <Link
+                    href={ROUTES.AUTH.LOGIN}
                     onClick={closeMenu}
                     className="flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl hover:bg-muted/60 dark:hover:bg-slate-800/60 transition-all duration-200 group text-foreground"
                   >
                     <span>Login</span>
                     <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-muted-foreground" />
-                  </Link><Link 
-                    href={ROUTES.AUTH.SIGNUP} 
+                  </Link><Link
+                    href={ROUTES.AUTH.SIGNUP}
                     onClick={closeMenu}
                     className="flex items-center justify-center px-4 py-3 text-sm font-medium bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 text-white rounded-xl hover:from-slate-800 hover:to-slate-950 dark:hover:from-slate-700 dark:hover:to-slate-900 transition-all duration-200 shadow-lg"
                   >

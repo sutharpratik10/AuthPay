@@ -16,11 +16,11 @@ export const GET = rateLimiters.readOnly(async (_req: NextRequest): Promise<Resp
   try {
     // Try to import newrelic to verify it's available
     await import('newrelic');
-    
+
     // Check if license key is set
     const licenseKey = process.env.NEW_RELIC_LICENSE_KEY;
-    const appName = process.env.NEW_RELIC_APP_NAME || 'Auth-Pay';
-    
+    const appName = process.env.NEW_RELIC_APP_NAME || 'bookease';
+
     // Get agent info
     const agentInfo = {
       isActive: !!licenseKey,
@@ -34,11 +34,11 @@ export const GET = rateLimiters.readOnly(async (_req: NextRequest): Promise<Resp
       applicationId: '1388738971',
       directLink: 'https://rpm.newrelic.com/accounts/7393250/applications/1388738971'
     };
-    
+
     return NextResponse.json({
       status: licenseKey ? 'active' : 'inactive',
-      message: licenseKey 
-        ? '✅ New Relic APM is active and monitoring' 
+      message: licenseKey
+        ? '✅ New Relic APM is active and monitoring'
         : '⚠️  New Relic APM is NOT active - license key not set',
       ...agentInfo,
       timestamp: new Date().toISOString()
