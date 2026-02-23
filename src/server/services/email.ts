@@ -9,6 +9,8 @@ import {
   twoFactorAuthTemplate,
   securityAlertTemplate,
   subscriptionPurchaseTemplate,
+  bookingConfirmationCustomerTemplate,
+  bookingNotificationBusinessTemplate,
 } from "@/lib/email/templates";
 
 interface EmailOptions {
@@ -20,6 +22,14 @@ interface EmailOptions {
 class EmailService {
   private transporter: nodemailer.Transporter;
   constructor() {
+    console.log('[EmailService] Initializing with config:', {
+      host: APP_CONFIG.EMAIL.HOST,
+      port: APP_CONFIG.EMAIL.PORT,
+      secure: APP_CONFIG.EMAIL.SECURE,
+      user: APP_CONFIG.EMAIL.USER ? '***configured***' : 'NOT SET',
+      pass: APP_CONFIG.EMAIL.PASS ? '***configured***' : 'NOT SET',
+    });
+
     this.transporter = nodemailer.createTransport({
       host: APP_CONFIG.EMAIL.HOST,
       port: APP_CONFIG.EMAIL.PORT,
@@ -146,6 +156,66 @@ class EmailService {
     return this.sendEmail({
       to: email,
       subject: `Subscription Purchase Confirmation - ${planName}`,
+      html,
+    });
+  }
+
+  /**
+   * Send booking confirmation email to customer
+   */
+  async sendBookingConfirmationToCustomer(booking: {
+    customerName: string;
+    customerEmail: string;
+    customerPhone?: string;
+    serviceName: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    duration: number;
+    price: number;
+    currency: string;
+    businessName: string;
+    businessAddress?: string;
+    businessPhone?: string;
+    businessEmail?: string;
+    bookingId: string;
+    notes?: string;
+  }) {
+    const html = bookingConfirmationCustomerTemplate(booking, getAppName() || 'Our App');
+
+    return this.sendEmail({
+      to: booking.customerEmail,
+      subject: `Booking Confirmed - ${booking.serviceName} at ${booking.businessName}`,
+      html,
+    });
+  }
+
+  /**
+   * Send new booking notification to business owner
+   */
+  async sendBookingNotificationToBusiness(booking: {
+    customerName: string;
+    customerEmail: string;
+    customerPhone?: string;
+    serviceName: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    duration: number;
+    price: number;
+    currency: string;
+    businessName: string;
+    businessAddress?: string;
+    businessPhone?: string;
+    businessEmail?: string;
+    bookingId: string;
+    notes?: string;
+  }, businessOwnerEmail: string) {
+    const html = bookingNotificationBusinessTemplate(booking, getAppName() || 'Our App');
+
+    return this.sendEmail({
+      to: businessOwnerEmail,
+      subject: `New Booking: ${booking.serviceName} - ${booking.customerName}`,
       html,
     });
   }

@@ -11,6 +11,10 @@ export { accountDeletionTemplate } from './account-deletion';
 export { twoFactorAuthTemplate } from './two-factor';
 export { securityAlertTemplate } from './security-alert';
 export { subscriptionPurchaseTemplate } from './subscription';
+export {
+  bookingConfirmationCustomerTemplate,
+  bookingNotificationBusinessTemplate
+} from './booking';
 
 // Export base components for custom templates
 export {
