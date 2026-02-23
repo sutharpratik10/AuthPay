@@ -1,9 +1,10 @@
 // filepath: d:\Pratik\work\ByteLoom\Web Applications\rsvp\rsvp\src\app\page.tsx
 import HomePage from "@/components/Home/HomePage";
 import { Metadata } from 'next';
+import { APP_CONFIG } from '@/lib/utils/constants';
 
 export const metadata: Metadata = {
-  title: 'AuthPay - Authentication & Payment Platform',
+  title: `${APP_CONFIG.APP_NAME} - Secure Auth & Payments`,
   description: 'Secure authentication and payment gateway solution with OAuth, 2FA, and subscription management.',
 };
 

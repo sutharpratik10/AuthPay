@@ -36,11 +36,11 @@ export const {
           const { eq } = await import("drizzle-orm");
 
           // Check if user already exists
-          let existingUser = null;
+          let existingUser: any = null;
           try {
             existingUser = await db.query.users.findFirst({
               where: eq(users.email, user.email!),
-            });
+            }) as any;
           } catch (dbErr) {
             console.error("Database error during OAuth user lookup:", dbErr);
             // Return a user-friendly error to Auth.js

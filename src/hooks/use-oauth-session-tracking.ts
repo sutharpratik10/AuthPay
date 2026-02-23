@@ -17,7 +17,7 @@ export function useOAuthSessionTracking() {
     try {
       // Detect OAuth provider from URL or session
       const currentUrl = window.location.href;
-      let provider = null;
+      let provider: string | null = null;
       
       // Common OAuth providers
       const providers = ['google', 'github', 'facebook', 'azure-ad', 'apple'];

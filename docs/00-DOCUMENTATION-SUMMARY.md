@@ -2,7 +2,7 @@
 
 ## Created Documentation Files
 
-This document provides an overview of all the documentation created for the AuthPay application.
+This document provides an overview of all the documentation created for the BookEase application.
 
 ## 📚 New Documentation Files
 
@@ -48,6 +48,59 @@ This document provides an overview of all the documentation created for the Auth
    - Relationships and foreign keys
    - Migrations guide
    - Database scripts
+
+5. **05-API-ROUTES.md** ✅
+   - Complete API reference
+   - Rate limiting configuration
+   - Authentication endpoints
+   - User management endpoints
+   - Admin endpoints
+   - RBAC endpoints
+   - Subscription & payment endpoints
+   - Request/response examples
+
+6. **06-ROUTING.md** ✅
+   - Routing architecture
+   - Middleware system
+   - Route protection
+   - Dynamic routes
+   - Route handlers
+   - Best practices
+
+7. **07-PAYMENT-GATEWAY.md** ✅
+   - Razorpay integration
+   - Payment flows
+   - Subscription management
+   - Webhooks
+   - Security considerations
+
+8. **08-OAUTH-SETUP.md** ✅
+   - Google OAuth setup
+   - GitHub OAuth setup
+   - Environment configuration
+   - Troubleshooting
+
+9. **09-DDOS-PROTECTION.md** ✅
+   - DDoS protection strategies
+   - Rate limiting implementation
+   - Traffic analysis
+   - Security best practices
+
+10. **10-TRAFFIC-PROTECTION.md** ✅
+    - Advanced traffic protection
+    - Load balancing
+    - Caching strategies
+    - Performance optimization
+
+11. **11-MOTIVATIONAL-PRICING-PAGE.md** ✅ NEW!
+    - Psychology-driven pricing page
+    - Conversion optimization techniques
+    - Pricing structure (₹10, ₹20, ₹40/month)
+    - Business limits per plan
+    - A/B testing strategies
+    - Analytics integration
+    - Design principles
+    - Success metrics
    - Query examples
    - Best practices
    - Troubleshooting

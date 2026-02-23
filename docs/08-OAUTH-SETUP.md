@@ -1,6 +1,6 @@
 # OAuth 2.0 Setup Guide
 
-This guide will help you set up OAuth 2.0 authentication for Google, Microsoft (Azure AD), and GitHub in your AuthPay application.
+This guide will help you set up OAuth 2.0 authentication for Google, Microsoft (Azure AD), and GitHub in your BookEase application.
 
 ## Table of Contents
 1. [Google OAuth Setup](#google-oauth-setup)
@@ -17,7 +17,7 @@ This guide will help you set up OAuth 2.0 authentication for Google, Microsoft (
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Click on the project dropdown at the top and select **"New Project"**
-3. Enter a project name (e.g., "AuthPay") and click **Create**
+3. Enter a project name (e.g., "BookEase") and click **Create**
 4. Wait for the project to be created and select it
 
 ### Step 2: Enable Google+ API
@@ -32,7 +32,7 @@ This guide will help you set up OAuth 2.0 authentication for Google, Microsoft (
 2. Select **External** (unless you have a Google Workspace organization)
 3. Click **Create**
 4. Fill in the required information:
-   - **App name**: AuthPay
+   - **App name**: BookEase
    - **User support email**: Your email
    - **Developer contact information**: Your email
 5. Click **Save and Continue**
@@ -51,7 +51,7 @@ This guide will help you set up OAuth 2.0 authentication for Google, Microsoft (
 2. Click **Create Credentials** > **OAuth client ID**
 3. Select **Web application**
 4. Configure the following:
-   - **Name**: AuthPay Web Client
+   - **Name**: BookEase Web Client
    - **Authorized JavaScript origins**:
      - `http://localhost:3000` (for development)
      - `https://yourdomain.com` (for production)
@@ -84,7 +84,7 @@ GOOGLE_CLIENT_SECRET="your-client-secret"
 ### Step 2: Configure Application Registration
 
 1. Fill in the registration form:
-   - **Name**: AuthPay
+   - **Name**: BookEase
    - **Supported account types**: 
      - Select **"Accounts in any organizational directory and personal Microsoft accounts"** (most common)
      - This allows both personal Microsoft accounts (Outlook, Hotmail) and work/school accounts
@@ -106,7 +106,7 @@ GOOGLE_CLIENT_SECRET="your-client-secret"
 
 1. In the left sidebar, click **Certificates & secrets**
 2. Under **Client secrets**, click **New client secret**
-3. Add a description (e.g., "AuthPay Production")
+3. Add a description (e.g., "BookEase Production")
 4. Select an expiration period (recommended: 24 months)
 5. Click **Add**
 6. **IMPORTANT**: Copy the **Value** immediately (it won't be shown again)
@@ -154,11 +154,11 @@ AZURE_AD_TENANT_ID="common"
 ### Step 2: Configure OAuth App
 
 1. Fill in the application form:
-   - **Application name**: AuthPay
+   - **Application name**: BookEase
    - **Homepage URL**: 
      - Development: `http://localhost:3000`
      - Production: `https://yourdomain.com`
-   - **Application description**: (optional) AuthPay Authentication
+   - **Application description**: (optional) BookEase Authentication
    - **Authorization callback URL**:
      - Development: `http://localhost:3000/api/auth/callback/github`
      - Production: `https://yourdomain.com/api/auth/callback/github`
@@ -221,7 +221,7 @@ npm run dev
 - **Solution**: Make sure you've enabled the Google+ API or Google People API in the API Library
 
 **Problem**: "This app isn't verified"
-- **Solution**: In development, this is normal. Click "Advanced" > "Go to AuthPay (unsafe)" to continue. For production, submit your app for verification.
+- **Solution**: In development, this is normal. Click "Advanced" > "Go to BookEase (unsafe)" to continue. For production, submit your app for verification.
 
 ### Microsoft OAuth Issues
 

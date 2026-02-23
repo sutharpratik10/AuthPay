@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +10,8 @@ import { AlertCircle, Mail, CreditCard, Github, Eye, EyeOff } from "lucide-react
 import { hasSQLInjectionPatterns, EMAIL_REGEX } from "@/lib/utils/sanitize"
 
 export default function LoginForm() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { login, socialLogin, loading } = useAuth()
 
   const [formData, setFormData] = useState({
@@ -329,8 +332,11 @@ export default function LoginForm() {
             setError(result.error || "We're having trouble signing you in. Please check your credentials and try again.")
             setErrorType("error")
         }
+      } else {
+        // Login successful - redirect to callbackUrl or default dashboard
+        const callbackUrl = searchParams.get('callbackUrl') || '/protected/user/dashboard'
+        router.push(callbackUrl)
       }
-      // Let the LoginPage handle redirection based on auth state
     } catch (err) {
       setError("A network error occurred. Please check your internet connection and try again.")
       setErrorType("error")
@@ -342,7 +348,8 @@ export default function LoginForm() {
 
   const handleSocialLogin = async (provider: string) => {
     try {
-      await socialLogin(provider)
+      const callbackUrl = searchParams.get('callbackUrl') || '/protected/user/dashboard'
+      await socialLogin(provider, callbackUrl)
     } catch (err) {
       setError("Failed to login with social provider. Please try again.")
       console.error(err)

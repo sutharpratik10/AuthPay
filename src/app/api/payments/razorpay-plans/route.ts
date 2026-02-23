@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import { withApiHandler, errorResponse, validateRequiredFields } from '@/lib/api/helpers';
+import { db } from "@/server/db";
+import { subscriptionPlans } from "@/server/db/schema";
+import { eq, inArray } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
@@ -37,8 +40,33 @@ export const GET = withApiHandler(
 
     const razorpay = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
     const plans = await razorpay.plans.all(options);
-    
-    return NextResponse.json({ success: true, ...plans });
+
+    // Fetch visibility data from database for all Razorpay plans
+    const razorpayPlanIds = plans.items.map((p: { id: string }) => p.id);
+    const dbPlans = await db
+      .select({
+        razorpaySubscriptionPlanId: subscriptionPlans.razorpaySubscriptionPlanId,
+        isVisibleToCustomers: subscriptionPlans.isVisibleToCustomers,
+      })
+      .from(subscriptionPlans)
+      .where(inArray(subscriptionPlans.razorpaySubscriptionPlanId, razorpayPlanIds));
+
+    // Create a map of Razorpay plan ID to visibility status
+    const visibilityMap = new Map(
+      dbPlans.map(p => [p.razorpaySubscriptionPlanId, p.isVisibleToCustomers])
+    );
+
+    // Merge visibility data into Razorpay plans
+    const plansWithVisibility = plans.items.map((plan: { id: string }) => ({
+      ...plan,
+      isVisibleToCustomers: visibilityMap.get(plan.id) ?? true, // Default to true if not in database
+    }));
+
+    return NextResponse.json({
+      success: true,
+      ...plans,
+      items: plansWithVisibility
+    });
   },
   { requireAuth: true }
 );
@@ -61,7 +89,7 @@ export const POST = withApiHandler(
     }
 
     const body = await request.json();
-    const { period, interval, item, notes } = body || {};
+    const { period, interval, item, notes, features } = body || {};
 
     // Validate required fields
     const validation = validateRequiredFields(body, ['period', 'interval', 'item']);
@@ -78,7 +106,7 @@ export const POST = withApiHandler(
     // Initialize Razorpay
     const razorpay = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
 
-    // Create plan on Razorpay
+    // Create plan on Razorpay (don't include features - Razorpay doesn't support them)
     const payload: Record<string, unknown> = {
       period,
       interval: Number(interval),
@@ -90,14 +118,40 @@ export const POST = withApiHandler(
       },
       ...(notes ? { notes } : {}),
     };
-    
+
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore - razorpay SDK types are permissive here; payload shape validated above
-    const created = await razorpay.plans.create(payload);
-    
+    const created = await razorpay.plans.create(payload) as { id: string } & Record<string, unknown>;
+
+    // Create corresponding database record with features
+    try {
+      // Format price for database (convert from paise to rupees)
+      const priceFormatted = `₹${(Number(item.amount) / 100).toFixed(2)}`;
+
+      await db.insert(subscriptionPlans).values({
+        name: String(item.name),
+        description: item.description ? String(item.description) : null,
+        price: priceFormatted,
+        billingCycle: String(period),
+        features: features && Array.isArray(features) && features.length > 0
+          ? JSON.stringify(features)
+          : null,
+        isActive: true,
+        isVisibleToCustomers: true,
+        razorpaySubscriptionPlanId: created.id,
+        razorpaySubscriptionId: null,
+        razorpaySubscriptionLink: null,
+      });
+
+      console.log(`[razorpay-plans] Created database record for plan: ${created.id}`);
+    } catch (dbError) {
+      console.error('[razorpay-plans] Failed to create database record:', dbError);
+      // Plan was still created in Razorpay, so we return success but log the error
+    }
+
     return NextResponse.json(Object.assign({ success: true }, created));
   },
-  { 
+  {
     requireAuth: true,
     requireAdmin: true // Only admins can create plans
   }

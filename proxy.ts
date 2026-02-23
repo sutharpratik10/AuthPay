@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { rscProtectionMiddleware } from '@/lib/middleware/rsc-protection';
 
 // Policy-based route protection mapping
 const ROUTE_POLICY_MAP: Record<string, string> = {
@@ -43,7 +44,36 @@ async function hasRequiredPolicy(userId: string, path: string): Promise<boolean>
   }
 }
 
+// Attach a small set of security headers to responses
+function setSecurityHeaders(response: NextResponse) {
+  try {
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('X-XSS-Protection', '1; mode=block');
+    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  } catch (e) {
+    // Defensive: headers might be frozen in some response types
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[MIDDLEWARE] Could not set security headers:', e);
+    }
+  }
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
+  // ============================================
+  // CVE-2025-55182 Protection (MUST BE FIRST)
+  // ============================================
+  try {
+    const rscProtectionResponse = await rscProtectionMiddleware(request);
+    if (rscProtectionResponse) {
+      return rscProtectionResponse;
+    }
+  } catch (error) {
+    // Log error but continue - don't let protection errors cause DoS
+    console.error('[MIDDLEWARE] RSC protection error:', error);
+  }
+
   const path = request.nextUrl.pathname;
   
   // Skip middleware for:
@@ -55,7 +85,8 @@ export async function proxy(request: NextRequest) {
     path.startsWith('/api/') ||  // Skip ALL API routes
     path.match(/\.(ico|png|jpg|jpeg|svg|css|js|gif|webp|woff|woff2|ttf)$/)
   ) {
-    return NextResponse.next();
+    const res = NextResponse.next();
+    return setSecurityHeaders(res);
   }
 
   // Only log in development
@@ -92,7 +123,8 @@ export async function proxy(request: NextRequest) {
     if (process.env.NODE_ENV === 'development') {
       console.log(`[MIDDLEWARE] ✅ Public route allowed: ${path}`);
     }
-    return NextResponse.next();
+  const res = NextResponse.next();
+  return setSecurityHeaders(res);
   }
 
   // Use NextAuth's JWT check for fast authentication (no database query)
@@ -112,13 +144,14 @@ export async function proxy(request: NextRequest) {
   if (token && token.exp) {
     const currentTimestamp = Math.floor(Date.now() / 1000);
     const tokenExp = token.exp as number;
-    if (tokenExp < currentTimestamp) {
+  if (tokenExp < currentTimestamp) {
       if (process.env.NODE_ENV === 'development') {
         console.log(`[MIDDLEWARE] ⚠️ JWT token expired at ${new Date(tokenExp * 1000).toISOString()}`);
       }
       // Token has expired - redirect to login with session expired message
       if (needsProtection || authRoutes.includes(path)) {
-        return NextResponse.redirect(new URL('/auth/login?error=SessionExpired', request.url));
+        const res = NextResponse.redirect(new URL('/auth/login?error=SessionExpired', request.url));
+        return setSecurityHeaders(res);
       }
     }
   } else if (token && !token.exp) {
@@ -127,7 +160,8 @@ export async function proxy(request: NextRequest) {
       console.log(`[MIDDLEWARE] ⚠️ JWT token missing expiration claim - forcing re-login`);
     }
     if (needsProtection || authRoutes.includes(path)) {
-      return NextResponse.redirect(new URL('/auth/login?error=SecurityUpdate', request.url));
+      const res = NextResponse.redirect(new URL('/auth/login?error=SecurityUpdate', request.url));
+      return setSecurityHeaders(res);
     }
   }
   
@@ -159,13 +193,15 @@ export async function proxy(request: NextRequest) {
       if (process.env.NODE_ENV === 'development') {
         console.log(`[MIDDLEWARE] ✅ Email already verified, redirecting to dashboard`);
       }
-      return NextResponse.redirect(new URL(dashboardUrl, request.url));
+  const res = NextResponse.redirect(new URL(dashboardUrl, request.url));
+  return setSecurityHeaders(res);
     }
     
     if (process.env.NODE_ENV === 'development') {
       console.log(`[MIDDLEWARE] ✅ Allowing access to verify page`);
     }
-    return NextResponse.next();
+  const res = NextResponse.next();
+  return setSecurityHeaders(res);
   }
   
   // Handle auth pages (login, signup, forgot-password)
@@ -176,22 +212,25 @@ export async function proxy(request: NextRequest) {
       if (process.env.NODE_ENV === 'development') {
         console.log(`[MIDDLEWARE] ✅ Authenticated user, redirecting to dashboard`);
       }
-      const dashboardUrl = getDashboardUrl();
-      return NextResponse.redirect(new URL(dashboardUrl, request.url));
+  const dashboardUrl = getDashboardUrl();
+  const res = NextResponse.redirect(new URL(dashboardUrl, request.url));
+  return setSecurityHeaders(res);
     }
     if (process.env.NODE_ENV === 'development') {
       console.log(`[MIDDLEWARE] ✅ Unauthenticated user accessing auth page: ${path}`);
     }
-    return NextResponse.next();
+  const res = NextResponse.next();
+  return setSecurityHeaders(res);
   }
   
   // Handle protected routes with POLICY-BASED ACCESS CONTROL
   if (needsProtection) {
-    if (!isAuthenticated) {
+  if (!isAuthenticated) {
       if (process.env.NODE_ENV === 'development') {
         console.log(`[MIDDLEWARE] 🔒 Unauthenticated access to protected route: ${path}`);
       }
-      return NextResponse.redirect(new URL('/auth/login', request.url));
+  const res = NextResponse.redirect(new URL('/auth/login', request.url));
+  return setSecurityHeaders(res);
     }
 
     // Allow unverified users to access protected routes
@@ -210,25 +249,34 @@ export async function proxy(request: NextRequest) {
         console.log(`[MIDDLEWARE] 🚫 Policy check failed for ${path}`);
       }
       // User doesn't have required policy - redirect to forbidden page or user dashboard
-      return NextResponse.redirect(new URL('/protected/user/dashboard?error=Forbidden', request.url));
+  const res = NextResponse.redirect(new URL('/protected/user/dashboard?error=Forbidden', request.url));
+  return setSecurityHeaders(res);
     }
 
     if (process.env.NODE_ENV === 'development') {
       console.log(`[MIDDLEWARE] ✅ Authorized access to: ${path}`);
     }
-    return NextResponse.next();
+  const res = NextResponse.next();
+  return setSecurityHeaders(res);
   }
   
   if (process.env.NODE_ENV === 'development') {
     console.log(`[MIDDLEWARE] ✅ Allowing access to: ${path}`);
   }
-  return NextResponse.next();
+  const res = NextResponse.next();
+  return setSecurityHeaders(res);
 }
 
 export const config = {
   matcher: [
     '/protected/(.*)',
     '/auth/(.*)',
-    '/((?!api|_next/static|_next/image|favicon.ico).*)'
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    // Conservative exclusion to avoid running on static image assets
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ]
 };
+
+// Backwards compatibility aliases for various Next.js versions / examples
+export const middleware = proxy;
+export default proxy;

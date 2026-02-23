@@ -7,12 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
   TableRow,
   TableHeadSortable,
   TableColumnSearch,
@@ -22,10 +22,10 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import Loading from '@/components/Loading'
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
+import {
+  Plus,
+  Edit,
+  Trash2,
   Search,
   DollarSign,
   Calendar,
@@ -33,7 +33,9 @@ import {
   XCircle,
   Package,
   Users,
-  Check
+  Check,
+  GripVertical,
+  ArrowUpDown
 } from 'lucide-react';
 
 interface SubscriptionPlan extends Record<string, unknown> {
@@ -44,12 +46,16 @@ interface SubscriptionPlan extends Record<string, unknown> {
   billingCycle: string;
   features: string | null;
   isActive: boolean;
+  isVisibleToCustomers?: boolean;
   createdAt: string;
   updatedAt: string;
   userCountActive?: number;
-  razorpay_subscription_id?: string;
-  razorpay_subscription_plan_id?: string;
-  razorpay_subscription_link?: string;
+  razorpaySubscriptionId?: string;
+  razorpaySubscriptionPlanId?: string;
+  razorpaySubscriptionLink?: string;
+  displayOrder?: number;
+  badgeText?: string;
+  enableAutoPopular?: boolean;
 }
 
 interface CreatePlanData {
@@ -59,9 +65,11 @@ interface CreatePlanData {
   billingCycle: string;
   features: string[];
   isActive: boolean;
-  razorpay_subscription_id?: string;
-  razorpay_subscription_plan_id?: string;
-  razorpay_subscription_link?: string;
+  razorpaySubscriptionId?: string;
+  razorpaySubscriptionPlanId?: string;
+  razorpaySubscriptionLink?: string;
+  badgeText?: string;
+  enableAutoPopular?: boolean;
 }
 
 // Razorpay Subscription Interface
@@ -133,8 +141,9 @@ interface RazorpayPlan extends Record<string, unknown> {
   interval?: number;
   period?: string;
   item?: RazorpayPlanItem;
-  notes?: Record<string,string>;
+  notes?: Record<string, string>;
   created_at?: number;
+  isVisibleToCustomers?: boolean;
 }
 
 export default function RazorPay() {
@@ -145,7 +154,7 @@ export default function RazorPay() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  
+
 
   // Razorpay Subscriptions State
   const [razorpaySubscriptions, setRazorpaySubscriptions] = useState<RazorpaySubscription[]>([]);
@@ -200,9 +209,9 @@ export default function RazorPay() {
   });
 
   // Sorting for subscriptions table (client-side)
-  type SubSortField = 'id'|'plan_id'|'short_url'|'customer_id'|'current_end'|'created_at'|'status';
+  type SubSortField = 'id' | 'plan_id' | 'short_url' | 'customer_id' | 'current_end' | 'created_at' | 'status';
   const [sortField, setSortField] = useState<SubSortField>('created_at');
-  const [sortDirection, setSortDirection] = useState<'asc'|'desc'>('desc');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const handleSort = (field: SubSortField) => {
     if (field === sortField) {
@@ -236,7 +245,7 @@ export default function RazorPay() {
     });
     return arr;
   }, [filteredRazorpaySubscriptions, sortField, sortDirection]);
-  
+
   // Razorpay Plans State
   const [razorpayPlans, setRazorpayPlans] = useState<RazorpayPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
@@ -350,20 +359,24 @@ export default function RazorPay() {
     billingCycle: 'monthly',
     features: [],
     isActive: true,
-    razorpay_subscription_id: '',
-    razorpay_subscription_plan_id: '',
-    razorpay_subscription_link: '',
+    razorpaySubscriptionId: '',
+    razorpaySubscriptionPlanId: '',
+    razorpaySubscriptionLink: '',
+    badgeText: '',
+    enableAutoPopular: false,
   });
 
   // Razorpay Plan Create (Dialog) state
   const [razorCreateDialogOpen, setRazorCreateDialogOpen] = useState(false);
-  const [rpPeriod, setRpPeriod] = useState<'daily'|'weekly'|'monthly'|'quarterly'|'yearly'>('monthly');
+  const [rpPeriod, setRpPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [rpInterval, setRpInterval] = useState<number>(1);
   const [rpName, setRpName] = useState('');
   const [rpAmount, setRpAmount] = useState(''); // user-facing amount (e.g., 699.00) or smallest unit depending on UI
   const [rpCurrency, setRpCurrency] = useState('INR');
   const [rpDescription, setRpDescription] = useState('');
   const [rpNotes, setRpNotes] = useState(''); // simple JSON string of notes key-values (optional)
+  const [rpFeatures, setRpFeatures] = useState<string[]>([]); // Features to store in database
+  const [rpNewFeature, setRpNewFeature] = useState(''); // Input for adding new feature
   // const [creatingRp, setCreatingRp] = useState(false);
 
   const resetRazorCreateForm = () => {
@@ -374,11 +387,13 @@ export default function RazorPay() {
     setRpCurrency('INR');
     setRpDescription('');
     setRpNotes('');
+    setRpFeatures([]);
+    setRpNewFeature('');
   };
 
   const createRazorpayPlan = async (e: React.FormEvent) => {
     e.preventDefault();
-  try {
+    try {
       // convert amount to paise / cents depending on currency; assume smallest unit = amount * 100
       const amountNumber = Math.round(Number(rpAmount) * 100);
       const payload = {
@@ -391,9 +406,11 @@ export default function RazorPay() {
           description: rpDescription || undefined,
         },
         notes: rpNotes ? JSON.parse(rpNotes) : undefined,
+        // Features to store in database (not sent to Razorpay)
+        features: rpFeatures.length > 0 ? rpFeatures : undefined,
       };
 
-  const res = await fetch('/api/payments/razorpay-plans', {
+      const res = await fetch('/api/payments/razorpay-plans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -417,6 +434,111 @@ export default function RazorPay() {
   };
 
   const [newFeature, setNewFeature] = useState('');
+
+  // Sorting Dashboard Logic
+  const [sortDialogOpen, setSortDialogOpen] = useState(false);
+  const [sortedDashboardPlans, setSortedDashboardPlans] = useState<SubscriptionPlan[]>([]);
+  const [draggedPlanId, setDraggedPlanId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('');
+
+  // When opening sort dialog, combine all visible plans and sort them
+  const openSortDialog = () => {
+    // Combine basic plans and razorpay linked plans
+    const allVisiblePlans = [...plans].filter(p => p.isActive && p.isVisibleToCustomers);
+    // Note: 'plans' state contains ALL DB plans, so just filtering by visibility is enough.
+
+    // Sort by displayOrder
+    const sorted = [...allVisiblePlans].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+    setSortedDashboardPlans(sorted);
+
+    // Set default tab
+    const periods = Array.from(new Set(sorted.map(p => (p.billingCycle || '').toLowerCase())));
+    if (periods.length > 0) setActiveTab(periods[0]);
+    else setActiveTab('monthly');
+
+    setSortDialogOpen(true);
+  };
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedPlanId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    // Create a ghost image if needed, or browser default
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedPlanId || draggedPlanId === targetId) return;
+
+    // Filter items for current tab
+    const tabItems = sortedDashboardPlans.filter(p => (p.billingCycle || '').toLowerCase() === activeTab);
+
+    // Check if dragged item and target are in current tab
+    if (!tabItems.find(p => p.id === draggedPlanId) || !tabItems.find(p => p.id === targetId)) return;
+
+    const sourceIndex = tabItems.findIndex(p => p.id === draggedPlanId);
+    const targetIndex = tabItems.findIndex(p => p.id === targetId);
+
+    if (sourceIndex === -1 || targetIndex === -1) return;
+
+    // Reorder locally in tab items
+    const newTabItems = [...tabItems];
+    const [removed] = newTabItems.splice(sourceIndex, 1);
+    newTabItems.splice(targetIndex, 0, removed);
+
+    // Merge back into global list preserving slots
+    const newGlobalList = [...sortedDashboardPlans];
+    let tabItemIndex = 0;
+
+    for (let i = 0; i < newGlobalList.length; i++) {
+      const cycle = (newGlobalList[i].billingCycle || '').toLowerCase();
+      if (cycle === activeTab) {
+        newGlobalList[i] = newTabItems[tabItemIndex];
+        tabItemIndex++;
+      }
+    }
+
+    setSortedDashboardPlans(newGlobalList);
+  };
+
+  const handleSaveSortOrder = async () => {
+    try {
+      // Create payload with plan metadata (order, badge, auto-popular)
+      const plans = sortedDashboardPlans.map((p, index) => ({
+        id: p.id,
+        // Calculate global order index based on current array position
+        // Assuming sortedDashboardPlans represents the desired global order
+        // OR if tabs are just for viewing, we might need to respect global order.
+        // The current implementation of reordering seems to reorder the entire sortedDashboardPlans array using drag-and-drop on the filtered view?
+        // Wait, the drag-and-drop in JSX operates on the filtered view?
+        // Let's check handleDragOver... it reorders setSortedDashboardPlans.
+        // So the array order IS the display order.
+        badgeText: p.badgeText,
+        enableAutoPopular: p.enableAutoPopular
+      }));
+
+      const res = await fetch('/api/admin/subscription-plans/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plans }),
+      });
+
+      if (res.ok) {
+        toast({ title: 'Success', description: 'Dashboard order and settings updated', variant: 'success' });
+        setSortDialogOpen(false);
+        loadPlans(); // Reload to reflect changes
+      } else {
+        toast({ title: 'Error', description: 'Failed to update order', variant: 'destructive' });
+      }
+    } catch (err) {
+      console.error('Sort save error:', err);
+      toast({ title: 'Error', description: 'Failed to save order', variant: 'destructive' });
+    }
+  };
+
+  const updateSortPlan = (id: string, updates: Partial<SubscriptionPlan>) => {
+    setSortedDashboardPlans(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  };
+
   // Load plans
   const loadPlans = useCallback(async () => {
     try {
@@ -425,7 +547,7 @@ export default function RazorPay() {
         throw new Error(`Failed to load: ${response.status}`);
       }
       const data = await response.json();
-      
+
       if (data.success) {
         // Fetch active user count for each plan
         const plansWithCounts = await Promise.all(
@@ -454,7 +576,7 @@ export default function RazorPay() {
       setLoading(false);
     }
   }, [toast]);
-  
+
   // Load Razorpay subscriptions
   const loadRazorpaySubscriptions = useCallback(async (page: number = 1) => {
     setSubscriptionsLoading(true);
@@ -463,7 +585,7 @@ export default function RazorPay() {
       const skip = (page - 1) * subscriptionsPageSize;
       const response = await fetch(`/api/payments/razorpay-subscriptions?count=${subscriptionsPageSize}&skip=${skip}`);
       const data = await response.json();
-      
+
       if (data.success) {
         setRazorpaySubscriptions(data.subscriptions || []);
         setSubscriptionsTotal(data.count || 0);
@@ -488,7 +610,7 @@ export default function RazorPay() {
       setSubscriptionsLoading(false);
     }
   }, [subscriptionsPageSize, toast]);
-  
+
   useEffect(() => {
     loadPlans();
     loadRazorpaySubscriptions(subscriptionsPage);
@@ -708,9 +830,9 @@ export default function RazorPay() {
       billingCycle: 'monthly',
       features: [],
       isActive: true,
-      razorpay_subscription_id: '',
-      razorpay_subscription_plan_id: '',
-      razorpay_subscription_link: '',
+      razorpaySubscriptionId: '',
+      razorpaySubscriptionPlanId: '',
+      razorpaySubscriptionLink: '',
     });
     setNewFeature('');
   };
@@ -718,7 +840,7 @@ export default function RazorPay() {
   // Handle create plan
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       const response = await fetch('/api/admin/subscription-plans/create', {
         method: 'POST',
@@ -728,7 +850,7 @@ export default function RazorPay() {
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();      
+      const data = await response.json();
       if (data.success) {
         toast({
           title: "Success",
@@ -758,7 +880,7 @@ export default function RazorPay() {
   // Handle edit plan
   const handleEditPlan = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedPlan) return;
 
     try {
@@ -770,7 +892,7 @@ export default function RazorPay() {
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();      if (data.success) {
+      const data = await response.json(); if (data.success) {
         toast({
           title: "Success",
           description: "Subscription plan updated successfully",
@@ -806,7 +928,7 @@ export default function RazorPay() {
         method: 'DELETE',
       });
 
-      const data = await response.json();      if (data.success) {
+      const data = await response.json(); if (data.success) {
         toast({
           title: "Success",
           description: "Subscription plan deleted successfully",
@@ -835,7 +957,28 @@ export default function RazorPay() {
   // Open edit dialog
   const openEditDialog = (plan: SubscriptionPlan) => {
     setSelectedPlan(plan);
-    const features = plan.features ? JSON.parse(plan.features) : [];
+
+    // Safely parse features - handles JSON arrays, plain text, or already parsed arrays
+    let features: string[] = [];
+    if (plan.features) {
+      if (Array.isArray(plan.features)) {
+        // Already an array (parsed by API)
+        features = plan.features as unknown as string[];
+      } else if (typeof plan.features === 'string') {
+        try {
+          const parsed = JSON.parse(plan.features);
+          features = Array.isArray(parsed) ? parsed : [plan.features];
+        } catch {
+          // Not valid JSON - treat as a single feature or split by newlines/commas
+          features = plan.features.includes('\n')
+            ? plan.features.split('\n').filter(f => f.trim())
+            : plan.features.includes(',')
+              ? plan.features.split(',').map(f => f.trim()).filter(f => f)
+              : [plan.features];
+        }
+      }
+    }
+
     setFormData({
       name: plan.name,
       description: plan.description || '',
@@ -843,9 +986,11 @@ export default function RazorPay() {
       billingCycle: plan.billingCycle,
       features: features,
       isActive: plan.isActive,
-      razorpay_subscription_id: plan.razorpay_subscription_id || '',
-      razorpay_subscription_plan_id: plan.razorpay_subscription_plan_id || '',
-      razorpay_subscription_link: plan.razorpay_subscription_link || '',
+      razorpaySubscriptionId: plan.razorpaySubscriptionId || '',
+      razorpaySubscriptionPlanId: plan.razorpaySubscriptionPlanId || '',
+      razorpaySubscriptionLink: plan.razorpaySubscriptionLink || '',
+      badgeText: plan.badgeText || '',
+      enableAutoPopular: plan.enableAutoPopular || false,
     });
     setEditDialogOpen(true);
   };
@@ -854,6 +999,64 @@ export default function RazorPay() {
   const openDeleteDialog = (plan: SubscriptionPlan) => {
     setSelectedPlan(plan);
     setDeleteDialogOpen(true);
+  };
+
+  // Toggle visibility for Basic Plans (one-time plans)
+  const toggleBasicPlanVisibility = async (planId: string, currentVisibility: boolean) => {
+    try {
+      const response = await fetch(`/api/admin/subscription-plans/${planId}/visibility`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isVisibleToCustomers: !currentVisibility }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle visibility');
+      }
+
+      // Refresh plans
+      loadPlans();
+      toast({
+        title: 'Success',
+        description: `Plan visibility ${!currentVisibility ? 'enabled' : 'disabled'}`,
+      });
+    } catch (error) {
+      console.error('Error toggling visibility:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to toggle plan visibility',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Toggle visibility for Razorpay Plans (subscription plans)
+  const toggleRazorpayPlanVisibility = async (planId: string, currentVisibility: boolean) => {
+    try {
+      const response = await fetch(`/api/admin/subscription-plans/${planId}/visibility`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isVisibleToCustomers: !currentVisibility }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle visibility');
+      }
+
+      // Refresh plans
+      loadRazorpayPlans();
+      toast({
+        title: 'Success',
+        description: `Plan visibility ${!currentVisibility ? 'enabled' : 'disabled'}`,
+      });
+    } catch (error) {
+      console.error('Error toggling visibility:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to toggle plan visibility',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Add feature
@@ -905,7 +1108,13 @@ export default function RazorPay() {
   };
 
   const filteredAndSortedBasicPlans = useMemo(() => {
-    let result = [...filteredPlans];
+    // Only include local plans (exclude any plans linked to Razorpay)
+    // A plan is considered a Razorpay plan if it has any of the Razorpay fields set
+    let result = filteredPlans.filter(plan =>
+      !plan.razorpaySubscriptionPlanId &&
+      !plan.razorpaySubscriptionId &&
+      !plan.razorpaySubscriptionLink
+    );
 
     // Apply column filters
     Object.entries(basicPlanColumnFilters).forEach(([column, filterValue]) => {
@@ -947,15 +1156,27 @@ export default function RazorPay() {
   // Parse features for display
   const parseFeatures = (featuresStr: string | null): string[] => {
     if (!featuresStr) return [];
+
+    // If already an array (in case API returns parsed data)
+    if (Array.isArray(featuresStr)) return featuresStr;
+
     try {
-      return JSON.parse(featuresStr);
+      const parsed = JSON.parse(featuresStr);
+      return Array.isArray(parsed) ? parsed : [featuresStr];
     } catch {
-      return [];
+      // Not valid JSON - treat as plain text and split by newlines or commas
+      if (featuresStr.includes('\n')) {
+        return featuresStr.split('\n').filter(f => f.trim());
+      } else if (featuresStr.includes(',')) {
+        return featuresStr.split(',').map(f => f.trim()).filter(f => f);
+      }
+      // Single feature as plain text
+      return [featuresStr];
     }
   };
 
   if (loading) {
-  return <Loading text="Loading subscription plans..." size="lg" />;
+    return <Loading text="Loading subscription plans..." size="lg" />;
   }
 
   return (
@@ -966,6 +1187,13 @@ export default function RazorPay() {
           <h1 className="text-3xl font-bold">Subscription Plans</h1>
           <p className="text-muted-foreground">Manage subscription plans and pricing</p>
         </div>
+        <Button
+          variant="outline"
+          onClick={openSortDialog}
+        >
+          <ArrowUpDown className="h-4 w-4 mr-2" />
+          Dashboard Order
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -1018,8 +1246,13 @@ export default function RazorPay() {
 
       {/* Basic Plans Table */}
       <Card>
-        <CardHeader className="relative">
-          <CardTitle className="m-0">Basic Plans</CardTitle>
+        <CardHeader className="relative pb-2">
+          <div className="mb-2">
+            <CardTitle className="m-0">Basic Plans</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              One-time payment plans — No automatic recurring charges. Clients pay once and won&apos;t be charged automatically.
+            </p>
+          </div>
           <div className="absolute right-3 top-3 flex items-center gap-2 w-auto sm:w-80 md:w-96">
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <DialogTrigger asChild>
@@ -1095,6 +1328,29 @@ export default function RazorPay() {
                       </div>
                     </div>
 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="badgeText">Badge Text</Label>
+                        <Input
+                          id="badgeText"
+                          value={formData.badgeText || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, badgeText: e.target.value }))}
+                          placeholder="e.g. Best Value, Popular"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2 h-full pt-6">
+                        <Switch
+                          id="enableAutoPopular"
+                          checked={formData.enableAutoPopular || false}
+                          onCheckedChange={(checked) => setFormData(prev => ({ ...prev, enableAutoPopular: checked }))}
+                        />
+                        <div className="flex flex-col" onClick={() => setFormData(prev => ({ ...prev, enableAutoPopular: !prev.enableAutoPopular }))}>
+                          <Label htmlFor="enableAutoPopular" className="cursor-pointer">Auto 'Most Popular'</Label>
+                          <span className="text-xs text-muted-foreground">If best seller, override badge</span>
+                        </div>
+                      </div>
+                    </div>
+
                     <div>
                       <Label>Features</Label>
                       <div className="space-y-2">
@@ -1137,6 +1393,97 @@ export default function RazorPay() {
                     <Button type="submit">Create Plan</Button>
                   </div>
                 </form>
+              </DialogContent>
+            </Dialog>
+
+            {/* Sort Order Dialog */}
+            <Dialog open={sortDialogOpen} onOpenChange={setSortDialogOpen}>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Dashboard Plan Order</DialogTitle>
+                  <div className="text-sm text-muted-foreground">
+                    Drag and drop plans to reorder how they appear on the dashboard.
+                  </div>
+                </DialogHeader>
+
+                {/* Tabs */}
+                {sortedDashboardPlans.length > 0 && (
+                  <div className="flex flex-wrap gap-2 px-1 mb-2">
+                    {Array.from(new Set(sortedDashboardPlans.map(p => (p.billingCycle || '').toLowerCase())))
+                      .filter(Boolean)
+                      .sort()
+                      .map(cycle => (
+                        <Button
+                          key={cycle}
+                          variant={activeTab === cycle ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setActiveTab(cycle)}
+                          className="h-7 text-xs capitalize"
+                        >
+                          {cycle}
+                        </Button>
+                      ))}
+                  </div>
+                )}
+                <div className="py-4 space-y-2 max-h-[60vh] overflow-y-auto">
+                  {sortedDashboardPlans
+                    .filter(plan => (plan.billingCycle || '').toLowerCase() === activeTab)
+                    .map((plan, index) => (
+                      <div
+                        key={plan.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, plan.id)}
+                        onDragOver={(e) => handleDragOver(e, plan.id)}
+                        onDrop={(e) => e.preventDefault()}
+                        className={`flex flex-col gap-3 p-3 bg-card border rounded-md cursor-grab active:cursor-grabbing ${draggedPlanId === plan.id ? 'opacity-50' : ''} hover:bg-accent/50 transition-colors`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center gap-3">
+                            <GripVertical className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">{plan.name}</p>
+                              <div className="text-xs text-muted-foreground flex items-center gap-2">
+                                <Badge variant="outline" className="text-[10px] h-5 px-1">
+                                  {plan.billingCycle}
+                                </Badge>
+                                {plan.price}
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-xs font-mono bg-muted px-2 py-1 rounded">#{index + 1}</span>
+                        </div>
+
+                        <div className="flex items-center gap-3 pl-8" onMouseDown={(e) => e.stopPropagation()}>
+                          <div className="flex-1">
+                            <Input
+                              placeholder="Badge Text (e.g. Best Value)"
+                              className="h-8 text-xs w-full"
+                              value={plan.badgeText || ''}
+                              onChange={(e) => updateSortPlan(plan.id, { badgeText: e.target.value })}
+                            />
+                          </div>
+                          <div className="flex items-center space-x-2 border-l pl-3 bg-muted/30 p-1 rounded-sm">
+                            <Switch
+                              id={`auto-${plan.id}`}
+                              checked={plan.enableAutoPopular || false}
+                              onCheckedChange={(checked) => updateSortPlan(plan.id, { enableAutoPopular: checked })}
+                              className="scale-90"
+                            />
+                            <Label htmlFor={`auto-${plan.id}`} className="text-xs cursor-pointer whitespace-nowrap font-medium">Auto Popular</Label>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  {sortedDashboardPlans.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8">
+                      No visible plans found. Ensure plans are marked as 'Visible to Customers'.
+                    </p>
+                  )}
+                </div>
+                <div className="flex justify-end space-x-2 pt-4 border-t">
+                  <Button variant="outline" onClick={() => setSortDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleSaveSortOrder}>Save Order</Button>
+                </div>
               </DialogContent>
             </Dialog>
 
@@ -1185,6 +1532,7 @@ export default function RazorPay() {
                   >
                     Status
                   </TableHeadSortable>
+                  <TableHead>Visible</TableHead>
                   <TableHeadSortable
                     sortable
                     sortDirection={basicPlanSortField === 'createdAt' ? basicPlanSortDirection : null}
@@ -1227,6 +1575,7 @@ export default function RazorPay() {
                       onSearch={(value) => handleBasicPlanColumnFilter('isActive', value)}
                     />
                   </TableHead>
+                  <TableHead></TableHead>
                   <TableHead>
                     <TableColumnSearch
                       placeholder="Search date..."
@@ -1245,7 +1594,7 @@ export default function RazorPay() {
               <TableBody>
                 {filteredAndSortedBasicPlans.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <div className="text-muted-foreground">
                         {searchTerm ? 'No plans found matching your search.' : 'No subscription plans found.'}
                       </div>
@@ -1287,6 +1636,17 @@ export default function RazorPay() {
                       </TableCell>
                       <TableCell>
                         {plan.isActive ? <Badge className="bg-green-100 text-green-800">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={plan.isVisibleToCustomers ?? true}
+                            onCheckedChange={() => toggleBasicPlanVisibility(plan.id, plan.isVisibleToCustomers ?? true)}
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {plan.isVisibleToCustomers ?? true ? 'Shown' : 'Hidden'}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm text-muted-foreground">{new Date(plan.createdAt).toLocaleDateString()}</div>
@@ -1355,7 +1715,7 @@ export default function RazorPay() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="rp-period">Period *</Label>
-                        <select id="rp-period" aria-label="Razorpay plan period" value={rpPeriod} onChange={e => setRpPeriod(e.target.value as 'daily'|'weekly'|'monthly'|'quarterly'|'yearly')} className="w-full px-3 py-2 border border-input rounded">
+                        <select id="rp-period" aria-label="Razorpay plan period" value={rpPeriod} onChange={e => setRpPeriod(e.target.value as 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly')} className="w-full px-3 py-2 border border-input rounded">
                           <option value="daily">Daily</option>
                           <option value="weekly">Weekly</option>
                           <option value="monthly">Monthly</option>
@@ -1377,6 +1737,58 @@ export default function RazorPay() {
                     <div>
                       <Label htmlFor="rp-description">Description</Label>
                       <Textarea id="rp-description" value={rpDescription} onChange={e => setRpDescription(e.target.value)} rows={3} />
+                    </div>
+
+                    {/* Features section (stored in database only) */}
+                    <div>
+                      <Label>Features</Label>
+                      <p className="text-xs text-muted-foreground mb-2">Features are stored in your database only (not sent to Razorpay)</p>
+                      <div className="flex space-x-2 mb-3">
+                        <Input
+                          placeholder="Add a feature..."
+                          value={rpNewFeature}
+                          onChange={(e) => setRpNewFeature(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && rpNewFeature.trim()) {
+                              e.preventDefault();
+                              setRpFeatures(prev => [...prev, rpNewFeature.trim()]);
+                              setRpNewFeature('');
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            if (rpNewFeature.trim()) {
+                              setRpFeatures(prev => [...prev, rpNewFeature.trim()]);
+                              setRpNewFeature('');
+                            }
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                      {rpFeatures.length > 0 && (
+                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                          {rpFeatures.map((feature, index) => (
+                            <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
+                              <span className="text-sm flex items-center gap-2">
+                                <Check className="h-4 w-4 text-green-600" />
+                                {feature}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setRpFeatures(prev => prev.filter((_, i) => i !== index))}
+                              >
+                                <XCircle className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -1451,6 +1863,7 @@ export default function RazorPay() {
                     >
                       Created At
                     </TableHeadSortable>
+                    <TableHead>Visible</TableHead>
                   </TableRow>
                   <TableRow>
                     <TableHead>
@@ -1483,12 +1896,13 @@ export default function RazorPay() {
                         onSearch={(value) => handleRazorpayPlanColumnFilter('created_at', value)}
                       />
                     </TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAndSortedRazorpayPlans.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No plans found.</TableCell>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No plans found.</TableCell>
                     </TableRow>
                   ) : (
                     filteredAndSortedRazorpayPlans.map((p: RazorpayPlan) => (
@@ -1514,6 +1928,17 @@ export default function RazorPay() {
                         </TableCell>
                         <TableCell>{p.period || '-'}</TableCell>
                         <TableCell>{p.created_at ? new Date(p.created_at * 1000).toLocaleString() : '-'}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={p.isVisibleToCustomers ?? true}
+                              onCheckedChange={() => toggleRazorpayPlanVisibility(p.id, p.isVisibleToCustomers ?? true)}
+                            />
+                            <span className="text-sm text-muted-foreground">
+                              {p.isVisibleToCustomers ?? true ? 'Shown' : 'Hidden'}
+                            </span>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -1675,9 +2100,9 @@ export default function RazorPay() {
                         </TableCell>
                         <TableCell>
                           {subscription.short_url ? (
-                            <a 
-                              href={subscription.short_url} 
-                              target="_blank" 
+                            <a
+                              href={subscription.short_url}
+                              target="_blank"
                               rel="noopener noreferrer"
                             >
                               {subscription.short_url}
@@ -1739,7 +2164,7 @@ export default function RazorPay() {
                   )}
                 </TableBody>
               </Table>
-              
+
               <TablePagination
                 currentPage={subscriptionsPage}
                 totalPages={Math.ceil(subscriptionsTotal / subscriptionsPageSize)}
@@ -1755,245 +2180,245 @@ export default function RazorPay() {
       {/* Plan Details Dialog */}
       <Dialog open={planDialogOpen} onOpenChange={(open) => { if (!open) { setSelectedRazorpayPlan(null); setPlanError(null); } setPlanDialogOpen(open); }}>
         <DialogContent hideClose className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center justify-between gap-4">
-                <span>Plan Details</span>
-              </DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              {planLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : planError ? (
-                <div className="text-red-600">{planError}</div>
-              ) : selectedRazorpayPlan ? (
-                <div className="space-y-4">
-                  <div className="flex flex-col md:flex-row md:items-start md:gap-6">
-                    {/* Left: prominent amount / summary */}
-                    <div className="md:w-1/3 bg-muted/50 p-4 rounded-md flex flex-col items-start gap-2">
-                      <div className="text-sm text-muted-foreground">Amount</div>
-                      <div className="text-2xl font-semibold">
-                        {selectedRazorpayPlan.item?.currency ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: selectedRazorpayPlan.item.currency }).format((selectedRazorpayPlan.item.amount || selectedRazorpayPlan.item.unit_amount || 0) / 100) : '--'}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Frequency</div>
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-primary/10 text-primary border-primary/20">{selectedRazorpayPlan.period || '—'}</Badge>
-                      </div>
-                      <div className="mt-3 w-full">
-                        <div className="text-sm text-muted-foreground">Plan Name</div>
-                        <div className="font-medium">{selectedRazorpayPlan.item?.name || '-'}</div>
-                      </div>
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between gap-4">
+              <span>Plan Details</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {planLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : planError ? (
+              <div className="text-red-600">{planError}</div>
+            ) : selectedRazorpayPlan ? (
+              <div className="space-y-4">
+                <div className="flex flex-col md:flex-row md:items-start md:gap-6">
+                  {/* Left: prominent amount / summary */}
+                  <div className="md:w-1/3 bg-muted/50 p-4 rounded-md flex flex-col items-start gap-2">
+                    <div className="text-sm text-muted-foreground">Amount</div>
+                    <div className="text-2xl font-semibold">
+                      {selectedRazorpayPlan.item?.currency ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: selectedRazorpayPlan.item.currency }).format((selectedRazorpayPlan.item.amount || selectedRazorpayPlan.item.unit_amount || 0) / 100) : '--'}
                     </div>
-
-                    {/* Right: details */}
-                    <div className="md:flex-1 p-1">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <div className="text-sm text-muted-foreground">Plan ID</div>
-                          <div className="flex items-center gap-2">
-                            <div className="font-mono text-sm truncate">{selectedRazorpayPlan.id}</div>
-                            <Button size="sm" variant="outline" onClick={() => copyPlanId(selectedRazorpayPlan.id)}>
-                              {copiedPlanId ? (<span className="flex items-center gap-2 text-emerald-400"><Check className="h-4 w-4 mr-1" />Copied</span>) : 'Copy ID'}
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="text-sm text-muted-foreground">Created</div>
-                          <div className="text-sm">{selectedRazorpayPlan.created_at ? new Date(selectedRazorpayPlan.created_at * 1000).toLocaleString() : '--'}</div>
-                        </div>
-
-                        <div className="sm:col-span-2">
-                          <div className="text-sm text-muted-foreground">Description</div>
-                          <div className="text-sm">{selectedRazorpayPlan.item?.description || '--'}</div>
-                        </div>
-
-                        <div>
-                          <div className="text-sm text-muted-foreground">Currency</div>
-                          <div>{selectedRazorpayPlan.item?.currency || '--'}</div>
-                        </div>
-
-                        <div>
-                          <div className="text-sm text-muted-foreground">Interval Count</div>
-                          <div>{selectedRazorpayPlan.item ? `${(((selectedRazorpayPlan.item as unknown) as Record<string, unknown>)['interval_count'] ?? ((selectedRazorpayPlan.item as unknown) as Record<string, unknown>)['interval'] ?? '--')}` : '--'}</div>
-                        </div>
-                      </div>
+                    <div className="text-sm text-muted-foreground">Frequency</div>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-primary/10 text-primary border-primary/20">{selectedRazorpayPlan.period || '—'}</Badge>
+                    </div>
+                    <div className="mt-3 w-full">
+                      <div className="text-sm text-muted-foreground">Plan Name</div>
+                      <div className="font-medium">{selectedRazorpayPlan.item?.name || '-'}</div>
                     </div>
                   </div>
 
-                  {/* Notes */}
-                  <div>
-                    <div className="text-sm text-muted-foreground">Notes</div>
-                    <div className="mt-2">
-                      {selectedRazorpayPlan.notes ? (
-                        <div className="space-y-1 text-sm">
-                          {Object.entries(selectedRazorpayPlan.notes).map(([k, v]) => (
-                            <div key={k}><strong>{k}:</strong> {v}</div>
-                          ))}
+                  {/* Right: details */}
+                  <div className="md:flex-1 p-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Plan ID</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-mono text-sm truncate">{selectedRazorpayPlan.id}</div>
+                          <Button size="sm" variant="outline" onClick={() => copyPlanId(selectedRazorpayPlan.id)}>
+                            {copiedPlanId ? (<span className="flex items-center gap-2 text-emerald-400"><Check className="h-4 w-4 mr-1" />Copied</span>) : 'Copy ID'}
+                          </Button>
                         </div>
-                      ) : (
-                        <div className="text-muted-foreground">--</div>
-                      )}
+                      </div>
+
+                      <div>
+                        <div className="text-sm text-muted-foreground">Created</div>
+                        <div className="text-sm">{selectedRazorpayPlan.created_at ? new Date(selectedRazorpayPlan.created_at * 1000).toLocaleString() : '--'}</div>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <div className="text-sm text-muted-foreground">Description</div>
+                        <div className="text-sm">{selectedRazorpayPlan.item?.description || '--'}</div>
+                      </div>
+
+                      <div>
+                        <div className="text-sm text-muted-foreground">Currency</div>
+                        <div>{selectedRazorpayPlan.item?.currency || '--'}</div>
+                      </div>
+
+                      <div>
+                        <div className="text-sm text-muted-foreground">Interval Count</div>
+                        <div>{selectedRazorpayPlan.item ? `${(((selectedRazorpayPlan.item as unknown) as Record<string, unknown>)['interval_count'] ?? ((selectedRazorpayPlan.item as unknown) as Record<string, unknown>)['interval'] ?? '--')}` : '--'}</div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              ) : (
-                <div className="text-muted-foreground">No plan selected.</div>
-              )}
-            </div>
-            <div className="flex justify-end gap-2 px-4 pb-4">
-              <Button variant="outline" onClick={() => { setSelectedRazorpayPlan(null); setPlanDialogOpen(false); }}>Close</Button>
-            </div>
-          </DialogContent>
+
+                {/* Notes */}
+                <div>
+                  <div className="text-sm text-muted-foreground">Notes</div>
+                  <div className="mt-2">
+                    {selectedRazorpayPlan.notes ? (
+                      <div className="space-y-1 text-sm">
+                        {Object.entries(selectedRazorpayPlan.notes).map(([k, v]) => (
+                          <div key={k}><strong>{k}:</strong> {v}</div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-muted-foreground">--</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-muted-foreground">No plan selected.</div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 px-4 pb-4">
+            <Button variant="outline" onClick={() => { setSelectedRazorpayPlan(null); setPlanDialogOpen(false); }}>Close</Button>
+          </div>
+        </DialogContent>
       </Dialog>
 
       {/* Subscription Details Dialog */}
       <Dialog open={subscriptionDialogOpen} onOpenChange={(open) => { if (!open) { setSelectedRazorpaySubscription(null); setSubscriptionError(null); } setSubscriptionDialogOpen(open); }}>
         <DialogContent hideClose className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center justify-between gap-4">
-                <span>Subscription Details</span>
-              </DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              {subscriptionLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : subscriptionError ? (
-                <div className="text-red-600">{subscriptionError}</div>
-              ) : selectedRazorpaySubscription ? (
-                <div className="space-y-4">
-                  <div className="flex flex-col md:flex-row md:gap-6">
-                    <div className="md:w-1/3 bg-muted/50 p-4 rounded-md">
-                      <div className="text-sm text-muted-foreground">Next Due</div>
-                      <div className="text-lg font-semibold">{selectedRazorpaySubscription.current_end ? new Date(selectedRazorpaySubscription.current_end * 1000).toLocaleString() : '--'}</div>
-                      <div className="mt-3 text-sm text-muted-foreground">Quantity</div>
-                      <div className="font-medium">{selectedRazorpaySubscription.quantity ?? '--'}</div>
-                      <div className="mt-3 text-sm text-muted-foreground">Short URL</div>
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between gap-4">
+              <span>Subscription Details</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {subscriptionLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : subscriptionError ? (
+              <div className="text-red-600">{subscriptionError}</div>
+            ) : selectedRazorpaySubscription ? (
+              <div className="space-y-4">
+                <div className="flex flex-col md:flex-row md:gap-6">
+                  <div className="md:w-1/3 bg-muted/50 p-4 rounded-md">
+                    <div className="text-sm text-muted-foreground">Next Due</div>
+                    <div className="text-lg font-semibold">{selectedRazorpaySubscription.current_end ? new Date(selectedRazorpaySubscription.current_end * 1000).toLocaleString() : '--'}</div>
+                    <div className="mt-3 text-sm text-muted-foreground">Quantity</div>
+                    <div className="font-medium">{selectedRazorpaySubscription.quantity ?? '--'}</div>
+                    <div className="mt-3 text-sm text-muted-foreground">Short URL</div>
+                    <div>
+                      {selectedRazorpaySubscription.short_url ? (
+                        <a href={selectedRazorpaySubscription.short_url} target="_blank" rel="noopener noreferrer" className="text-primary underline">Open Link</a>
+                      ) : (<span className="text-muted-foreground">--</span>)}
+                    </div>
+                  </div>
+
+                  <div className="md:flex-1 p-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        {selectedRazorpaySubscription.short_url ? (
-                          <a href={selectedRazorpaySubscription.short_url} target="_blank" rel="noopener noreferrer" className="text-primary underline">Open Link</a>
-                        ) : (<span className="text-muted-foreground">--</span>)}
+                        <div className="text-sm text-muted-foreground">Subscription ID</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-mono text-sm truncate">{selectedRazorpaySubscription.id}</div>
+                          <Button size="sm" variant="outline" onClick={() => copySubscriptionId(selectedRazorpaySubscription.id)}>
+                            {copiedSubscriptionId ? (<span className="flex items-center gap-2 text-emerald-400"><Check className="h-4 w-4 mr-1" />Copied</span>) : 'Copy ID'}
+                          </Button>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="md:flex-1 p-1">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Plan</div>
                         <div>
-                          <div className="text-sm text-muted-foreground">Subscription ID</div>
-                          <div className="flex items-center gap-2">
-                            <div className="font-mono text-sm truncate">{selectedRazorpaySubscription.id}</div>
-                            <Button size="sm" variant="outline" onClick={() => copySubscriptionId(selectedRazorpaySubscription.id)}>
-                              {copiedSubscriptionId ? (<span className="flex items-center gap-2 text-emerald-400"><Check className="h-4 w-4 mr-1"/>Copied</span>) : 'Copy ID'}
-                            </Button>
-                          </div>
+                          {selectedRazorpaySubscription.plan_id ? (
+                            <button type="button" className="text-primary underline hover:text-primary/80" onClick={() => { loadRazorpayPlan(selectedRazorpaySubscription.plan_id); setPlanDialogOpen(true); }}>{selectedRazorpaySubscription.plan_id}</button>
+                          ) : (<span className="text-muted-foreground">--</span>)}
                         </div>
+                      </div>
 
-                        <div>
-                          <div className="text-sm text-muted-foreground">Plan</div>
-                          <div>
-                            {selectedRazorpaySubscription.plan_id ? (
-                              <button type="button" className="text-primary underline hover:text-primary/80" onClick={() => { loadRazorpayPlan(selectedRazorpaySubscription.plan_id); setPlanDialogOpen(true); }}>{selectedRazorpaySubscription.plan_id}</button>
-                            ) : (<span className="text-muted-foreground">--</span>)}
-                          </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Created</div>
+                        <div className="text-sm">{selectedRazorpaySubscription.created_at ? new Date(selectedRazorpaySubscription.created_at * 1000).toLocaleString() : '--'}</div>
+                      </div>
+
+                      <div>
+                        <div className="text-sm text-muted-foreground">Status</div>
+                        <div className="text-sm">{selectedRazorpaySubscription.status === 'active' ? (
+                          <Badge className="bg-green-100 text-green-700 border-green-200">Active</Badge>
+                        ) : selectedRazorpaySubscription.status === 'created' ? (
+                          <Badge className="bg-gray-100 text-gray-700 border-gray-200">Created</Badge>
+                        ) : selectedRazorpaySubscription.status === 'cancelled' ? (
+                          <Badge className="bg-red-100 text-red-700 border-red-200">Cancelled</Badge>
+                        ) : (
+                          <Badge variant="outline">{selectedRazorpaySubscription.status}</Badge>
+                        )}
                         </div>
+                      </div>
 
-                        <div>
-                          <div className="text-sm text-muted-foreground">Created</div>
-                          <div className="text-sm">{selectedRazorpaySubscription.created_at ? new Date(selectedRazorpaySubscription.created_at * 1000).toLocaleString() : '--'}</div>
-                        </div>
-
-                        <div>
-                          <div className="text-sm text-muted-foreground">Status</div>
-                          <div className="text-sm">{selectedRazorpaySubscription.status === 'active' ? (
-                              <Badge className="bg-green-100 text-green-700 border-green-200">Active</Badge>
-                            ) : selectedRazorpaySubscription.status === 'created' ? (
-                              <Badge className="bg-gray-100 text-gray-700 border-gray-200">Created</Badge>
-                            ) : selectedRazorpaySubscription.status === 'cancelled' ? (
-                              <Badge className="bg-red-100 text-red-700 border-red-200">Cancelled</Badge>
-                            ) : (
-                              <Badge variant="outline">{selectedRazorpaySubscription.status}</Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="sm:col-span-2">
-                          <div className="text-sm text-muted-foreground">Notes</div>
-                          <div className="mt-2 text-sm">
-                            {selectedRazorpaySubscription.notes ? (
-                              <div className="space-y-1">
-                                {Object.entries(selectedRazorpaySubscription.notes).map(([k, v]) => (<div key={k}><strong>{k}:</strong> {v}</div>))}
-                              </div>
-                            ) : (<span className="text-muted-foreground">--</span>)}
-                          </div>
+                      <div className="sm:col-span-2">
+                        <div className="text-sm text-muted-foreground">Notes</div>
+                        <div className="mt-2 text-sm">
+                          {selectedRazorpaySubscription.notes ? (
+                            <div className="space-y-1">
+                              {Object.entries(selectedRazorpaySubscription.notes).map(([k, v]) => (<div key={k}><strong>{k}:</strong> {v}</div>))}
+                            </div>
+                          ) : (<span className="text-muted-foreground">--</span>)}
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Invoices list */}
-                  <div>
-                    <div className="text-sm text-muted-foreground mb-2">Invoices</div>
-                    {invoicesLoading ? (
-                      <div className="text-sm text-muted-foreground">Loading invoices...</div>
-                    ) : invoicesError ? (
-                      <div className="text-sm text-red-600">{invoicesError}</div>
-                    ) : subscriptionInvoices.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">No invoices found.</div>
-                    ) : (
-                      <div className="overflow-x-auto mt-2">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="text-left text-muted-foreground">
-                              <th className="pr-4">Invoice ID</th>
-                              <th className="pr-4">Status</th>
-                              <th className="pr-4">Amount</th>
-                              <th className="pr-4">Issued</th>
-                              <th className="pr-4">Paid</th>
-                              <th className="pr-4">Link</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {subscriptionInvoices.map((inv: RazorpayInvoice) => (
-                              <tr key={inv.id} className="border-t">
-                                <td className="py-2 pr-4 font-mono text-xs">{inv.id}</td>
-                                <td className="py-2 pr-4">
-                                  {inv.status === 'paid' ? <Badge className="bg-green-100 text-green-700">Paid</Badge> : inv.status === 'pending' ? <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge> : <span className="text-sm">{inv.status}</span>}
-                                </td>
-                                <td className="py-2 pr-4">{inv.amount ? (inv.currency ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: inv.currency }).format(inv.amount / 100) : inv.amount) : '--'}</td>
-                                <td className="py-2 pr-4">{inv.issued_at ? new Date(inv.issued_at * 1000).toLocaleString() : '--'}</td>
-                                <td className="py-2 pr-4">{inv.paid_at ? new Date(inv.paid_at * 1000).toLocaleString() : '--'}</td>
-                                <td className="py-2 pr-4">{inv.short_url ? (<a href={inv.short_url} target="_blank" rel="noreferrer" className="text-primary underline">Open</a>) : '--'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
                   </div>
                 </div>
-              ) : (
-                <div className="text-muted-foreground">No subscription selected.</div>
-              )}
-            </div>
-            <div className="flex justify-end gap-2 px-4 pb-4">
-              <Button size="sm" variant="outline" onClick={() => selectedRazorpaySubscription && pauseRazorpaySubscription(selectedRazorpaySubscription.id)}>Pause</Button>
-              <Button size="sm" variant="secondary" onClick={() => selectedRazorpaySubscription && resumeRazorpaySubscription(selectedRazorpaySubscription.id)}>Resume</Button>
-              <Button size="sm" variant="destructive" onClick={() => selectedRazorpaySubscription && cancelRazorpaySubscription(selectedRazorpaySubscription.id)}>Cancel Subscription</Button>
-              <Button size="sm" variant="outline" onClick={() => { setSelectedRazorpaySubscription(null); setSubscriptionDialogOpen(false); }}>Close</Button>
-            </div>
-          </DialogContent>
+
+                {/* Invoices list */}
+                <div>
+                  <div className="text-sm text-muted-foreground mb-2">Invoices</div>
+                  {invoicesLoading ? (
+                    <div className="text-sm text-muted-foreground">Loading invoices...</div>
+                  ) : invoicesError ? (
+                    <div className="text-sm text-red-600">{invoicesError}</div>
+                  ) : subscriptionInvoices.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">No invoices found.</div>
+                  ) : (
+                    <div className="overflow-x-auto mt-2">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-muted-foreground">
+                            <th className="pr-4">Invoice ID</th>
+                            <th className="pr-4">Status</th>
+                            <th className="pr-4">Amount</th>
+                            <th className="pr-4">Issued</th>
+                            <th className="pr-4">Paid</th>
+                            <th className="pr-4">Link</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {subscriptionInvoices.map((inv: RazorpayInvoice) => (
+                            <tr key={inv.id} className="border-t">
+                              <td className="py-2 pr-4 font-mono text-xs">{inv.id}</td>
+                              <td className="py-2 pr-4">
+                                {inv.status === 'paid' ? <Badge className="bg-green-100 text-green-700">Paid</Badge> : inv.status === 'pending' ? <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge> : <span className="text-sm">{inv.status}</span>}
+                              </td>
+                              <td className="py-2 pr-4">{inv.amount ? (inv.currency ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: inv.currency }).format(inv.amount / 100) : inv.amount) : '--'}</td>
+                              <td className="py-2 pr-4">{inv.issued_at ? new Date(inv.issued_at * 1000).toLocaleString() : '--'}</td>
+                              <td className="py-2 pr-4">{inv.paid_at ? new Date(inv.paid_at * 1000).toLocaleString() : '--'}</td>
+                              <td className="py-2 pr-4">{inv.short_url ? (<a href={inv.short_url} target="_blank" rel="noreferrer" className="text-primary underline">Open</a>) : '--'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-muted-foreground">No subscription selected.</div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 px-4 pb-4">
+            <Button size="sm" variant="outline" onClick={() => selectedRazorpaySubscription && pauseRazorpaySubscription(selectedRazorpaySubscription.id)}>Pause</Button>
+            <Button size="sm" variant="secondary" onClick={() => selectedRazorpaySubscription && resumeRazorpaySubscription(selectedRazorpaySubscription.id)}>Resume</Button>
+            <Button size="sm" variant="destructive" onClick={() => selectedRazorpaySubscription && cancelRazorpaySubscription(selectedRazorpaySubscription.id)}>Cancel Subscription</Button>
+            <Button size="sm" variant="outline" onClick={() => { setSelectedRazorpaySubscription(null); setSubscriptionDialogOpen(false); }}>Close</Button>
+          </div>
+        </DialogContent>
       </Dialog>
-      
+
       {/* Basic Plan Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col bg-accent text-primary">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>Edit Subscription Plan</DialogTitle>
           </DialogHeader>
-          
+
           <form onSubmit={handleEditPlan} className="flex flex-col h-full">
             <div className="flex-1 overflow-y-auto space-y-4 pr-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2020,36 +2445,36 @@ export default function RazorPay() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="edit-razorpay_subscription_id">Razorpay Subscription ID</Label>
+                  <Label htmlFor="edit-razorpaySubscriptionId">Razorpay Subscription ID</Label>
                   <Input
-                    id="edit-razorpay_subscription_id"
-                    value={formData.razorpay_subscription_id}
-                    onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_id: e.target.value }))}
+                    id="edit-razorpaySubscriptionId"
+                    value={formData.razorpaySubscriptionId}
+                    onChange={(e) => setFormData(prev => ({ ...prev, razorpaySubscriptionId: e.target.value }))}
                     placeholder="Enter Razorpay Subscription ID"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="edit-razorpay_subscription_plan_id">Razorpay Subscription Plan ID</Label>
+                  <Label htmlFor="edit-razorpaySubscriptionPlanId">Razorpay Subscription Plan ID</Label>
                   <Input
-                    id="edit-razorpay_subscription_plan_id"
-                    value={formData.razorpay_subscription_plan_id}
-                    onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_plan_id: e.target.value }))}
+                    id="edit-razorpaySubscriptionPlanId"
+                    value={formData.razorpaySubscriptionPlanId}
+                    onChange={(e) => setFormData(prev => ({ ...prev, razorpaySubscriptionPlanId: e.target.value }))}
                     placeholder="Enter Razorpay Subscription Plan ID"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="edit-razorpay_subscription_link">Razorpay Subscription Link</Label>
+                  <Label htmlFor="edit-razorpaySubscriptionLink">Razorpay Subscription Link</Label>
                   <Input
-                    id="edit-razorpay_subscription_link"
-                    value={formData.razorpay_subscription_link}
-                    onChange={(e) => setFormData(prev => ({ ...prev, razorpay_subscription_link: e.target.value }))}
+                    id="edit-razorpaySubscriptionLink"
+                    value={formData.razorpaySubscriptionLink}
+                    onChange={(e) => setFormData(prev => ({ ...prev, razorpaySubscriptionLink: e.target.value }))}
                     placeholder="Enter Razorpay Subscription Link"
                   />
                 </div>
               </div>
-              
+
               <div>
                 <Label htmlFor="edit-description">Description</Label>
                 <Textarea
@@ -2139,7 +2564,7 @@ export default function RazorPay() {
           <DialogHeader>
             <DialogTitle>Delete Subscription Plan</DialogTitle>
           </DialogHeader>
-          <div className="py-4">            
+          <div className="py-4">
             <p className="text-sm text-muted-foreground">
               Are you sure you want to delete the plan &ldquo;{selectedPlan?.name}&rdquo;? This action cannot be undone.
             </p>
@@ -2159,6 +2584,6 @@ export default function RazorPay() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }

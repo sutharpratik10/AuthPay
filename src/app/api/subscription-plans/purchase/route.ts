@@ -40,7 +40,7 @@ export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response>
     const userId = session.user.id;
 
     // Validate plan
-    let plan = null;
+    let plan: any = null;
     // Accept local UUID plan ids or Razorpay plan ids that are prefixed with `rz-...`
     if (typeof planId === 'string' && planId.startsWith('rz-')) {
       // lookup by razorpaySubscriptionPlanId

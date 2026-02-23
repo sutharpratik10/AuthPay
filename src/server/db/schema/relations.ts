@@ -109,5 +109,3 @@ export const otpCodesRelations = relations(otpCodes, ({ one }) => ({
     references: [users.id],
   }),
 }));
-
-

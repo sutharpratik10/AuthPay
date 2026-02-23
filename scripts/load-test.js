@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Load Testing Script for AuthPay API Routes
+ * Load Testing Script for BookEase API Routes
  * 
  * This script simulates high-traffic scenarios to test application resilience
  * Usage: node scripts/load-test.js [intensity]
@@ -74,7 +74,7 @@ const API_ROUTES = [
 
 const config = INTENSITY_CONFIGS[intensity] || INTENSITY_CONFIGS.low;
 
-console.log(chalk.blue.bold('\n🔥 AuthPay Load Testing Tool\n'));
+console.log(chalk.blue.bold('\n🔥 BookEase Load Testing Tool\n'));
 console.log(chalk.yellow(`Intensity: ${intensity.toUpperCase()}`));
 console.log(chalk.yellow(`Description: ${config.description}`));
 console.log(chalk.yellow(`Target: ${BASE_URL}`));
@@ -87,7 +87,7 @@ const results = [];
 function runTest(route) {
   return new Promise((resolve) => {
     console.log(chalk.cyan(`\n📊 Testing: ${route}`));
-    
+
     const instance = autocannon({
       url: `${BASE_URL}${route}`,
       connections: config.connections,
@@ -118,18 +118,18 @@ function runTest(route) {
           timeouts: result.timeouts,
           non2xx: result.non2xx,
         };
-        
+
         results.push(summary);
-        
+
         console.log(chalk.green(`✅ Completed: ${route}`));
         console.log(chalk.white(`   Requests: ${summary.requests} (${summary.rps} req/sec)`));
         console.log(chalk.white(`   Latency: avg=${summary.latency.avg}ms, p95=${summary.latency.p95}ms`));
         console.log(chalk.white(`   Errors: ${summary.errors}, Timeouts: ${summary.timeouts}, Non-2xx: ${summary.non2xx}`));
-        
+
         if (summary.errors > 0 || summary.timeouts > 0) {
           console.log(chalk.red(`   ⚠️  Warning: Detected ${summary.errors} errors and ${summary.timeouts} timeouts`));
         }
-        
+
         resolve(summary);
       }
     });
@@ -141,17 +141,17 @@ function runTest(route) {
 
 async function runAllTests() {
   console.log(chalk.blue.bold(`\n🚀 Starting load tests on ${API_ROUTES.length} routes...\n`));
-  
+
   for (const route of API_ROUTES) {
     await runTest(route);
     // Small delay between tests to avoid overwhelming the server
     await new Promise(resolve => setTimeout(resolve, 2000));
   }
-  
+
   // Print summary
   console.log(chalk.blue.bold('\n\n📈 LOAD TEST SUMMARY'));
   console.log(chalk.blue('═'.repeat(80)));
-  
+
   results.forEach((result, idx) => {
     console.log(chalk.white(`\n${idx + 1}. ${result.route}`));
     console.log(chalk.white(`   Total Requests: ${result.requests}`));
@@ -159,33 +159,33 @@ async function runAllTests() {
     console.log(chalk.white(`   Avg Latency: ${result.latency.avg}ms`));
     console.log(chalk.white(`   P95 Latency: ${result.latency.p95}ms`));
     console.log(chalk.white(`   P99 Latency: ${result.latency.p99}ms`));
-    
+
     if (result.errors > 0 || result.timeouts > 0 || result.non2xx > 0) {
       console.log(chalk.red(`   ❌ Issues: ${result.errors} errors, ${result.timeouts} timeouts, ${result.non2xx} non-2xx`));
     } else {
       console.log(chalk.green(`   ✅ No errors detected`));
     }
   });
-  
+
   // Overall statistics
   const totalRequests = results.reduce((sum, r) => sum + r.requests, 0);
   const avgRPS = Math.round(results.reduce((sum, r) => sum + r.rps, 0) / results.length);
   const totalErrors = results.reduce((sum, r) => sum + r.errors, 0);
   const totalTimeouts = results.reduce((sum, r) => sum + r.timeouts, 0);
-  
+
   console.log(chalk.blue('\n' + '═'.repeat(80)));
   console.log(chalk.yellow.bold('\n📊 OVERALL STATISTICS'));
   console.log(chalk.white(`   Total Requests Sent: ${totalRequests}`));
   console.log(chalk.white(`   Average RPS: ${avgRPS}`));
   console.log(chalk.white(`   Total Errors: ${totalErrors}`));
   console.log(chalk.white(`   Total Timeouts: ${totalTimeouts}`));
-  
+
   if (totalErrors === 0 && totalTimeouts === 0) {
     console.log(chalk.green.bold('\n✅ All tests passed! Application is resilient to this load level.'));
   } else {
     console.log(chalk.red.bold('\n⚠️  Warning: Application showed signs of stress. Consider implementing rate limiting.'));
   }
-  
+
   console.log(chalk.blue('\n' + '═'.repeat(80) + '\n'));
 }
 

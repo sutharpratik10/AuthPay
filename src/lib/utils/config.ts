@@ -70,21 +70,21 @@ export const getRoute = (routeKey: keyof typeof APP_CONFIG.ROUTES) => APP_CONFIG
 export const getAllRoutes = () => APP_CONFIG.ROUTES;
 
 // Message helpers
-export const getSuccessMessage = (messageKey: keyof typeof APP_CONFIG.MESSAGES.SUCCESS) => 
+export const getSuccessMessage = (messageKey: keyof typeof APP_CONFIG.MESSAGES.SUCCESS) =>
   APP_CONFIG.MESSAGES.SUCCESS[messageKey];
 
-export const getErrorMessage = (messageKey: keyof typeof APP_CONFIG.MESSAGES.ERROR) => 
+export const getErrorMessage = (messageKey: keyof typeof APP_CONFIG.MESSAGES.ERROR) =>
   APP_CONFIG.MESSAGES.ERROR[messageKey];
 
 // Feature flag helpers
-export const isFeatureEnabled = (featureKey: keyof typeof APP_CONFIG.FEATURES) => 
+export const isFeatureEnabled = (featureKey: keyof typeof APP_CONFIG.FEATURES) =>
   APP_CONFIG.FEATURES[featureKey];
 
 // Email configuration helpers
 export const getEmailConfig = () => APP_CONFIG.EMAIL;
 
 // Social auth helpers
-export const getSocialAuthConfig = (provider: 'GITHUB' | 'GOOGLE' | 'FACEBOOK' | 'MICROSOFT') => 
+export const getSocialAuthConfig = (provider: 'GITHUB' | 'GOOGLE' | 'FACEBOOK' | 'MICROSOFT') =>
   APP_CONFIG[provider];
 
 // Admin configuration helpers

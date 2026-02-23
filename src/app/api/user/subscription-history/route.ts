@@ -32,14 +32,14 @@ export const GET = rateLimiters.api(
         .orderBy(desc(userSubscriptions.createdAt));
 
       // Fetch all status names in one go for mapping
-      const statusIds = Array.from(new Set(rows.map(r => r.statusId).filter(Boolean)));
+      const statusIds = Array.from(new Set(rows.map((r: any) => r.statusId).filter(Boolean))) as string[];
       let statusMap: Record<string, string> = {};
       if (statusIds.length > 0) {
         const statuses = await db
           .select({ id: subscriptionStatuses.id, name: subscriptionStatuses.name })
           .from(subscriptionStatuses)
           .where(inArray(subscriptionStatuses.id, statusIds));
-        statusMap = Object.fromEntries(statuses.map(s => [s.id, s.name]));
+        statusMap = Object.fromEntries(statuses.map((s: any) => [s.id, s.name]));
       }
 
       const history = rows.map(r => ({

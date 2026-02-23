@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import SubscriptionDashboard from "@/components/user/SubscriptionDashboard"
-import PaywallContainer from "@/components/Paywall/PaywallContainer"
 import { useSubscription } from "@/contexts/SubscriptionContext"
 import EmailVerificationBanner from "@/components/shared/EmailVerificationBanner"
 
@@ -24,6 +23,9 @@ export default function UserDashboard() {
     }
   }, [session])
 
+  // Determine if the user has an active subscription
+  const isActiveSub = !!subscriptionStatus && subscriptionStatus.isActive === true
+
   // Show loading while subscription data is loading
   if (isLoading) {
     return (
@@ -37,15 +39,12 @@ export default function UserDashboard() {
     )
   }
 
-  // Determine if the user has an active subscription
-  const isActiveSub = !!subscriptionStatus && subscriptionStatus.isActive === true;
-
   return (
     <div className="w-full max-w-full mx-auto">
       {/* Email Verification Banner - shown at the very top if email is not verified */}
       {!isEmailVerified && userEmail && showBanner && (
-        <EmailVerificationBanner 
-          email={userEmail} 
+        <EmailVerificationBanner
+          email={userEmail}
           onDismiss={() => setShowBanner(false)}
         />
       )}
@@ -62,14 +61,9 @@ export default function UserDashboard() {
           </div>
         </div>
 
+        {/* Not subscribed - show subscription options */}
         {!isActiveSub && (
           <SubscriptionDashboard />
-        )}
-
-        {isActiveSub && (
-          <div>
-            <PaywallContainer />
-          </div>
         )}
       </div>
     </div>

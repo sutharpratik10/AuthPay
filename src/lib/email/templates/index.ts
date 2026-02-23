@@ -13,10 +13,10 @@ export { securityAlertTemplate } from './security-alert';
 export { subscriptionPurchaseTemplate } from './subscription';
 
 // Export base components for custom templates
-export { 
-  baseEmailTemplate, 
-  codeBox, 
-  securityNote, 
-  primaryButton, 
-  instructionsList 
+export {
+  baseEmailTemplate,
+  codeBox,
+  securityNote,
+  primaryButton,
+  instructionsList
 } from './base';

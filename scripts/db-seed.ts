@@ -20,6 +20,7 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL);
 
 import { db } from '../src/server/db/index';
 import { roles, users, userRoles, subscriptionPlans, subscriptionStatuses, subscriptionRenewalTypes } from '../src/server/db/schema';
+import { eq, and } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 
 const defaultRoles = [
@@ -110,11 +111,11 @@ async function seed() {
     console.log('');
 
     // Get admin role id
-    const adminRole = await db.query.roles.findFirst({ where: (roles, { eq }) => eq(roles.name, 'admin') });
+    const adminRole = await db.query.roles.findFirst({ where: eq(roles.name, 'admin') });
     if (!adminRole) throw new Error('Admin role not found after insert!');
 
     // Get user role id
-    const userRole = await db.query.roles.findFirst({ where: (roles, { eq }) => eq(roles.name, 'user') });
+    const userRole = await db.query.roles.findFirst({ where: eq(roles.name, 'user') });
     if (!userRole) throw new Error('User role not found after insert!');
 
     // ============================================
@@ -128,7 +129,7 @@ async function seed() {
 
     // Insert admin user if not exist
     const adminEmail = 'admin@example.com';
-    const existingAdmin = await db.query.users.findFirst({ where: (users, { eq }) => eq(users.email, adminEmail) });
+    const existingAdmin = await db.query.users.findFirst({ where: eq(users.email, adminEmail) });
     if (!existingAdmin) {
       const [newAdmin] = await db.insert(users).values({
         email: adminEmail,
@@ -148,7 +149,7 @@ async function seed() {
       console.log('  ℹ️  Admin user already exists (admin@example.com)');
       // Check if admin has admin role, if not assign it
       const hasAdminRole = await db.query.userRoles.findFirst({
-        where: (userRoles, { eq, and }) => and(
+        where: and(
           eq(userRoles.userId, existingAdmin.id),
           eq(userRoles.roleId, adminRole.id)
         )
@@ -166,7 +167,7 @@ async function seed() {
 
     // Insert regular user if not exist
     const userEmail = 'user@example.com';
-    const existingUser = await db.query.users.findFirst({ where: (users, { eq }) => eq(users.email, userEmail) });
+    const existingUser = await db.query.users.findFirst({ where: eq(users.email, userEmail) });
     if (!existingUser) {
       const [newUser] = await db.insert(users).values({
         email: userEmail,
@@ -186,7 +187,7 @@ async function seed() {
       console.log('  ℹ️  Regular user already exists (user@example.com)');
       // Check if user has user role, if not assign it
       const hasUserRole = await db.query.userRoles.findFirst({
-        where: (userRoles, { eq, and }) => and(
+        where: and(
           eq(userRoles.userId, existingUser.id),
           eq(userRoles.roleId, userRole.id)
         )

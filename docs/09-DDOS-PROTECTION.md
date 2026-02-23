@@ -19,7 +19,7 @@
 
 ## Overview
 
-AuthPay implements a comprehensive multi-layered DDoS protection and rate limiting strategy to prevent abuse, brute force attacks, and resource exhaustion. This document provides detailed technical guidance for developers implementing, maintaining, and extending the rate limiting system.
+BookEase implements a comprehensive multi-layered DDoS protection and rate limiting strategy to prevent abuse, brute force attacks, and resource exhaustion. This document provides detailed technical guidance for developers implementing, maintaining, and extending the rate limiting system.
 
 ### Why Rate Limiting?
 
@@ -135,10 +135,9 @@ The rate limiting system consists of three main components:
 24. ✅ GET `/api/admin/subscription-plans/[planId]/active-user-count`
 
 #### 📖 Read-Only Routes - RELAXED (100 req/min)
-**Total: 2 routes** - Public endpoints
+**Total: 1 route** - Public endpoints
 
 1. ✅ GET `/api/subscription-plans`
-2. ✅ GET `/api/health/newrelic`
 
 ---
 
@@ -338,7 +337,7 @@ See [Advanced Configurations](#advanced-configurations) for implementation examp
 
 ### 🎉 Conclusion
 
-Your AuthPay application now has **enterprise-grade rate limiting protection** on **ALL API routes**. 
+Your BookEase application now has **enterprise-grade rate limiting protection** on **ALL API routes**. 
 
 The application is:
 - ✅ Protected against DDoS attacks
@@ -423,9 +422,6 @@ The application is:
 - [ ] `/api/admin/sessions` - GET/POST
 - [ ] `/api/admin/dashboard-stats` - GET
 - [ ] `/api/admin/subscription-plans/[planId]/active-user-count` - GET
-
-#### Health Check Routes (Need `rateLimiters.readOnly` - 100 req/min)
-- [ ] `/api/health/newrelic` - GET
 
 ### How to Apply Rate Limiting
 
@@ -1375,31 +1371,6 @@ if (!result.allowed) {
 ```
 
 ### Metrics Collection
-
-**With New Relic:**
-
-```typescript
-// src/lib/middleware/rate-limit.ts
-import newrelic from 'newrelic';
-
-// Record rate limit metrics
-newrelic.recordMetric('RateLimit/Requests/Total', 1);
-newrelic.recordMetric(`RateLimit/Requests/${tier}`, 1);
-
-if (!result.allowed) {
-  newrelic.recordMetric('RateLimit/Violations/Total', 1);
-  newrelic.recordMetric(`RateLimit/Violations/${tier}`, 1);
-}
-
-// Record custom event
-newrelic.recordCustomEvent('RateLimitCheck', {
-  clientId,
-  tier,
-  allowed: result.allowed,
-  remaining: result.remaining,
-  path: req.nextUrl.pathname,
-});
-```
 
 **With Prometheus:**
 

@@ -31,6 +31,7 @@ class EmailService {
     });
   }
   async sendEmail({ to, subject, html }: EmailOptions) {
+    console.log('[EmailService] Attempting to send email:', { to, subject });
     try {
       const result = await this.transporter.sendMail({
         from: `"${getAppName()}" <${APP_CONFIG.EMAIL.USER}>`,
@@ -38,10 +39,11 @@ class EmailService {
         subject,
         html,
       });
-      
+
+      console.log('[EmailService] Email sent successfully:', { to, messageId: result.messageId });
       return { success: true, messageId: result.messageId };
     } catch (error) {
-      console.error('Failed to send email:', error);
+      console.error('[EmailService] Failed to send email:', error);
       return { success: false, error };
     }
   }
@@ -53,7 +55,7 @@ class EmailService {
       subject: `Your verification code: ${otpCode}`,
       html,
     });
-  }  async sendWelcomeEmail(email: string, name: string) {
+  } async sendWelcomeEmail(email: string, name: string) {
     const loginUrl = `${APP_CONFIG.APP_URL}/auth/login`;
     const html = welcomeEmailTemplate(name, loginUrl, getAppName() || 'Our App');
 
@@ -111,10 +113,10 @@ class EmailService {
    * Send security alert email for login events
    */
   async sendSecurityAlertEmail(
-    email: string, 
-    name: string, 
-    loginTime: Date, 
-    location: string, 
+    email: string,
+    name: string,
+    loginTime: Date,
+    location: string,
     ipAddress: string,
     deviceInfo: string
   ) {
@@ -150,3 +152,4 @@ class EmailService {
 }
 
 export const emailService = new EmailService();
+

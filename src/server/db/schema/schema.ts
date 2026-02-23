@@ -8,11 +8,15 @@ export const subscriptionPlans = pgTable("subscription_plans", {
 	billingCycle: varchar('billing_cycle', { length: 20 }).notNull(), // monthly, yearly, etc.
 	features: varchar('features', { length: 1000 }), // JSON stringified list of features
 	isActive: boolean('is_active').default(true).notNull(),
+	isVisibleToCustomers: boolean('is_visible_to_customers').default(true).notNull(), // Control visibility on pricing page
 	// Razorpay integration fields (all nullable)
 	razorpaySubscriptionId: varchar('razorpay_subscription_id', { length: 100 }),
 	razorpaySubscriptionPlanId: varchar('razorpay_subscription_plan_id', { length: 100 }),
 	razorpaySubscriptionLink: varchar('razorpay_subscription_link', { length: 255 }),
-	
+	displayOrder: integer('display_order').default(0),
+	badgeText: varchar('badge_text', { length: 50 }),
+	enableAutoPopular: boolean('enable_auto_popular').default(false),
+
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -43,10 +47,10 @@ export const subscriptionAnalytics = pgTable("subscription_analytics", {
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.subscriptionPlanId],
-			foreignColumns: [subscriptionPlans.id],
-			name: "subscription_analytics_subscription_plan_id_subscription_plans_id_fk"
-		}),
+		columns: [table.subscriptionPlanId],
+		foreignColumns: [subscriptionPlans.id],
+		name: "subscription_analytics_subscription_plan_id_subscription_plans_id_fk"
+	}),
 ]);
 
 export const adminDashboardStats = pgTable("admin_dashboard_stats", {
@@ -63,10 +67,10 @@ export const adminDashboardStats = pgTable("admin_dashboard_stats", {
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "admin_dashboard_stats_user_id_users_id_fk"
-		}),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "admin_dashboard_stats_user_id_users_id_fk"
+	}),
 ]);
 
 export const userUsageMetrics = pgTable("user_usage_metrics", {
@@ -82,10 +86,10 @@ export const userUsageMetrics = pgTable("user_usage_metrics", {
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "user_usage_metrics_id_fk"
-		}).onDelete("cascade"),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "user_usage_metrics_id_fk"
+	}).onDelete("cascade"),
 ]);
 
 export const auditLogs = pgTable("audit_logs", {
@@ -102,10 +106,10 @@ export const auditLogs = pgTable("audit_logs", {
 	performedAt: timestamp('performed_at').defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "audit_logs_user_id_users_id_fk"
-		}).onDelete("set null"),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "audit_logs_user_id_users_id_fk"
+	}).onDelete("set null"),
 ]);
 
 export const errorLogs = pgTable("error_logs", {
@@ -122,10 +126,10 @@ export const errorLogs = pgTable("error_logs", {
 	solvedAt: timestamp('solved_at'),
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "error_logs_user_id_users_id_fk"
-		}),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "error_logs_user_id_users_id_fk"
+	}),
 ]);
 
 export const userNotifications = pgTable("user_notifications", {
@@ -141,10 +145,10 @@ export const userNotifications = pgTable("user_notifications", {
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "user_notifications_user_id_users_id_fk"
-		}).onDelete("cascade"),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "user_notifications_user_id_users_id_fk"
+	}).onDelete("cascade"),
 ]);
 
 export const billings = pgTable("billings", {
@@ -163,15 +167,15 @@ export const billings = pgTable("billings", {
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "billings_user_id_users_id_fk"
-		}).onDelete("cascade"),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "billings_user_id_users_id_fk"
+	}).onDelete("cascade"),
 	foreignKey({
-			columns: [table.planId],
-			foreignColumns: [subscriptionPlans.id],
-			name: "billings_plan_id_subscription_plans_id_fk"
-		}),
+		columns: [table.planId],
+		foreignColumns: [subscriptionPlans.id],
+		name: "billings_plan_id_subscription_plans_id_fk"
+	}),
 ]);
 
 export const permissions = pgTable("permissions", {
@@ -200,21 +204,21 @@ export const roles = pgTable("roles", {
 ]);
 
 export const rolePermissions = pgTable("role_permissions", {
-  id: uuid('id').defaultRandom().primaryKey(),
-  roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
-  permissionId: uuid('permission_id').notNull().references(() => permissions.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+	id: uuid('id').defaultRandom().primaryKey(),
+	roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
+	permissionId: uuid('permission_id').notNull().references(() => permissions.id, { onDelete: 'cascade' }),
+	createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.roleId],
-			foreignColumns: [roles.id],
-			name: "role_permissions_role_id_roles_id_fk"
-		}).onDelete("cascade"),
+		columns: [table.roleId],
+		foreignColumns: [roles.id],
+		name: "role_permissions_role_id_roles_id_fk"
+	}).onDelete("cascade"),
 	foreignKey({
-			columns: [table.permissionId],
-			foreignColumns: [permissions.id],
-			name: "role_permissions_permission_id_permissions_id_fk"
-		}).onDelete("cascade"),
+		columns: [table.permissionId],
+		foreignColumns: [permissions.id],
+		name: "role_permissions_permission_id_permissions_id_fk"
+	}).onDelete("cascade"),
 ]);
 
 export const otpCodes = pgTable("otp_codes", {
@@ -233,10 +237,10 @@ export const otpCodes = pgTable("otp_codes", {
 	verifiedAt: timestamp('verified_at'), // When code was verified
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "otp_codes_user_id_users_id_fk"
-		}).onDelete("cascade"),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "otp_codes_user_id_users_id_fk"
+	}).onDelete("cascade"),
 ]);
 
 export const recoveryCodes = pgTable("recovery_codes", {
@@ -248,10 +252,10 @@ export const recoveryCodes = pgTable("recovery_codes", {
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "recovery_codes_user_id_users_id_fk"
-		}).onDelete("cascade"),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "recovery_codes_user_id_users_id_fk"
+	}).onDelete("cascade"),
 ]);
 
 export const twoFactorAuth = pgTable("two_factor_auth", {
@@ -267,10 +271,10 @@ export const twoFactorAuth = pgTable("two_factor_auth", {
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "two_factor_auth_user_id_users_id_fk"
-		}).onDelete("cascade"),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "two_factor_auth_user_id_users_id_fk"
+	}).onDelete("cascade"),
 ]);
 
 export const sessions = pgTable("sessions", {
@@ -284,25 +288,25 @@ export const sessions = pgTable("sessions", {
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "sessions_user_id_users_id_fk"
-		}).onDelete("cascade"),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "sessions_user_id_users_id_fk"
+	}).onDelete("cascade"),
 ]);
 
 export const userAvatars = pgTable("user_avatars", {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
-  fileName: varchar('file_name', { length: 255 }).notNull(),
-  fileSize: varchar('file_size', { length: 50 }),
-  mimeType: varchar('mime_type', { length: 100 }),
-  uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
+	id: uuid('id').defaultRandom().primaryKey(),
+	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
+	fileName: varchar('file_name', { length: 255 }).notNull(),
+	fileSize: varchar('file_size', { length: 50 }),
+	mimeType: varchar('mime_type', { length: 100 }),
+	uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "user_avatars_user_id_users_id_fk"
-		}).onDelete("cascade"),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "user_avatars_user_id_users_id_fk"
+	}).onDelete("cascade"),
 ]);
 
 export const passwordResetTokens = pgTable("password_reset_tokens", {
@@ -315,10 +319,10 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "password_reset_tokens_user_id_users_id_fk"
-		}).onDelete("cascade"),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "password_reset_tokens_user_id_users_id_fk"
+	}).onDelete("cascade"),
 ]);
 
 export const users = pgTable("users", {
@@ -341,11 +345,11 @@ export const users = pgTable("users", {
 
 // Many-to-many relationship: Users can have multiple roles
 export const userRoles = pgTable("user_roles", {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
-  assignedAt: timestamp('assigned_at').defaultNow().notNull(),
-  assignedBy: uuid('assigned_by').references(() => users.id, { onDelete: 'set null' }), // Track who assigned this role
+	id: uuid('id').defaultRandom().primaryKey(),
+	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+	roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
+	assignedAt: timestamp('assigned_at').defaultNow().notNull(),
+	assignedBy: uuid('assigned_by').references(() => users.id, { onDelete: 'set null' }), // Track who assigned this role
 }, (table) => [
 	unique("user_roles_user_id_role_id_unique").on(table.userId, table.roleId)
 ]);
@@ -367,20 +371,20 @@ export const userPreferences = pgTable("user_preferences", {
 	mfaAuth: boolean("mfa_auth").default(false),
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "user_preferences_user_id_users_id_fk"
-		}).onDelete("cascade"),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "user_preferences_user_id_users_id_fk"
+	}).onDelete("cascade"),
 	foreignKey({
-			columns: [table.languageId],
-			foreignColumns: [languages.id],
-			name: "user_preferences_language_id_languages_id_fk"
-		}),
+		columns: [table.languageId],
+		foreignColumns: [languages.id],
+		name: "user_preferences_language_id_languages_id_fk"
+	}),
 	foreignKey({
-			columns: [table.timezoneId],
-			foreignColumns: [timezones.id],
-			name: "user_preferences_timezone_id_timezones_id_fk"
-		}),
+		columns: [table.timezoneId],
+		foreignColumns: [timezones.id],
+		name: "user_preferences_timezone_id_timezones_id_fk"
+	}),
 	unique("user_preferences_user_id_unique").on(table.userId),
 ]);
 
@@ -410,13 +414,13 @@ export const verificationTokens = pgTable("verification_tokens", {
 	token: text("token").notNull(),
 	expires: timestamp("expires").notNull(),
 }, (table) => [
-	primaryKey({ columns: [table.identifier, table.token], name: "verification_tokens_identifier_token_pk"}),
+	primaryKey({ columns: [table.identifier, table.token], name: "verification_tokens_identifier_token_pk" }),
 ]);
 
 export const accounts = pgTable("accounts", {
 	userId: uuid("user_id")
-	  .notNull()
-	  .references(() => users.id, { onDelete: "cascade" }),
+		.notNull()
+		.references(() => users.id, { onDelete: "cascade" }),
 	type: text("type").notNull(),
 	provider: text("provider").notNull(),
 	providerAccountId: text("provider_account_id").notNull(),
@@ -431,11 +435,11 @@ export const accounts = pgTable("accounts", {
 	updated_at: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "accounts_user_id_users_id_fk"
-		}).onDelete("cascade"),
-	primaryKey({ columns: [table.provider, table.providerAccountId], name: "accounts_provider_provider_account_id_pk"}),
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "accounts_user_id_users_id_fk"
+	}).onDelete("cascade"),
+	primaryKey({ columns: [table.provider, table.providerAccountId], name: "accounts_provider_provider_account_id_pk" }),
 ]);
 
 export const paymentOrders = pgTable("payment_orders", {
@@ -496,35 +500,34 @@ export const paymentTransactions = pgTable("payment_transactions", {
 ]);
 
 export const subscriptionStatuses = pgTable("subscription_statuses", {
-  id: uuid('id').defaultRandom().primaryKey(),
-  name: varchar('name', { length: 32 }).notNull().unique(),
-  description: varchar('description', { length: 255 })
+	id: uuid('id').defaultRandom().primaryKey(),
+	name: varchar('name', { length: 32 }).notNull().unique(),
+	description: varchar('description', { length: 255 })
 });
 
 export const subscriptionRenewalTypes = pgTable("subscription_renewal_types", {
-  id: uuid('id').defaultRandom().primaryKey(),
-  name: varchar('name', { length: 20 }).notNull().unique(),
-  description: varchar('description', { length: 255 })
+	id: uuid('id').defaultRandom().primaryKey(),
+	name: varchar('name', { length: 20 }).notNull().unique(),
+	description: varchar('description', { length: 255 })
 });
 
 export const userSubscriptions = pgTable("user_subscriptions", {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+	id: uuid('id').defaultRandom().primaryKey(),
+	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 	// planId made nullable to support subscriptions created directly on Razorpay
 	planId: uuid('plan_id').references(() => subscriptionPlans.id, { onDelete: 'cascade' }),
-  statusId: uuid('status_id').notNull().references(() => subscriptionStatuses.id),
-  renewalTypeId: uuid('renewal_type_id').references(() => subscriptionRenewalTypes.id),
+	statusId: uuid('status_id').notNull().references(() => subscriptionStatuses.id),
+	renewalTypeId: uuid('renewal_type_id').references(() => subscriptionRenewalTypes.id),
 	// Razorpay metadata (nullable)
 	razorpaySubscriptionId: varchar('razorpay_subscription_id', { length: 100 }),
 	razorpayCustomerId: varchar('razorpay_customer_id', { length: 100 }),
-  startDate: timestamp('start_date', { mode: 'string' }).notNull(),
-  expiryDate: timestamp('expiry_date', { mode: 'string' }),
-  endDate: timestamp('end_date', { mode: 'string' }),
-  cancellationReason: varchar('cancellation_reason', { length: 255 }),
-  paymentMethod: varchar('payment_method', { length: 50 }),
-  lastPaymentDate: timestamp('last_payment_date', { mode: 'string' }),
-  nextBillingDate: timestamp('next_billing_date', { mode: 'string' }),
-  createdAt: timestamp('created_at', { mode: 'string' }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { mode: 'string' }).defaultNow().notNull(),
+	startDate: timestamp('start_date', { mode: 'string' }).notNull(),
+	expiryDate: timestamp('expiry_date', { mode: 'string' }),
+	endDate: timestamp('end_date', { mode: 'string' }),
+	cancellationReason: varchar('cancellation_reason', { length: 255 }),
+	paymentMethod: varchar('payment_method', { length: 50 }),
+	lastPaymentDate: timestamp('last_payment_date', { mode: 'string' }),
+	nextBillingDate: timestamp('next_billing_date', { mode: 'string' }),
+	createdAt: timestamp('created_at', { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp('updated_at', { mode: 'string' }).defaultNow().notNull(),
 });
-

@@ -43,13 +43,14 @@ export const GET = rateLimiters.api(
     // User is guaranteed to exist due to requireAuth option
     const userId = user!.id;
 
-    // Get user roles first for debugging
+    // Get user roles for debugging
     const userRoles = await RBACService.getUserRoles(userId);
-    
+    console.log(`[API /api/user/data] User ${userId} roles:`, userRoles);
+
     // Perform all checks in parallel for better performance
     const [isAdmin, userRecord] = await Promise.all([
-      // Check admin status using policy-based RBAC
-      RBACService.hasPolicy(userId, 'admin:access'),
+      // Check admin status using role-based check
+      RBACService.isAdmin(userId),
       
       // Verify user exists in database
       db.query.users.findFirst({

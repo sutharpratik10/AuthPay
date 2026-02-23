@@ -64,13 +64,18 @@ export function UserValidationProvider({ children }: { children: React.ReactNode
     }, [status, userId]);
 
     // Use SWR to fetch and cache user validation data
-    // Explicitly pass the fetcher to ensure consistency
+    // Force immediate fetch on mount to avoid race conditions with sidebar rendering
     const { data, error, isLoading, isValidating } = useSWR<UserDataResponse>(
         swrKey,
         {
             ...swrConfigRare,
             // Ensure fetcher is explicitly defined
             fetcher: swrConfigRare.fetcher,
+            // IMPORTANT: Fetch immediately on mount and revalidate to ensure fresh data after login
+            revalidateOnMount: true,
+            revalidateIfStale: true,
+            // Disable deduping on initial mount to ensure fresh data after login
+            dedupingInterval: 0,
         }
     );
 
@@ -82,6 +87,16 @@ export function UserValidationProvider({ children }: { children: React.ReactNode
             exists: true, // Default to true while loading to avoid premature sign-out
             shouldSignOut: false,
         };
+
+    // Debug logging
+    console.log('[UserValidationContext] Data:', {
+        swrKey,
+        dataSuccess: data?.success,
+        userData,
+        isLoading,
+        isValidating,
+        hasError: !!error
+    });
 
     // Automatically sign out users who don't exist or should be signed out
     useEffect(() => {
@@ -103,7 +118,9 @@ export function UserValidationProvider({ children }: { children: React.ReactNode
         isAdmin: userData.isAdmin,
         exists: userData.exists,
         shouldSignOut: userData.shouldSignOut,
-        isLoading: status === 'loading' || isLoading,
+        // Consider loading state from both session and SWR
+        // This ensures we wait for both authentication AND user data fetch
+        isLoading: status === 'loading' || (status === 'authenticated' && isLoading),
         isValidating,
         error,
     };

@@ -26,7 +26,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isEmailVerified: boolean;
   login: (email: string, password: string) => Promise<{ error?: string; requires2FA?: boolean }>;
-  socialLogin: (provider: string) => Promise<void>;
+  socialLogin: (provider: string, callbackUrl?: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
   verifyEmail: (code: string) => Promise<{ success: boolean; error?: string }>;
@@ -131,9 +131,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: "An unexpected error occurred" }
     }
   }
-    const socialLogin = async (provider: string) => {
-    // Redirect to /protected which will route to the correct dashboard based on role
-    await signIn(provider, { callbackUrl: "/protected" })
+  const socialLogin = async (provider: string, callbackUrl?: string) => {
+    // Use the provided callbackUrl or default to /protected
+    const redirectUrl = callbackUrl || "/protected"
+    await signIn(provider, { callbackUrl: redirectUrl })
   }
 
   const register = async (email: string, password: string, name?: string) => {

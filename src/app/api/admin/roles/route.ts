@@ -25,7 +25,7 @@ async function getRoles(req: NextRequest) {
     const offset = (page - 1) * limit;
 
     // Build where condition for search
-    const whereConditions = [];
+    const whereConditions: any[] = [];
     
     if (search.trim()) {
       whereConditions.push(
@@ -62,10 +62,10 @@ async function getRoles(req: NextRequest) {
         .from(roles)
         .leftJoin(userRoles, eq(roles.id, userRoles.roleId))
         .groupBy(roles.id)
-      ).map(r => [r.roleId, Number(r.count)])
+      ).map((r: any) => [r.roleId, Number(r.count)])
     );
 
-    const rolesWithCount = rolesList.map(role => ({ ...role, userCount: userCounts[role.id] || 0 }));
+    const rolesWithCount = rolesList.map((role: any) => ({ ...role, userCount: userCounts[role.id] || 0 }));
 
     // Get total count for pagination
     const totalCountResult = await db
