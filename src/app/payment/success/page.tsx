@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import Loading from '@/components/Loading';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle } from 'lucide-react';
@@ -14,6 +14,7 @@ function PaymentSuccessContent() {
   const [loading, setLoading] = useState(true);
   const [dashboardPath, setDashboardPath] = useState(ROUTE_POLICIES.USER_DASHBOARD.path);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -35,8 +36,15 @@ function PaymentSuccessContent() {
   }, [user]);
 
   useEffect(() => {
-    // Since we're now using internal subscription assignment,
-    // show success message and redirect to subscription management
+    const provider = searchParams?.get('provider');
+    const sessionId = searchParams?.get('session_id');
+
+    // For Stripe, the webhook handles activation automatically.
+    // We do an optional non-blocking verify call here for immediate UI feedback.
+    if (provider === 'stripe' && sessionId) {
+      fetch(`/api/payments/stripe-verify?session_id=${encodeURIComponent(sessionId)}`).catch(() => {});
+    }
+
     const timer = setTimeout(() => {
       setLoading(false);
       toast({
@@ -47,7 +55,7 @@ function PaymentSuccessContent() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [router, toast]);
+  }, [router, toast, searchParams]);
 
   const handleGoToSubscription = () => {
     router.push('/protected/user/manage-subscription');
@@ -77,14 +85,13 @@ function PaymentSuccessContent() {
               Your subscription has been successfully activated. You now have access to all premium features.
             </p>
           </div>
-
           <div className="space-y-3">
             <Button onClick={handleGoToSubscription} className="w-full">
               Manage Subscription
             </Button>
-            <Button 
-              onClick={handleGoToDashboard} 
-              variant="outline" 
+            <Button
+              onClick={handleGoToDashboard}
+              variant="outline"
               className="w-full"
             >
               Go to Dashboard

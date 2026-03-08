@@ -499,6 +499,30 @@ export const paymentTransactions = pgTable("payment_transactions", {
 	}).onDelete("cascade"),
 ]);
 
+// ============================================================
+// Payment Gateway Configuration (admin-controlled geo-routing)
+// ============================================================
+export const paymentGatewayConfig = pgTable("payment_gateway_config", {
+	id: uuid('id').defaultRandom().primaryKey(),
+	// NULL = global/default rule; ISO 3166-1 alpha-2 code = country-specific rule
+	countryCode: varchar('country_code', { length: 2 }),
+	// 'razorpay' | 'stripe' | 'none'
+	gateway: varchar('gateway', { length: 20 }).notNull(),
+	isEnabled: boolean('is_enabled').default(true).notNull(),
+	// Marks the global fallback rule (used when countryCode IS NULL)
+	isDefault: boolean('is_default').default(false).notNull(),
+	notes: varchar('notes', { length: 255 }),
+	createdAt: timestamp('created_at').defaultNow().notNull(),
+	updatedAt: timestamp('updated_at').defaultNow().notNull(),
+	createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+}, (table) => [
+	foreignKey({
+		columns: [table.createdBy],
+		foreignColumns: [users.id],
+		name: "payment_gateway_config_created_by_users_id_fk"
+	}).onDelete("set null"),
+]);
+
 export const subscriptionStatuses = pgTable("subscription_statuses", {
 	id: uuid('id').defaultRandom().primaryKey(),
 	name: varchar('name', { length: 32 }).notNull().unique(),

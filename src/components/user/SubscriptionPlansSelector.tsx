@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { usePaymentGateway } from "@/hooks/use-payment-gateway";
 import {
   Check,
   Crown,
@@ -76,6 +77,7 @@ export default function SubscriptionPlansSelector({
   const containerRef = React.useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { refreshSubscription } = useSubscription();
+  const { gateway } = usePaymentGateway();
 
   const isRazorpayLoaded = () =>
     typeof window !== "undefined" && typeof window.Razorpay === "function";
@@ -327,7 +329,58 @@ export default function SubscriptionPlansSelector({
     }
   };
 
-  const handlePurchasePlan = handleBuyWithRazorpay;
+  /** Stripe Checkout — redirects the user to Stripe's hosted payment page */
+  const handleBuyWithStripe = async (planId: string) => {
+    const plan = plans.find((p) => p.id === planId);
+    if (!plan) {
+      toast({ title: "Error", description: "Plan not found", variant: "destructive" });
+      return;
+    }
+
+    setPurchasing(planId);
+    try {
+      const billingInterval: "month" | "year" =
+        selectedBillingCycle === "yearly" ? "year" : "month";
+
+      const resp = await fetch("/api/payments/stripe-create-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: plan.priceNumber,
+          currency: "USD",
+          planId: plan.id.startsWith("rz-") ? null : plan.id,
+          planName: plan.name,
+          billingInterval,
+          mode: "subscription",
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = (await resp.json().catch(() => ({}))) as { error?: string };
+        throw new Error(err?.error || "Failed to create Stripe session");
+      }
+
+      const data = (await resp.json()) as { checkoutUrl?: string };
+      if (!data.checkoutUrl) throw new Error("No checkout URL returned from Stripe");
+
+      // Redirect to Stripe Checkout (hosted page)
+      window.location.href = data.checkoutUrl;
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to start Stripe checkout";
+      console.error("Stripe checkout error:", error);
+      toast({ title: "Error", description: message, variant: "destructive" });
+      setPurchasing(null);
+    }
+  };
+
+  /** Route to the correct payment gateway based on the visitor's country */
+  const handlePurchasePlan = (planId: string) => {
+    if (gateway === "razorpay") {
+      return handleBuyWithRazorpay(planId);
+    }
+    return handleBuyWithStripe(planId);
+  };
 
   const getPlanIcon = (planName: string) => {
     const name = planName.toLowerCase();
@@ -373,11 +426,13 @@ export default function SubscriptionPlansSelector({
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
-      {/* Load Razorpay script lazily */}
-      <Script
-        src="https://checkout.razorpay.com/v1/checkout.js"
-        strategy="lazyOnload"
-      />
+      {/* Load Razorpay script only when needed */}
+      {gateway === "razorpay" && (
+        <Script
+          src="https://checkout.razorpay.com/v1/checkout.js"
+          strategy="lazyOnload"
+        />
+      )}
       <div className="relative space-y-10 py-10">
         {showTitle && (
           <div className="text-center space-y-4 max-w-2xl mx-auto px-2">
