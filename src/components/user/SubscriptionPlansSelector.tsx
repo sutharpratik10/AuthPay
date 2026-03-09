@@ -77,7 +77,7 @@ export default function SubscriptionPlansSelector({
   const containerRef = React.useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { refreshSubscription } = useSubscription();
-  const { gateway } = usePaymentGateway();
+  const { gateway, loading: gatewayLoading } = usePaymentGateway();
 
   const isRazorpayLoaded = () =>
     typeof window !== "undefined" && typeof window.Razorpay === "function";
@@ -107,70 +107,136 @@ export default function SubscriptionPlansSelector({
     };
   }, [lazyLoad, isVisible]);
 
-  // Load subscription plans only when visible
+  // Load subscription plans only when visible AND gateway is resolved
   useEffect(() => {
     if (!isVisible) return;
+    if (gatewayLoading) return; // Wait for gateway detection before loading plans
 
     const loadPlans = async () => {
       try {
-        // Fetch both local plans and Razorpay plans in parallel for faster loading
-        const [localResponse, razorpayResponse] = await Promise.allSettled([
-          fetch("/api/subscription-plans"),
-          fetch('/api/payments/razorpay-plans?count=100')
-        ]);
+        if (gateway === "razorpay") {
+          // ── RazorPay: fetch local plans + Razorpay subscription plans ──
+          const [localResponse, razorpayResponse] = await Promise.allSettled([
+            fetch("/api/subscription-plans"),
+            fetch('/api/payments/razorpay-plans?count=100')
+          ]);
 
-        // Process local plans
-        let localPlans: SubscriptionPlan[] = [];
-        if (localResponse.status === 'fulfilled' && localResponse.value.ok) {
-          const data = await localResponse.value.json();
-          if (data?.success) {
-            localPlans = data.data.plans as SubscriptionPlan[];
-          }
-        }
-
-        // Process Razorpay plans
-        let razorpayPlans: SubscriptionPlan[] = [];
-        if (razorpayResponse.status === 'fulfilled' && razorpayResponse.value.ok) {
-          try {
-            const rpJson = await razorpayResponse.value.json();
-            // Razorpay SDK returns an object with `items` array
-            const items = rpJson.items || rpJson.subscriptions || rpJson.plans || rpJson;
-            if (Array.isArray(items)) {
-              razorpayPlans = items.map((r: unknown) => {
-                const rz = r as Record<string, unknown>;
-                const item = rz.item as Record<string, unknown> | undefined;
-                const amountRaw = item?.amount ?? item?.unit_amount ?? 0;
-                const amountNum = typeof amountRaw === 'string' ? parseInt(amountRaw, 10) : Number(amountRaw || 0);
-                const rupees = Number.isFinite(amountNum) ? amountNum / 100 : 0;
-                const billingCycle = String(rz.period || '').toLowerCase() || 'monthly';
-                const idStr = String(rz.id || '');
-
-                return {
-                  id: `rz-${idStr}`,
-                  name: String(item?.name || `Razorpay ${billingCycle} plan`),
-                  description: item?.description ? String(item.description) : null,
-                  price: `${String((item?.currency || 'INR')).toUpperCase()} ${rupees.toFixed(2)}`,
-                  billingCycle,
-                  features: rz.notes ? [JSON.stringify(rz.notes)] : [],
-                  isActive: Boolean(item?.active),
-                  razorpaySubscriptionId: null,
-                  razorpaySubscriptionPlanId: idStr,
-                  razorpaySubscriptionLink: `https://dashboard.razorpay.com/plans/${idStr}`,
-                  createdAt: new Date((Number(rz.created_at) || Date.now()) * 1000).toISOString(),
-                  updatedAt: new Date().toISOString(),
-                  priceNumber: rupees,
-                  formattedPrice: rupees ? `₹${rupees.toFixed(2)}` : '₹0.00',
-                  canPurchase: true,
-                } as SubscriptionPlan;
-              });
+          let localPlans: SubscriptionPlan[] = [];
+          if (localResponse.status === 'fulfilled' && localResponse.value.ok) {
+            const data = await localResponse.value.json();
+            if (data?.success) {
+              localPlans = data.data.plans as SubscriptionPlan[];
             }
-          } catch (err) {
-            console.warn('Failed to parse Razorpay plans:', err);
           }
-        }
 
-        // Merge local plans + razorpay plans (local first)
-        setPlans([...localPlans, ...razorpayPlans]);
+          let razorpayPlans: SubscriptionPlan[] = [];
+          if (razorpayResponse.status === 'fulfilled' && razorpayResponse.value.ok) {
+            try {
+              const rpJson = await razorpayResponse.value.json();
+              const items = rpJson.items || rpJson.subscriptions || rpJson.plans || rpJson;
+              if (Array.isArray(items)) {
+                razorpayPlans = items.map((r: unknown) => {
+                  const rz = r as Record<string, unknown>;
+                  const item = rz.item as Record<string, unknown> | undefined;
+                  const amountRaw = item?.amount ?? item?.unit_amount ?? 0;
+                  const amountNum = typeof amountRaw === 'string' ? parseInt(amountRaw, 10) : Number(amountRaw || 0);
+                  const rupees = Number.isFinite(amountNum) ? amountNum / 100 : 0;
+                  const billingCycle = String(rz.period || '').toLowerCase() || 'monthly';
+                  const idStr = String(rz.id || '');
+
+                  return {
+                    id: `rz-${idStr}`,
+                    name: String(item?.name || `Razorpay ${billingCycle} plan`),
+                    description: item?.description ? String(item.description) : null,
+                    price: `INR ${rupees.toFixed(2)}`,
+                    billingCycle,
+                    features: rz.notes ? [JSON.stringify(rz.notes)] : [],
+                    isActive: Boolean(item?.active),
+                    razorpaySubscriptionId: null,
+                    razorpaySubscriptionPlanId: idStr,
+                    razorpaySubscriptionLink: `https://dashboard.razorpay.com/plans/${idStr}`,
+                    createdAt: new Date((Number(rz.created_at) || Date.now()) * 1000).toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    priceNumber: rupees,
+                    formattedPrice: `₹${rupees.toFixed(2)}`,
+                    currencySymbol: '₹',
+                    canPurchase: true,
+                  } as SubscriptionPlan;
+                });
+              }
+            } catch (err) {
+              console.warn('Failed to parse Razorpay plans:', err);
+            }
+          }
+
+          setPlans([...localPlans, ...razorpayPlans]);
+
+        } else {
+          // ── Stripe: fetch local plans + Stripe products ──
+          const [localResponse, stripeResponse] = await Promise.allSettled([
+            fetch("/api/subscription-plans"),
+            fetch('/api/payments/stripe-products?limit=50')
+          ]);
+
+          let localPlans: SubscriptionPlan[] = [];
+          if (localResponse.status === 'fulfilled' && localResponse.value.ok) {
+            const data = await localResponse.value.json();
+            if (data?.success) {
+              // Only include local plans that don't have a Razorpay-only plan ID
+              localPlans = (data.data.plans as SubscriptionPlan[]).filter(
+                (p: SubscriptionPlan) => !p.razorpaySubscriptionPlanId
+              );
+            }
+          }
+
+          let stripePlans: SubscriptionPlan[] = [];
+          if (stripeResponse.status === 'fulfilled' && stripeResponse.value.ok) {
+            try {
+              const stripeJson = await stripeResponse.value.json();
+              const products: Record<string, unknown>[] = stripeJson.data ?? [];
+              stripePlans = products
+                .filter((p) => p.active)
+                .map((p) => {
+                  const defaultPrice = p.default_price as Record<string, unknown> | undefined;
+                  const unitAmount = typeof defaultPrice?.unit_amount === 'number' ? defaultPrice.unit_amount : 0;
+                  const currency = String(defaultPrice?.currency || 'usd').toUpperCase();
+                  const amount = unitAmount / 100;
+                  const recurring = defaultPrice?.recurring as Record<string, unknown> | undefined;
+                  const billingCycle = String(recurring?.interval || 'month');
+
+                  // Format price with currency symbol
+                  const formattedPrice = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency,
+                    minimumFractionDigits: 2,
+                  }).format(amount);
+
+                  return {
+                    id: `st-${String(p.id)}`,
+                    name: String(p.name || 'Stripe Plan'),
+                    description: p.description ? String(p.description) : null,
+                    price: `${currency} ${amount.toFixed(2)}`,
+                    billingCycle,
+                    features: [],
+                    isActive: Boolean(p.active),
+                    razorpaySubscriptionId: null,
+                    razorpaySubscriptionPlanId: null,
+                    razorpaySubscriptionLink: null,
+                    createdAt: new Date((Number(p.created) || Date.now()) * 1000).toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    priceNumber: amount,
+                    formattedPrice,
+                    currencySymbol: formattedPrice.replace(/[\d.,\s]/g, '').trim(),
+                    canPurchase: true,
+                  } as SubscriptionPlan;
+                });
+            } catch (err) {
+              console.warn('Failed to parse Stripe products:', err);
+            }
+          }
+
+          setPlans([...localPlans, ...stripePlans]);
+        }
       } catch (error) {
         console.error("Error loading plans:", error);
         toast({
@@ -184,7 +250,7 @@ export default function SubscriptionPlansSelector({
     };
 
     loadPlans();
-  }, [toast, isVisible]);
+  }, [toast, isVisible, gateway, gatewayLoading]);
 
   const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -524,7 +590,7 @@ export default function SubscriptionPlansSelector({
                       <div className="space-y-1">
                         <div className="flex items-baseline justify-center gap-1">
                           <span className="text-3xl font-bold text-foreground">
-                            ₹{monthlyEquivalent.toFixed(2)}/Mo
+                            {plan.currencySymbol || '₹'}{monthlyEquivalent.toFixed(2)}/Mo
                           </span>
                         </div>
                          <span className="text-sm text-muted-foreground">
@@ -533,7 +599,7 @@ export default function SubscriptionPlansSelector({
                         {isYearly && (
                           <div className="text-xs text-green-600 dark:text-green-400">
                             <span className=" font-bold text-foreground">
-                            ₹{plan.priceNumber}
+                            {plan.currencySymbol || '₹'}{plan.priceNumber}
                           </span>
                           <span className="text-base text-muted-foreground font-medium">
                             /{isYearly ? "year" : "month"}
