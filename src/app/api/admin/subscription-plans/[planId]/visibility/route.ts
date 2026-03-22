@@ -33,13 +33,16 @@ export const PATCH = withDynamicApiHandler<{ planId: string }>(
 
       console.log(`[API] Admin ${user?.id} toggling visibility for plan ${planId} to ${isVisibleToCustomers}`);
 
-      // Check if planId is a UUID (database ID) or Razorpay plan ID (starts with "plan_")
+      // Check if planId is a UUID (database ID) or Provider plan ID
       const isRazorpayPlanId = planId.startsWith('plan_');
+      const isStripeProductId = planId.startsWith('prod_');
 
-      // Check if plan exists - search by either UUID or Razorpay plan ID
+      // Check if plan exists - search by either UUID or Provider plan ID
       let existingPlan = await db.query.subscriptionPlans.findFirst({
         where: isRazorpayPlanId 
           ? eq(subscriptionPlans.razorpaySubscriptionPlanId, planId)
+          : isStripeProductId
+          ? eq(subscriptionPlans.stripeProductId, planId)
           : eq(subscriptionPlans.id, planId),
       });
 
@@ -72,17 +75,65 @@ export const PATCH = withDynamicApiHandler<{ planId: string }>(
             })
             .returning();
 
-          console.log(`[API] Created database record for Razorpay plan ${planId}`);
-          
-          return successResponse({
-            plan: newPlan,
-            message: isVisibleToCustomers 
-              ? "Plan is now visible to customers" 
-              : "Plan is now hidden from customers (existing subscriptions not affected)"
-          });
+          existingPlan = newPlan;
         } catch (razorpayError) {
           console.error("[API] Error fetching plan from Razorpay:", razorpayError);
           return errorResponse("Failed to fetch plan from Razorpay", 404);
+        }
+      }
+
+      // If Stripe product doesn't exist in database, create a record for it
+      if (!existingPlan && isStripeProductId) {
+        console.log(`[API] Plan ${planId} not found in database, fetching from Stripe and creating record`);
+        
+        const { STRIPE_SECRET_KEY } = process.env;
+        if (!STRIPE_SECRET_KEY) {
+          return errorResponse("Missing Stripe credentials", 500);
+        }
+
+        try {
+          const Stripe = (await import('stripe')).default;
+          const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2026-02-25.clover" as any });
+          const stripeProduct = await stripe.products.retrieve(planId);
+          
+          let priceAmt = 0;
+          let priceId: string | null = null;
+          let interval = 'monthly';
+          
+          if (stripeProduct.default_price) {
+             const defaultPriceId = typeof stripeProduct.default_price === 'string' 
+                ? stripeProduct.default_price 
+                : stripeProduct.default_price.id;
+             priceId = defaultPriceId;
+             try {
+               const priceObj = await stripe.prices.retrieve(defaultPriceId);
+               priceAmt = (priceObj.unit_amount || 0) / 100;
+               interval = priceObj.recurring?.interval === 'year' ? 'yearly' 
+                          : (priceObj.recurring?.interval || 'monthly');
+             } catch (e) {
+               console.error("Failed to retrieve price context for Stripe product", e);
+             }
+          }
+
+          const [newPlan] = await db
+            .insert(subscriptionPlans)
+            .values({
+              name: stripeProduct.name || 'Unnamed Plan',
+              description: stripeProduct.description || null,
+              price: String(priceAmt),
+              billingCycle: interval,
+              features: null,
+              isActive: true,
+              isVisibleToCustomers,
+              stripeProductId: planId,
+              stripePriceId: priceId,
+            })
+            .returning();
+
+          existingPlan = newPlan;
+        } catch (stripeError) {
+          console.error("[API] Error fetching plan from Stripe:", stripeError);
+          return errorResponse("Failed to fetch plan from Stripe", 404);
         }
       }
 

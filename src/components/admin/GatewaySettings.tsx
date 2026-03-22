@@ -68,8 +68,8 @@ const GATEWAY_LABELS: Record<string, string> = {
 
 const GATEWAY_COLORS: Record<string, string> = {
   razorpay: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  stripe:   'bg-purple-500/10 text-purple-400 border-purple-500/20',
-  none:     'bg-red-500/10 text-red-400 border-red-500/20',
+  stripe: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  none: 'bg-red-500/10 text-red-400 border-red-500/20',
 };
 
 /** ISO 3166-1 alpha-2 country list (subset — enough for a searchable dropdown) */
@@ -245,9 +245,10 @@ export default function GatewaySettings() {
   const fetchVendorPlans = useCallback(async () => {
     setPlansLoading(true);
     try {
-      const [dbPlansRes, rpPlansRes] = await Promise.all([
+      const [dbPlansRes, rpPlansRes, stripePlansRes] = await Promise.all([
         fetch('/api/admin/subscription-plans'),
-        fetch('/api/payments/razorpay-plans?count=100').catch(() => ({ ok: false }))
+        fetch('/api/payments/razorpay-plans?count=100').catch(() => ({ ok: false })),
+        fetch('/api/payments/stripe-products?limit=100').catch(() => ({ ok: false }))
       ]);
 
       const dbJson = await dbPlansRes.json();
@@ -259,19 +260,50 @@ export default function GatewaySettings() {
         rpPlansRaw = rpJson.success && Array.isArray(rpJson.items) ? rpJson.items : [];
       }
 
+      let stripePlansRaw = [];
+      if ('json' in stripePlansRes) {
+        const stripeJson = await (stripePlansRes as Response).json();
+        stripePlansRaw = stripeJson.success && Array.isArray(stripeJson.data) ? stripeJson.data : [];
+      }
+
       const combined: any[] = [];
       const dbSeenIds = new Set();
 
       // DB plans mapped to a gateway
       dbPlans.forEach((plan: any) => {
-        if (plan.razorpaySubscriptionPlanId || plan.stripeProductId || plan.stripePriceId) {
-          if (plan.razorpaySubscriptionPlanId) dbSeenIds.add(plan.razorpaySubscriptionPlanId);
+        // Detect gateway and related identifier dynamically
+        let gateway = plan.gateway;
+        let platformId = plan.platformId || plan.gatewayId;
+
+        if (!gateway) {
+          if (plan.razorpaySubscriptionPlanId) {
+            gateway = 'razorpay';
+            platformId = plan.razorpaySubscriptionPlanId;
+          } else if (plan.stripeProductId || plan.stripePriceId) {
+            gateway = 'stripe';
+            platformId = plan.stripeProductId || plan.stripePriceId;
+          }
+        }
+
+        if (gateway && platformId) {
+          dbSeenIds.add(platformId);
+
+          // Determine currency based on plan or fallback to country/gateway defaults
+          let currencyCode = plan.currency;
+          if (!currencyCode) {
+            currencyCode = gateway === 'razorpay' ? 'INR' : 'USD';
+          }
+          const currencySymbol = currencyCode === 'INR' ? '₹' : (currencyCode === 'USD' ? '$' : currencyCode);
+
           combined.push({
-            id: plan.razorpaySubscriptionPlanId || plan.stripeProductId || plan.stripePriceId || plan.id,
+            id: platformId || plan.id,
             dbId: plan.id,
-            gateway: plan.razorpaySubscriptionPlanId ? 'razorpay' : 'stripe',
+            gateway: gateway,
             name: plan.name,
             isVisibleToCustomers: plan.isVisibleToCustomers ?? true,
+            price: Number(plan.price || 0),
+            currency: currencySymbol,
+            interval: plan.billingCycle || 'N/A',
           });
         }
       });
@@ -279,12 +311,42 @@ export default function GatewaySettings() {
       // Unmapped Razorpay plans
       rpPlansRaw.forEach((rpPlan: any) => {
         if (!dbSeenIds.has(rpPlan.id)) {
+          const amt = Number(rpPlan.item?.amount || rpPlan.item?.unit_amount || 0) / 100;
           combined.push({
             id: rpPlan.id,
             dbId: rpPlan.id, // we pass Razorpay ID, API handler creates rows lazily
             gateway: 'razorpay',
             name: rpPlan.item?.name || 'Unnamed Plan',
-            isVisibleToCustomers: rpPlan.isVisibleToCustomers ?? true,
+            isVisibleToCustomers: false, // Default to OFF until purposefully toggled
+            price: amt,
+            currency: rpPlan.item?.currency === 'INR' ? '₹' : (rpPlan.item?.currency || ''),
+            interval: rpPlan.period || 'N/A',
+          });
+        }
+      });
+
+      // Unmapped Stripe plans
+      stripePlansRaw.forEach((stripePlan: any) => {
+        if (!dbSeenIds.has(stripePlan.id)) {
+          let amt = 0;
+          let curr = '';
+          let interval = 'N/A';
+          if (stripePlan.default_price && typeof stripePlan.default_price !== 'string') {
+            const dp = stripePlan.default_price;
+            amt = (dp.unit_amount || 0) / 100;
+            curr = dp.currency === 'inr' ? '₹' : (dp.currency === 'usd' ? '$' : dp.currency?.toUpperCase() || '');
+            interval = dp.recurring?.interval === 'year' ? 'yearly'
+              : (dp.recurring?.interval || dp.recurring?.interval_count + ' ' + dp.recurring?.interval || 'monthly');
+          }
+          combined.push({
+            id: stripePlan.id,
+            dbId: stripePlan.id, // pass Stripe Product ID
+            gateway: 'stripe',
+            name: stripePlan.name || 'Unnamed Plan',
+            isVisibleToCustomers: false, // Default to OFF until purposefully toggled
+            price: amt,
+            currency: curr,
+            interval: interval,
           });
         }
       });
@@ -322,7 +384,7 @@ export default function GatewaySettings() {
       toast({ title: 'Info', description: `All ${GATEWAY_LABELS[gateway]} plans are already ${enable ? 'enabled' : 'disabled'}`, variant: 'default' });
       return;
     }
-    
+
     setPlansLoading(true);
     try {
       await Promise.all(
@@ -340,9 +402,9 @@ export default function GatewaySettings() {
     }
   };
 
-  useEffect(() => { 
+  useEffect(() => {
     fetchRules();
-    fetchVendorPlans(); 
+    fetchVendorPlans();
   }, [fetchRules, fetchVendorPlans]);
 
   // --------------------------------------------------------------------------
@@ -407,10 +469,10 @@ export default function GatewaySettings() {
 
   const filteredCountries = countrySearch
     ? COUNTRIES.filter(
-        (c) =>
-          c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-          c.code.toLowerCase().includes(countrySearch.toLowerCase())
-      ).slice(0, 8)
+      (c) =>
+        c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+        c.code.toLowerCase().includes(countrySearch.toLowerCase())
+    ).slice(0, 8)
     : COUNTRIES.slice(0, 8);
 
   // --------------------------------------------------------------------------
@@ -643,7 +705,7 @@ export default function GatewaySettings() {
               <div>
                 <p className="text-sm font-medium text-orange-300">No global default rule set</p>
                 <p className="text-xs text-muted-foreground">
-                  Without a global default, the system falls back to the hard-coded default (Stripe). 
+                  Without a global default, the system falls back to the hard-coded default (Stripe).
                   <button className="ml-1 underline text-orange-300 hover:text-orange-200" onClick={openCreate}>
                     Create a global default →
                   </button>
@@ -849,13 +911,15 @@ export default function GatewaySettings() {
               <TableRow>
                 <TableHead>Gateway</TableHead>
                 <TableHead>Plan Name</TableHead>
+                <TableHead>Price</TableHead>
+                <TableHead>Interval</TableHead>
                 <TableHead className="text-right">Visibility Toggle</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {plansLoading && vendorPlans.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-6">
+                  <TableCell colSpan={5} className="text-center py-6">
                     <div className="flex items-center justify-center">
                       <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
@@ -863,7 +927,7 @@ export default function GatewaySettings() {
                 </TableRow>
               ) : vendorPlans.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     No gateway plans found. Creating a plan via the Razorpay or Stripe dashboards will automatically sync them here once loaded.
                   </TableCell>
                 </TableRow>
@@ -878,6 +942,12 @@ export default function GatewaySettings() {
                     <TableCell className="font-medium">
                       {plan.name}
                       <p className="text-xs text-muted-foreground opacity-60 m-0 p-0 font-normal">{plan.id}</p>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {plan.currency}{Number(plan.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell className="capitalize text-muted-foreground">
+                      {plan.interval}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -995,11 +1065,10 @@ export default function GatewaySettings() {
                     key={gw}
                     type="button"
                     onClick={() => setForm((f) => ({ ...f, gateway: gw }))}
-                    className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-all ${
-                      form.gateway === gw
-                        ? `${GATEWAY_COLORS[gw]} ring-1 ring-current`
-                        : 'border-border text-muted-foreground hover:border-muted-foreground/50'
-                    }`}
+                    className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-all ${form.gateway === gw
+                      ? `${GATEWAY_COLORS[gw]} ring-1 ring-current`
+                      : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+                      }`}
                   >
                     {GATEWAY_LABELS[gw]}
                   </button>

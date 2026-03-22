@@ -124,34 +124,46 @@ export async function GET() {
         };
       });
 
-    // Get Basic Plans (one-time payment plans without Razorpay link)
+    // Get Basic Plans (one-time payment plans or Stripe plans)
     const basicPlans = dbPlans
       .filter(p => !p.razorpaySubscriptionPlanId)
-      .map(p => ({
-        id: p.id,
-        name: p.name,
-        description: p.description || "",
-        // Convert price string to amount in smallest currency unit (paise/cents)
-        amount: Math.round(parseFloat(p.price.replace(/[^0-9.]/g, '')) * 100),
-        currency: 'INR', // Default currency - could be enhanced to read from plan
-        interval: 1,
-        period: p.billingCycle || 'one-time',
-        features: p.features ? JSON.parse(p.features) : [],
-        // No Razorpay metadata for basic plans
-        razorpayPlanId: null,
-        razorpayItemId: null,
-        // Database metadata
-        dbPlanId: p.id,
-        isActive: p.isActive,
-        createdAt: new Date(p.createdAt).getTime() / 1000,
+      .map(p => {
+        let period = p.billingCycle || 'one-time';
+        if (period === 'month') period = 'monthly';
+        if (period === 'year') period = 'yearly';
+        
+        // Currency defaults to INR for basic, but USD for Stripe if not specified
+        const defCurrency = p.stripeProductId ? 'USD' : 'INR';
+        
+        return {
+          id: p.stripeProductId || p.id,
+          name: p.name,
+          description: p.description || "",
+          // Convert price string to amount in smallest currency unit (paise/cents)
+          amount: Math.round(parseFloat((p.price || "0").replace(/[^0-9.]/g, '')) * 100),
+          currency: defCurrency,
+          interval: 1,
+          period,
+          features: p.features ? JSON.parse(p.features) : [],
+          // No Razorpay metadata for these plans
+          razorpayPlanId: null,
+          razorpayItemId: null,
+          // Stripe metadata
+          stripeProductId: p.stripeProductId,
+          stripePriceId: p.stripePriceId,
+          // Database metadata
+          dbPlanId: p.id,
+          isActive: p.isActive,
+          createdAt: new Date(p.createdAt).getTime() / 1000,
 
-        displayOrder: p.displayOrder ?? 0,
-        badge: (p.enableAutoPopular && (popularityMap.get(p.id) || 0) === maxPopularity && maxPopularity > 0)
-          ? "Most Popular"
-          : (p.badgeText || null),
-        // Plan type
-        planType: 'basic' as const,
-      }));
+          displayOrder: p.displayOrder ?? 0,
+          badge: (p.enableAutoPopular && (popularityMap.get(p.id) || 0) === maxPopularity && maxPopularity > 0)
+            ? "Most Popular"
+            : (p.badgeText || null),
+          // Plan type
+          planType: p.stripeProductId ? 'stripe-subscription' as const : 'basic' as const,
+        };
+      });
 
     // Combine both plan types and sort by displayOrder
     const plans = [...razorpayVisiblePlans, ...basicPlans].sort((a, b) => {

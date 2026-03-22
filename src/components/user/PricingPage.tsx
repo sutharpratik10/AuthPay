@@ -40,8 +40,9 @@ interface RazorpayPlan {
   dbPlanId?: string;
   isActive: boolean;
   createdAt: number;
-  planType: 'subscription' | 'basic';
+  planType: 'subscription' | 'basic' | 'stripe-subscription';
   badge?: string;
+  stripeProductId?: string | null;
 }
 
 interface PricingPageProps {
@@ -233,6 +234,33 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
         const rzp = new Razorpay(options);
         rzp.open();
 
+      } else if (plan.planType === 'stripe-subscription' || plan.stripeProductId) {
+        // For Stripe subscriptions
+        const billingInterval = plan.period === 'yearly' || plan.period === 'year' ? 'year' : 'month';
+        
+        const resp = await fetch("/api/payments/stripe-create-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: plan.amount / 100, // Converts cents back to dollars for API expectation
+            currency: plan.currency || "USD",
+            planId: plan.id,
+            planName: plan.name,
+            billingInterval,
+            mode: "subscription",
+          }),
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.error || "Failed to create Stripe session");
+        }
+
+        const data = await resp.json();
+        if (!data.checkoutUrl) throw new Error("No checkout URL returned from Stripe");
+
+        // Redirect to Stripe Checkout
+        window.location.href = data.checkoutUrl;
       } else {
         // For basic plans (one-time payment)
 
