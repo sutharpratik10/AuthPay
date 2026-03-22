@@ -6,7 +6,7 @@ dotenv.config();
 
 // Function to get the application name
 function getAppName(): string {
-  return process.env.APP_NAME || 'BookEase';
+  return process.env.APP_NAME || 'Authpay';
 }
 
 async function createDatabase() {

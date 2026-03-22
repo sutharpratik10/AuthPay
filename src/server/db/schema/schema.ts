@@ -13,6 +13,9 @@ export const subscriptionPlans = pgTable("subscription_plans", {
 	razorpaySubscriptionId: varchar('razorpay_subscription_id', { length: 100 }),
 	razorpaySubscriptionPlanId: varchar('razorpay_subscription_plan_id', { length: 100 }),
 	razorpaySubscriptionLink: varchar('razorpay_subscription_link', { length: 255 }),
+	// Stripe integration fields (all nullable)
+	stripeProductId: varchar('stripe_product_id', { length: 100 }),
+	stripePriceId: varchar('stripe_price_id', { length: 100 }),
 	displayOrder: integer('display_order').default(0),
 	badgeText: varchar('badge_text', { length: 50 }),
 	enableAutoPopular: boolean('enable_auto_popular').default(false),

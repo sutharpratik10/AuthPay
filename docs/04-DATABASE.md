@@ -12,7 +12,7 @@
 
 ## Overview
 
-BookEase uses **PostgreSQL** as its relational database with **Drizzle ORM** for type-safe database operations and migrations. The schema is designed for security, performance, and scalability.
+Authpay uses **PostgreSQL** as its relational database with **Drizzle ORM** for type-safe database operations and migrations. The schema is designed for security, performance, and scalability.
 
 ### Key Features
 
@@ -97,7 +97,7 @@ export type Database = typeof db;
 
 **Environment Variable**:
 ```bash
-DATABASE_URL=postgresql://username:password@localhost:5432/BookEase
+DATABASE_URL=postgresql://username:password@localhost:5432/Authpay
 ```
 
 ## Core Tables
@@ -917,7 +917,7 @@ npm run db:migrate
 **3. Permission Denied**
 ```sql
 -- Grant permissions
-GRANT ALL PRIVILEGES ON DATABASE BookEase TO username;
+GRANT ALL PRIVILEGES ON DATABASE Authpay TO username;
 ```
 
 **4. Duplicate Key Error**

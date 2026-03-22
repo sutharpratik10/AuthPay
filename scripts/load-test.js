@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Load Testing Script for BookEase API Routes
+ * Load Testing Script for Authpay API Routes
  * 
  * This script simulates high-traffic scenarios to test application resilience
  * Usage: node scripts/load-test.js [intensity]
@@ -74,7 +74,7 @@ const API_ROUTES = [
 
 const config = INTENSITY_CONFIGS[intensity] || INTENSITY_CONFIGS.low;
 
-console.log(chalk.blue.bold('\n🔥 BookEase Load Testing Tool\n'));
+console.log(chalk.blue.bold('\n🔥 Authpay Load Testing Tool\n'));
 console.log(chalk.yellow(`Intensity: ${intensity.toUpperCase()}`));
 console.log(chalk.yellow(`Description: ${config.description}`));
 console.log(chalk.yellow(`Target: ${BASE_URL}`));

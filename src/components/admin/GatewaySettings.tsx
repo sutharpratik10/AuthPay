@@ -238,7 +238,112 @@ export default function GatewaySettings() {
     }
   }, [toast]);
 
-  useEffect(() => { fetchRules(); }, [fetchRules]);
+  // ---- Plan Visibility Control ----
+  const [vendorPlans, setVendorPlans] = useState<any[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+
+  const fetchVendorPlans = useCallback(async () => {
+    setPlansLoading(true);
+    try {
+      const [dbPlansRes, rpPlansRes] = await Promise.all([
+        fetch('/api/admin/subscription-plans'),
+        fetch('/api/payments/razorpay-plans?count=100').catch(() => ({ ok: false }))
+      ]);
+
+      const dbJson = await dbPlansRes.json();
+      const dbPlans = dbJson.success ? dbJson.data.plans : [];
+
+      let rpPlansRaw = [];
+      if ('json' in rpPlansRes) {
+        const rpJson = await (rpPlansRes as Response).json();
+        rpPlansRaw = rpJson.success && Array.isArray(rpJson.items) ? rpJson.items : [];
+      }
+
+      const combined: any[] = [];
+      const dbSeenIds = new Set();
+
+      // DB plans mapped to a gateway
+      dbPlans.forEach((plan: any) => {
+        if (plan.razorpaySubscriptionPlanId || plan.stripeProductId || plan.stripePriceId) {
+          if (plan.razorpaySubscriptionPlanId) dbSeenIds.add(plan.razorpaySubscriptionPlanId);
+          combined.push({
+            id: plan.razorpaySubscriptionPlanId || plan.stripeProductId || plan.stripePriceId || plan.id,
+            dbId: plan.id,
+            gateway: plan.razorpaySubscriptionPlanId ? 'razorpay' : 'stripe',
+            name: plan.name,
+            isVisibleToCustomers: plan.isVisibleToCustomers ?? true,
+          });
+        }
+      });
+
+      // Unmapped Razorpay plans
+      rpPlansRaw.forEach((rpPlan: any) => {
+        if (!dbSeenIds.has(rpPlan.id)) {
+          combined.push({
+            id: rpPlan.id,
+            dbId: rpPlan.id, // we pass Razorpay ID, API handler creates rows lazily
+            gateway: 'razorpay',
+            name: rpPlan.item?.name || 'Unnamed Plan',
+            isVisibleToCustomers: rpPlan.isVisibleToCustomers ?? true,
+          });
+        }
+      });
+
+      setVendorPlans(combined);
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error', description: 'Failed to fully load Vendor Plans.', variant: 'destructive' });
+    } finally {
+      setPlansLoading(false);
+    }
+  }, [toast]);
+
+  const toggleVendorPlanVisibility = async (dbId: string, currentVisibility: boolean) => {
+    try {
+      setPlansLoading(true);
+      const response = await fetch(`/api/admin/subscription-plans/${encodeURIComponent(dbId)}/visibility`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isVisibleToCustomers: !currentVisibility }),
+      });
+
+      if (!response.ok) throw new Error('Update failed');
+      toast({ title: 'Success', description: `Plan visibility updated`, variant: 'success' });
+      await fetchVendorPlans();
+    } catch (err) {
+      toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
+      setPlansLoading(false);
+    }
+  };
+
+  const toggleGatewayAll = async (gateway: 'razorpay' | 'stripe', enable: boolean) => {
+    const plansToToggle = vendorPlans.filter(p => p.gateway === gateway && p.isVisibleToCustomers !== enable);
+    if (plansToToggle.length === 0) {
+      toast({ title: 'Info', description: `All ${GATEWAY_LABELS[gateway]} plans are already ${enable ? 'enabled' : 'disabled'}`, variant: 'default' });
+      return;
+    }
+    
+    setPlansLoading(true);
+    try {
+      await Promise.all(
+        plansToToggle.map(p => fetch(`/api/admin/subscription-plans/${encodeURIComponent(p.dbId)}/visibility`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isVisibleToCustomers: enable })
+        }))
+      );
+      toast({ title: 'Success', description: `All ${GATEWAY_LABELS[gateway]} plans toggled`, variant: 'success' });
+      await fetchVendorPlans();
+    } catch (err) {
+      toast({ title: 'Error', description: 'Bulk update failed', variant: 'destructive' });
+      setPlansLoading(false);
+    }
+  };
+
+  useEffect(() => { 
+    fetchRules();
+    fetchVendorPlans(); 
+  }, [fetchRules, fetchVendorPlans]);
 
   // --------------------------------------------------------------------------
   // Derived stats
@@ -702,6 +807,88 @@ export default function GatewaySettings() {
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* ── Plan Visibility Control ── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Plan Visibility Control</CardTitle>
+              <CardDescription>
+                Manage which plans are visible to customers per payment gateway.
+              </CardDescription>
+            </div>
+            {vendorPlans.length > 0 && (
+              <div className="flex flex-wrap gap-2 text-sm justify-end">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-accent/30 border rounded-lg">
+                  <span className="text-muted-foreground font-medium">RazorPay:</span>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-green-500 hover:text-green-600 hover:bg-green-500/10" onClick={() => toggleGatewayAll('razorpay', true)} disabled={plansLoading}>Enable All</Button>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10" onClick={() => toggleGatewayAll('razorpay', false)} disabled={plansLoading}>Disable All</Button>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-accent/30 border rounded-lg">
+                  <span className="text-muted-foreground font-medium">Stripe:</span>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-green-500 hover:text-green-600 hover:bg-green-500/10" onClick={() => toggleGatewayAll('stripe', true)} disabled={plansLoading}>Enable All</Button>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10" onClick={() => toggleGatewayAll('stripe', false)} disabled={plansLoading}>Disable All</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Gateway</TableHead>
+                <TableHead>Plan Name</TableHead>
+                <TableHead className="text-right">Visibility Toggle</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {plansLoading && vendorPlans.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-6">
+                    <div className="flex items-center justify-center">
+                      <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : vendorPlans.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                    No gateway plans found. Creating a plan via the Razorpay or Stripe dashboards will automatically sync them here once loaded.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                vendorPlans.map((plan) => (
+                  <TableRow key={plan.id}>
+                    <TableCell>
+                      <Badge variant="outline" className={`text-xs ${GATEWAY_COLORS[plan.gateway]}`}>
+                        {GATEWAY_LABELS[plan.gateway]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {plan.name}
+                      <p className="text-xs text-muted-foreground opacity-60 m-0 p-0 font-normal">{plan.id}</p>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <span className={`text-xs ${plan.isVisibleToCustomers ? 'text-green-500' : 'text-red-500'}`}>
+                          {plan.isVisibleToCustomers ? 'ON' : 'OFF'}
+                        </span>
+                        <Switch
+                          checked={plan.isVisibleToCustomers}
+                          onCheckedChange={() => toggleVendorPlanVisibility(plan.dbId, plan.isVisibleToCustomers)}
+                          disabled={plansLoading}
+                        />
                       </div>
                     </TableCell>
                   </TableRow>

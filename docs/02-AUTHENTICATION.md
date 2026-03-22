@@ -12,7 +12,7 @@
 
 ## Overview
 
-BookEase's authentication system is built on **NextAuth.js 5** (Auth.js), providing a secure, flexible, and production-ready authentication solution. The system supports multiple authentication methods and integrates seamlessly with the RBAC system.
+Authpay's authentication system is built on **NextAuth.js 5** (Auth.js), providing a secure, flexible, and production-ready authentication solution. The system supports multiple authentication methods and integrates seamlessly with the RBAC system.
 
 ### Features
 

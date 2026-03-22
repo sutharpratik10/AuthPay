@@ -2,7 +2,7 @@
 
 ## Created Documentation Files
 
-This document provides an overview of all the documentation created for the BookEase application.
+This document provides an overview of all the documentation created for the Authpay application.
 
 ## 📚 New Documentation Files
 

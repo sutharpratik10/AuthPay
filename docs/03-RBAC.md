@@ -14,7 +14,7 @@
 
 ## Overview
 
-BookEase implements a sophisticated **policy-based RBAC system** that provides fine-grained access control throughout the application. Unlike traditional role-based systems, our approach uses policies (permissions) to define what users can do, making the system more flexible and maintainable.
+Authpay implements a sophisticated **policy-based RBAC system** that provides fine-grained access control throughout the application. Unlike traditional role-based systems, our approach uses policies (permissions) to define what users can do, making the system more flexible and maintainable.
 
 ### Why Policy-Based?
 

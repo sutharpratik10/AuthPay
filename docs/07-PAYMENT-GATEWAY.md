@@ -16,7 +16,7 @@
 
 ## Overview
 
-BookEase implements a **flexible, provider-agnostic payment gateway system** with Razorpay as the primary payment processor. The architecture supports multiple payment providers through an abstraction layer, making it easy to switch or add new payment gateways without changing application code.
+Authpay implements a **flexible, provider-agnostic payment gateway system** with Razorpay as the primary payment processor. The architecture supports multiple payment providers through an abstraction layer, making it easy to switch or add new payment gateways without changing application code.
 
 ### Key Features
 
@@ -1296,7 +1296,7 @@ if (!Number.isFinite(amount) || amount <= 0) {
 
 ## Summary
 
-The BookEase payment gateway system provides:
+The Authpay payment gateway system provides:
 
 ✅ **Flexible Architecture**: Provider-agnostic design for easy integration  
 ✅ **Razorpay Integration**: Complete order, payment, and subscription support  

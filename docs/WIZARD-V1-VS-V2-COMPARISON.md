@@ -331,8 +331,8 @@ POST /api/business/holidays (multiple parallel)
 | **Calendly** | 5 | 10 min | ✅ | ✅ | ✅ | ✅ |
 | **Fresha** | 8 | 20 min | ✅ | ✅ | ✅ | ✅ |
 | **Setmore** | 6 | 15 min | ✅ | ✅ | ✅ | ❌ |
-| **BookEase V1** | 4 | 3 min | ❌ | ❌ | ❌ | ❌ |
-| **BookEase V2** | 6 | 10 min | ✅ | ✅ | ✅ | ✅ |
+| **Authpay V1** | 4 | 3 min | ❌ | ❌ | ❌ | ❌ |
+| **Authpay V2** | 6 | 10 min | ✅ | ✅ | ✅ | ✅ |
 
 **Verdict:** V2 matches or exceeds industry leaders! 🎉
 
@@ -505,7 +505,7 @@ POST /api/business/holidays (multiple parallel)
 
 ### Bottom Line
 
-**V2 is not just an improvement - it's a complete reimagining of the onboarding experience that positions BookEase as a serious competitor in the booking platform market.**
+**V2 is not just an improvement - it's a complete reimagining of the onboarding experience that positions Authpay as a serious competitor in the booking platform market.**
 
 ---
 

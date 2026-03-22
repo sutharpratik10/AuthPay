@@ -72,18 +72,18 @@ git --version
 
 ```bash
 # Using HTTPS
-git clone https://github.com/sutharpratik10/BookEase.git
+git clone https://github.com/sutharpratik10/Authpay.git
 
 # Or using SSH
-git clone git@github.com:sutharpratik10/BookEase.git
+git clone git@github.com:sutharpratik10/Authpay.git
 
 # Navigate to project directory
-cd BookEase
+cd Authpay
 ```
 
 **Expected Output**:
 ```
-Cloning into 'BookEase'...
+Cloning into 'Authpay'...
 remote: Enumerating objects: 1234, done.
 remote: Counting objects: 100% (1234/1234), done.
 remote: Compressing objects: 100% (567/567), done.
@@ -156,10 +156,10 @@ Open `.env.local` in your code editor and update the following variables:
 # ============================================
 # Database Configuration
 # ============================================
-DATABASE_URL="postgresql://username:password@localhost:5432/BookEase_db"
+DATABASE_URL="postgresql://username:password@localhost:5432/Authpay_db"
 
 # Format: postgresql://[user]:[password]@[host]:[port]/[database]
-# Example: postgresql://postgres:mysecretpassword@localhost:5432/BookEase_db
+# Example: postgresql://postgres:mysecretpassword@localhost:5432/Authpay_db
 
 # ============================================
 # NextAuth Configuration
@@ -235,13 +235,13 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 psql -U postgres
 
 # Create database
-CREATE DATABASE BookEase_db;
+CREATE DATABASE Authpay_db;
 
 # Create user (optional)
-CREATE USER BookEase_user WITH PASSWORD 'secure_password';
+CREATE USER Authpay_user WITH PASSWORD 'secure_password';
 
 # Grant privileges
-GRANT ALL PRIVILEGES ON DATABASE BookEase_db TO BookEase_user;
+GRANT ALL PRIVILEGES ON DATABASE Authpay_db TO Authpay_user;
 
 # Exit psql
 \q
@@ -251,7 +251,7 @@ GRANT ALL PRIVILEGES ON DATABASE BookEase_db TO BookEase_user;
 
 ```bash
 # In .env.local
-DATABASE_URL="postgresql://BookEase_user:secure_password@localhost:5432/BookEase_db"
+DATABASE_URL="postgresql://Authpay_user:secure_password@localhost:5432/Authpay_db"
 ```
 
 ### Option 2: Docker PostgreSQL Setup
@@ -266,12 +266,12 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: BookEase_postgres
+    container_name: Authpay_postgres
     restart: always
     environment:
-      POSTGRES_USER: BookEase_user
+      POSTGRES_USER: Authpay_user
       POSTGRES_PASSWORD: secure_password
-      POSTGRES_DB: BookEase_db
+      POSTGRES_DB: Authpay_db
     ports:
       - "5432:5432"
     volumes:
@@ -298,7 +298,7 @@ docker-compose logs -f postgres
 
 ```bash
 # In .env.local
-DATABASE_URL="postgresql://BookEase_user:secure_password@localhost:5432/BookEase_db"
+DATABASE_URL="postgresql://Authpay_user:secure_password@localhost:5432/Authpay_db"
 ```
 
 ### Option 3: Cloud Database (Recommended for Production)
@@ -376,8 +376,8 @@ Reading config file '/path/to/drizzle.config.ts'
 npx tsx scripts/test-connection.ts
 
 # Drop and recreate database (⚠️ WARNING: Deletes all data!)
-# psql -U postgres -c "DROP DATABASE BookEase_db;"
-# psql -U postgres -c "CREATE DATABASE BookEase_db;"
+# psql -U postgres -c "DROP DATABASE Authpay_db;"
+# psql -U postgres -c "CREATE DATABASE Authpay_db;"
 # npx drizzle-kit push
 ```
 
@@ -530,7 +530,7 @@ npx tsx scripts/test-connection.ts
 ```
 ✅ Database connection successful!
 📊 Database info:
-   - Database: BookEase_db
+   - Database: Authpay_db
    - Tables: 25
    - Version: PostgreSQL 15.3
 ```
@@ -603,7 +603,7 @@ Error: connect ECONNREFUSED 127.0.0.1:5432
 
 3. **Test database connection**:
    ```bash
-   psql -U postgres -d BookEase_db
+   psql -U postgres -d Authpay_db
    ```
 
 #### Issue 3: Migration Errors
@@ -616,8 +616,8 @@ Error: relation "users" already exists
 **Solution**:
 ```bash
 # Option 1: Drop and recreate database
-psql -U postgres -c "DROP DATABASE BookEase_db;"
-psql -U postgres -c "CREATE DATABASE BookEase_db;"
+psql -U postgres -c "DROP DATABASE Authpay_db;"
+psql -U postgres -c "CREATE DATABASE Authpay_db;"
 npx drizzle-kit push
 
 # Option 2: Use introspection to sync
@@ -860,7 +860,7 @@ RAZORPAY_KEY_SECRET="your-live-secret"
 
 ## Summary
 
-You should now have a fully functional BookEase application running locally! 🎉
+You should now have a fully functional Authpay application running locally! 🎉
 
 **Quick Command Reference**:
 

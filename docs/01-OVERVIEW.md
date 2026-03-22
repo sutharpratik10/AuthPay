@@ -1,4 +1,4 @@
-# BookEase - Overview
+# Authpay - Overview
 
 ## Table of Contents
 - [Introduction](#introduction)
@@ -10,17 +10,17 @@
 
 ## Introduction
 
-**BookEase** is a production-ready Next.js application that combines robust authentication, role-based access control (RBAC), and payment processing capabilities. Built with modern web technologies, it provides a scalable foundation for SaaS applications requiring secure user management and subscription-based services.
+**Authpay** is a production-ready Next.js application that combines robust authentication, role-based access control (RBAC), and payment processing capabilities. Built with modern web technologies, it provides a scalable foundation for SaaS applications requiring secure user management and subscription-based services.
 
-### What is BookEase?
+### What is Authpay?
 
-BookEase is designed to solve common challenges in building secure web applications:
+Authpay is designed to solve common challenges in building secure web applications:
 - **Authentication**: Secure user registration, login, and session management
 - **Authorization**: Fine-grained permission control through policy-based RBAC
 - **Payment Processing**: Integrated subscription and payment management
 - **Email Services**: Automated email notifications and verification
 
-### Who Should Use BookEase?
+### Who Should Use Authpay?
 
 - Developers building SaaS applications
 - Teams needing a secure authentication system
@@ -102,7 +102,7 @@ BookEase is designed to solve common challenges in building secure web applicati
 ## Project Structure
 
 ```
-BookEase/
+Authpay/
 ├── src/
 │   ├── app/                      # Next.js App Router
 │   │   ├── api/                  # API routes
@@ -242,7 +242,7 @@ BookEase/
 ```bash
 # 1. Clone the repository
 git clone <repository-url>
-cd BookEase
+cd Authpay
 
 # 2. Install dependencies
 npm install
@@ -269,7 +269,7 @@ Create a `.env.local` file with the following variables:
 
 ```bash
 # Database
-DATABASE_URL=postgresql://user:password@localhost:5432/BookEase
+DATABASE_URL=postgresql://user:password@localhost:5432/Authpay
 
 # NextAuth
 NEXTAUTH_SECRET=your-secret-key-here

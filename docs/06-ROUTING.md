@@ -13,7 +13,7 @@
 
 ## Overview
 
-BookEase implements a **centralized routing system** that provides consistent navigation, type-safe route definitions, and policy-based access control throughout the application.
+Authpay implements a **centralized routing system** that provides consistent navigation, type-safe route definitions, and policy-based access control throughout the application.
 
 ### Key Benefits
 
@@ -552,7 +552,7 @@ export const config = {
 
 > 📘 **Complete Guide**: See [09-DDOS-PROTECTION.md](./09-DDOS-PROTECTION.md) for comprehensive DDoS protection documentation.
 
-All API routes in BookEase are protected with token-bucket rate limiting to prevent abuse, brute force attacks, and DDoS attempts. The rate limiting system integrates seamlessly with the routing and middleware architecture.
+All API routes in Authpay are protected with token-bucket rate limiting to prevent abuse, brute force attacks, and DDoS attempts. The rate limiting system integrates seamlessly with the routing and middleware architecture.
 
 #### Rate Limiting Architecture
 

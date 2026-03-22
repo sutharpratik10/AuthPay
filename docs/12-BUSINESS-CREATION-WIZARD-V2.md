@@ -623,7 +623,7 @@ const [bookingSettings, setBookingSettings] = useState<BookingSettings>({...})
 
 ## 📊 Comparison with Industry Leaders
 
-| Feature | BookEase V2 | Calendly | Fresha | Setmore |
+| Feature | Authpay V2 | Calendly | Fresha | Setmore |
 |---------|------------|----------|--------|---------|
 | Working Hours | ✅ Multi-shift | ✅ | ✅ | ✅ |
 | Breaks | ✅ | ✅ | ✅ | ✅ |

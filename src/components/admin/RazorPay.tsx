@@ -1030,35 +1030,6 @@ export default function RazorPay() {
     }
   };
 
-  // Toggle visibility for Razorpay Plans (subscription plans)
-  const toggleRazorpayPlanVisibility = async (planId: string, currentVisibility: boolean) => {
-    try {
-      const response = await fetch(`/api/admin/subscription-plans/${planId}/visibility`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isVisibleToCustomers: !currentVisibility }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to toggle visibility');
-      }
-
-      // Refresh plans
-      loadRazorpayPlans();
-      toast({
-        title: 'Success',
-        description: `Plan visibility ${!currentVisibility ? 'enabled' : 'disabled'}`,
-      });
-    } catch (error) {
-      console.error('Error toggling visibility:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to toggle plan visibility',
-        variant: 'destructive',
-      });
-    }
-  };
-
   // Add feature
   const addFeature = () => {
     if (newFeature.trim() && !formData.features.includes(newFeature.trim())) {
@@ -1863,7 +1834,6 @@ export default function RazorPay() {
                     >
                       Created At
                     </TableHeadSortable>
-                    <TableHead>Visible</TableHead>
                   </TableRow>
                   <TableRow>
                     <TableHead>
@@ -1896,13 +1866,12 @@ export default function RazorPay() {
                         onSearch={(value) => handleRazorpayPlanColumnFilter('created_at', value)}
                       />
                     </TableHead>
-                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAndSortedRazorpayPlans.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No plans found.</TableCell>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No plans found.</TableCell>
                     </TableRow>
                   ) : (
                     filteredAndSortedRazorpayPlans.map((p: RazorpayPlan) => (
@@ -1928,17 +1897,6 @@ export default function RazorPay() {
                         </TableCell>
                         <TableCell>{p.period || '-'}</TableCell>
                         <TableCell>{p.created_at ? new Date(p.created_at * 1000).toLocaleString() : '-'}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={p.isVisibleToCustomers ?? true}
-                              onCheckedChange={() => toggleRazorpayPlanVisibility(p.id, p.isVisibleToCustomers ?? true)}
-                            />
-                            <span className="text-sm text-muted-foreground">
-                              {p.isVisibleToCustomers ?? true ? 'Shown' : 'Hidden'}
-                            </span>
-                          </div>
-                        </TableCell>
                       </TableRow>
                     ))
                   )}

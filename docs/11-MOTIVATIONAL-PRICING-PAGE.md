@@ -83,7 +83,7 @@ The page focuses on:
 ### 2. **Emotional Headlines**
 
 ```
-"Grow Your Business 3x Faster with BookEase"
+"Grow Your Business 3x Faster with Authpay"
 ```
 
 **Why:** Focuses on the outcome (growth) rather than the tool (booking system).
@@ -258,7 +258,7 @@ interface MotivationalPricingPageProps {
 ### Test 3: Social Proof
 - A: Generic stats (current)
 - B: Industry-specific stats
-- C: Location-based stats ("127 businesses in [City] use BookEase")
+- C: Location-based stats ("127 businesses in [City] use Authpay")
 
 ### Test 4: CTA Text
 - A: "Start Growing Now" (current)
