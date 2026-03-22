@@ -237,14 +237,14 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
       } else if (plan.planType === 'stripe-subscription' || plan.stripeProductId) {
         // For Stripe subscriptions
         const billingInterval = plan.period === 'yearly' || plan.period === 'year' ? 'year' : 'month';
-        
+
         const resp = await fetch("/api/payments/stripe-create-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             amount: plan.amount / 100, // Converts cents back to dollars for API expectation
             currency: plan.currency || "USD",
-            planId: plan.id,
+            planId: plan.dbPlanId || plan.id, // Pass inner DB ID instead of Stripe Product ID
             planName: plan.name,
             billingInterval,
             mode: "subscription",
