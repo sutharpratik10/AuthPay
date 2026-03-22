@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler, errorResponse, successResponse } from "@/lib/api/helpers";
 import { db } from "@/server/db";
 import { paymentGatewayConfig } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray, isNull } from "drizzle-orm";
 import { requireAdmin } from "@/lib/api/permissions";
 
 export const runtime = "nodejs";
@@ -43,13 +43,15 @@ export const POST = withApiHandler(async (req: NextRequest, { user }) => {
 
   const body = (await req.json()) as {
     countryCode?: string | null;
+    countryCodes?: string[];
+    isExcept?: boolean;
     gateway: string;
     isEnabled?: boolean;
     isDefault?: boolean;
     notes?: string;
   };
 
-  const { countryCode, gateway, isEnabled = true, isDefault = false, notes } = body;
+  const { countryCode, countryCodes, isExcept = false, gateway, isEnabled = true, isDefault = false, notes } = body;
 
   const VALID_GATEWAYS = ["razorpay", "stripe", "none"];
   if (!gateway || !VALID_GATEWAYS.includes(gateway)) {
@@ -59,31 +61,99 @@ export const POST = withApiHandler(async (req: NextRequest, { user }) => {
     );
   }
 
-  // Normalise country code
-  const normCode =
-    countryCode && countryCode.trim().length > 0
-      ? countryCode.trim().toUpperCase().slice(0, 2)
-      : null;
+  if (isExcept && gateway === "none") {
+    return errorResponse("Except mode requires gateway to be either razorpay or stripe.", 400);
+  }
 
-  // If marking as default, unset existing defaults
-  if (isDefault) {
+  const normalizeCountryCode = (value: string): string | null => {
+    const normalized = value.trim().toUpperCase().slice(0, 2);
+    return normalized.length === 2 ? normalized : null;
+  };
+
+  const incoming = [
+    ...(countryCode ? [countryCode] : []),
+    ...((countryCodes ?? []).filter(Boolean)),
+  ];
+
+  const countries = Array.from(
+    new Set(
+      incoming
+        .map((value) => normalizeCountryCode(value))
+        .filter((value): value is string => value !== null)
+    )
+  );
+
+  if (!isDefault && !isExcept && !countryCode && countries.length === 0) {
+    return errorResponse("Select at least one country or mark the rule as global default.", 400);
+  }
+
+  // If marking as default or if isExcept (which creates a global default), unset existing defaults
+  if (isDefault || isExcept) {
     await db
       .update(paymentGatewayConfig)
       .set({ isDefault: false, updatedAt: new Date() })
       .where(eq(paymentGatewayConfig.isDefault, true));
   }
 
-  const [created] = await db
-    .insert(paymentGatewayConfig)
-    .values({
-      countryCode: normCode ?? undefined,
-      gateway,
+  const valuesToInsert: Array<{
+    countryCode: string | null;
+    gateway: string;
+    isEnabled: boolean;
+    isDefault: boolean;
+    notes?: string;
+    createdBy: string;
+  }> = [];
+
+  const addRule = (code: string | null, def: boolean, gw: string) => {
+    valuesToInsert.push({
+      countryCode: code,
+      gateway: gw,
       isEnabled,
-      isDefault,
+      isDefault: def,
       notes: notes ?? undefined,
       createdBy: user!.id,
-    })
-    .returning();
+    });
+  };
 
-  return successResponse(created, "Gateway rule created", 201);
+  if (isExcept) {
+    // Show in all countries EXCEPT the selected ones
+    // 1. Create global default for the selected gateway
+    addRule(null, true, gateway);
+
+    // 2. Selected countries should get the opposite gateway automatically
+    const oppositeGateway = gateway === "razorpay" ? "stripe" : "razorpay";
+    countries.forEach(code => {
+      addRule(code, false, oppositeGateway);
+    });
+  } else if (countries.length > 0) {
+    // Show in specific countries
+    countries.forEach(code => {
+      addRule(code, false, gateway);
+    });
+  } else {
+    // Just a global default or a single rule without countryCode
+    addRule(null, isDefault, gateway);
+  }
+
+  if (valuesToInsert.length === 0) {
+    return errorResponse("No valid countries provided to create rules for.", 400);
+  }
+
+  const created = await db.transaction(async (tx) => {
+    // Replace any existing global rows when a new global/default rule is being created.
+    if (isDefault || isExcept || valuesToInsert.some((value) => value.countryCode === null)) {
+      await tx.delete(paymentGatewayConfig).where(isNull(paymentGatewayConfig.countryCode));
+    }
+
+    // Replace existing country rows for selected countries to avoid duplicate/ambiguous routing rules.
+    if (countries.length > 0) {
+      await tx
+        .delete(paymentGatewayConfig)
+        .where(inArray(paymentGatewayConfig.countryCode, countries));
+    }
+
+    return tx.insert(paymentGatewayConfig).values(valuesToInsert).returning();
+  });
+
+  return successResponse(created, "Gateway rule(s) created", 201);
 });

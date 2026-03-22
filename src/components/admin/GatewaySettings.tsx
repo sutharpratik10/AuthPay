@@ -49,7 +49,8 @@ interface GatewayRule {
 type GatewayOption = 'razorpay' | 'stripe' | 'none';
 
 interface FormState {
-  countryCode: string;
+  countryCodes: string[];
+  ruleMode: 'selected' | 'except';
   gateway: GatewayOption;
   isEnabled: boolean;
   isDefault: boolean;
@@ -183,7 +184,8 @@ function fmtDate(iso: string): string {
 }
 
 const EMPTY_FORM: FormState = {
-  countryCode: '',
+  countryCodes: [],
+  ruleMode: 'selected',
   gateway: 'stripe',
   isEnabled: true,
   isDefault: false,
@@ -457,7 +459,8 @@ export default function GatewaySettings() {
   const openEdit = (rule: GatewayRule) => {
     setEditRule(rule);
     setForm({
-      countryCode: rule.countryCode ?? '',
+      countryCodes: rule.countryCode ? [rule.countryCode] : [],
+      ruleMode: 'selected',
       gateway: rule.gateway,
       isEnabled: rule.isEnabled,
       isDefault: rule.isDefault,
@@ -472,8 +475,28 @@ export default function GatewaySettings() {
       (c) =>
         c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
         c.code.toLowerCase().includes(countrySearch.toLowerCase())
-    ).slice(0, 8)
-    : COUNTRIES.slice(0, 8);
+    )
+    : COUNTRIES;
+
+  const visibleCountries = filteredCountries
+    .filter((c) => !form.countryCodes.includes(c.code))
+    .slice(0, 10);
+
+  const removeSelectedCountry = (code: string) => {
+    setForm((f) => ({ ...f, countryCodes: f.countryCodes.filter((c) => c !== code) }));
+  };
+
+  const addSelectedCountry = (code: string, name: string) => {
+    setForm((f) => {
+      if (f.countryCodes.includes(code)) return f;
+      return { ...f, countryCodes: [...f.countryCodes, code] };
+    });
+    setCountrySearch('');
+    setShowCountryDropdown(false);
+    if (!editRule) {
+      toast({ title: 'Country added', description: `${name} added to this rule.` });
+    }
+  };
 
   // --------------------------------------------------------------------------
   // Quick-toggle enabled/disabled without opening dialog
@@ -508,29 +531,71 @@ export default function GatewaySettings() {
   // --------------------------------------------------------------------------
 
   const handleSave = async () => {
-    if (!editRule && !form.isDefault && !form.countryCode) {
-      toast({ title: 'Validation error', description: 'Select a country OR mark as Global Default.', variant: 'destructive' });
+    const isEditingGlobalRule = Boolean(editRule && editRule.countryCode === null);
+
+    if (!isEditingGlobalRule && form.countryCodes.length === 0) {
+      toast({ title: 'Validation error', description: 'Select at least one country.', variant: 'destructive' });
+      return;
+    }
+
+    if (!isEditingGlobalRule && form.ruleMode === 'except' && form.gateway === 'none') {
+      toast({
+        title: 'Validation error',
+        description: 'Except mode requires RazorPay or Stripe, not None.',
+        variant: 'destructive'
+      });
       return;
     }
 
     setSaving(true);
     try {
-      const payload = {
-        countryCode: form.isDefault ? null : (form.countryCode || null),
-        gateway: form.gateway,
-        isEnabled: form.isEnabled,
-        isDefault: form.isDefault,
-        notes: form.notes || null,
-      };
-
       let res: Response;
       if (editRule) {
-        res = await fetch(`/api/admin/payment-gateways/${editRule.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        const shouldUseBulkEditPath = !isEditingGlobalRule && (form.ruleMode === 'except' || form.countryCodes.length > 1);
+
+        if (shouldUseBulkEditPath) {
+          const payload = {
+            countryCodes: form.countryCodes,
+            isExcept: form.ruleMode === 'except',
+            gateway: form.gateway,
+            isEnabled: form.isEnabled,
+            isDefault: false,
+            notes: form.notes || null,
+          };
+
+          res = await fetch('/api/admin/payment-gateways', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (res.ok) {
+            await fetch(`/api/admin/payment-gateways/${editRule.id}`, { method: 'DELETE' }).catch(() => undefined);
+          }
+        } else {
+          const payload = {
+            countryCode: isEditingGlobalRule ? null : (form.countryCodes[0] || null),
+            gateway: form.gateway,
+            isEnabled: form.isEnabled,
+            isDefault: isEditingGlobalRule,
+            notes: form.notes || null,
+          };
+          res = await fetch(`/api/admin/payment-gateways/${editRule.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        }
       } else {
+        const payload = {
+          countryCode: null,
+          countryCodes: form.countryCodes,
+          isExcept: form.ruleMode === 'except',
+          gateway: form.gateway,
+          isEnabled: form.isEnabled,
+          isDefault: false,
+          notes: form.notes || null,
+        };
         res = await fetch('/api/admin/payment-gateways', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -997,53 +1062,84 @@ export default function GatewaySettings() {
           </DialogHeader>
 
           <div className="space-y-4 pt-2">
-            {/* Global default toggle */}
-            <div className="flex items-center justify-between rounded-lg border p-3 bg-yellow-500/5 border-yellow-500/20">
-              <div>
-                <Label className="text-sm font-medium">Global Default Rule</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Applies to all countries without a specific rule.
+            {!(editRule && editRule.countryCode === null) && (
+              <div className="space-y-1.5">
+                <Label>Rule Scope</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, ruleMode: 'selected' }))}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${form.ruleMode === 'selected'
+                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/30 ring-1 ring-blue-400/40'
+                      : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+                      }`}
+                  >
+                    Apply to selected countries
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, ruleMode: 'except' }))}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${form.ruleMode === 'except'
+                      ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 ring-1 ring-amber-400/40'
+                      : 'border-border text-muted-foreground hover:border-muted-foreground/50'
+                      }`}
+                  >
+                    Show in all countries except selected
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {form.ruleMode === 'selected'
+                    ? 'The selected gateway is shown only in selected countries.'
+                    : 'The selected gateway is shown globally. Selected countries automatically get the other gateway.'}
                 </p>
               </div>
-              <Switch
-                checked={form.isDefault}
-                onCheckedChange={(v) => setForm((f) => ({ ...f, isDefault: v, countryCode: v ? '' : f.countryCode }))}
-              />
-            </div>
+            )}
 
             {/* Country picker (only when not global default) */}
-            {!form.isDefault && (
+            {!(editRule && editRule.countryCode === null) && (
               <div className="space-y-1.5 relative">
-                <Label htmlFor="country">Country</Label>
+                <Label htmlFor="country">Countries</Label>
                 <Input
                   id="country"
-                  placeholder="Search country…"
+                  placeholder="Search and add countries…"
                   value={countrySearch}
                   autoComplete="off"
                   onChange={(e) => {
                     setCountrySearch(e.target.value);
-                    setForm((f) => ({ ...f, countryCode: '' }));
                     setShowCountryDropdown(true);
                   }}
                   onFocus={() => setShowCountryDropdown(true)}
                 />
-                {form.countryCode && (
-                  <p className="text-xs text-green-400">
-                    ✓ {countryFlagEmoji(form.countryCode)} {getCountryName(form.countryCode)} ({form.countryCode})
-                  </p>
+                {form.countryCodes.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {form.countryCodes.map((code) => (
+                      <span
+                        key={code}
+                        className="inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs text-blue-300"
+                      >
+                        {countryFlagEmoji(code)} {getCountryName(code)} ({code})
+                        <button
+                          type="button"
+                          className="text-blue-300/80 hover:text-blue-200"
+                          onClick={() => removeSelectedCountry(code)}
+                          aria-label={`Remove ${getCountryName(code)}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 )}
-                {showCountryDropdown && filteredCountries.length > 0 && (
+                {showCountryDropdown && visibleCountries.length > 0 && (
                   <div className="absolute z-50 w-full mt-0.5 bg-popover border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                    {filteredCountries.map((c) => (
+                    {visibleCountries.map((c) => (
                       <button
                         key={c.code}
                         type="button"
                         className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          setForm((f) => ({ ...f, countryCode: c.code }));
-                          setCountrySearch(c.name);
-                          setShowCountryDropdown(false);
+                          addSelectedCountry(c.code, c.name);
                         }}
                       >
                         <span>{countryFlagEmoji(c.code)}</span>
@@ -1064,6 +1160,7 @@ export default function GatewaySettings() {
                   <button
                     key={gw}
                     type="button"
+                    disabled={!(editRule && editRule.countryCode === null) && form.ruleMode === 'except' && gw === 'none'}
                     onClick={() => setForm((f) => ({ ...f, gateway: gw }))}
                     className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-all ${form.gateway === gw
                       ? `${GATEWAY_COLORS[gw]} ring-1 ring-current`
