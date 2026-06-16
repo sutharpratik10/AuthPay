@@ -565,10 +565,10 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
                           )}
                         </div>
 
-                        {plan.planType === 'subscription' && plan.period === "yearly" && (
+                        {(plan.planType === 'subscription' || plan.planType === 'stripe-subscription') && plan.period === "yearly" && (
                           <div className="space-y-1">
                             <p className="text-sm text-muted-foreground">
-                              {formatPrice(plan.amount, plan.currency)} billed annually
+                              if billed annually
                             </p>
                           </div>
                         )}
