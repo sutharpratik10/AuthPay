@@ -18,7 +18,7 @@ export default function LoginForm() {
     email: "",
     password: "",
   })
-  
+
   // Field-level validation errors
   const [fieldErrors, setFieldErrors] = useState({
     email: "",
@@ -33,7 +33,7 @@ export default function LoginForm() {
   const [isCheckingSuspension, setIsCheckingSuspension] = useState(false)
   const [emailStatus, setEmailStatus] = useState<"unknown" | "checking" | "registered" | "not-registered">("unknown")
   const [emailMessage, setEmailMessage] = useState("")
-  
+
   // Track last checked email to avoid duplicate API calls
   const lastCheckedEmail = useRef<string>("")
   // Track validated emails to avoid re-checking the same email
@@ -51,12 +51,12 @@ export default function LoginForm() {
       setIsSuspended(false)
       return
     }
-    
+
     // Skip if already checked this email
     if (email === lastCheckedEmail.current) {
       return
     }
-    
+
     // Check cache first
     const cachedResult = validatedEmails.current.get(email)
     if (cachedResult) {
@@ -95,12 +95,12 @@ export default function LoginForm() {
       setEmailMessage("")
       return
     }
-    
+
     // Skip if already checked this email
     if (email === lastCheckedEmail.current) {
       return
     }
-    
+
     // Check cache first - if we've already validated this email, use cached result
     const cachedResult = validatedEmails.current.get(email)
     if (cachedResult) {
@@ -117,10 +117,10 @@ export default function LoginForm() {
 
     setEmailStatus("checking")
     setEmailMessage("")
-    
+
     // Update last checked email
     lastCheckedEmail.current = email
-    
+
     try {
       const response = await fetch('/api/auth/check-email', {
         method: 'POST',
@@ -133,13 +133,13 @@ export default function LoginForm() {
       if (response.ok) {
         const data = await response.json()
         const status = data.emailExists ? "registered" : "not-registered"
-        
+
         // Cache the result
-        validatedEmails.current.set(email, { 
-          status, 
-          isSuspended: isSuspended 
+        validatedEmails.current.set(email, {
+          status,
+          isSuspended: isSuspended
         })
-        
+
         if (data.emailExists) {
           setEmailStatus("registered")
         } else {
@@ -163,7 +163,7 @@ export default function LoginForm() {
     if (!isValidEmailFormat(formData.email)) {
       return
     }
-    
+
     // Skip if already validated this exact email
     if (validatedEmails.current.has(formData.email)) {
       const cachedResult = validatedEmails.current.get(formData.email)!
@@ -177,7 +177,7 @@ export default function LoginForm() {
       lastCheckedEmail.current = formData.email
       return
     }
-    
+
     const timeoutId = setTimeout(() => {
       checkSuspensionStatus(formData.email)
       checkEmailRegistration(formData.email)
@@ -189,13 +189,13 @@ export default function LoginForm() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
-    
+
     // Clear error when user starts typing
     if (error) {
       setError("")
       setErrorType("error")
     }
-    
+
     // Validate field and set inline error
     validateField(name, value)
 
@@ -223,11 +223,11 @@ export default function LoginForm() {
       }
     }
   }
-  
+
   // Field validation function
   const validateField = (name: string, value: string) => {
     let errorMessage = ""
-    
+
     if (name === "email") {
       if (hasSQLInjectionPatterns(value)) {
         errorMessage = "Invalid input detected. Please enter a valid email address."
@@ -239,21 +239,21 @@ export default function LoginForm() {
         errorMessage = "Invalid input detected. Please enter a valid password."
       }
     }
-    
+
     setFieldErrors(prev => ({ ...prev, [name]: errorMessage }))
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    
+
     // Prevent double submission
     if (isSubmitting) {
       return
     }
-    
+
     setError("")
     setErrorType("error")
-    
+
     // Check for field-level validation errors
     if (fieldErrors.email || fieldErrors.password) {
       setError("Please fix the validation errors before submitting.")
@@ -266,7 +266,7 @@ export default function LoginForm() {
       setErrorType("warning")
       return
     }
-    
+
     // Validate email format
     if (!EMAIL_REGEX.test(formData.email)) {
       setFieldErrors(prev => ({ ...prev, email: "Please enter a valid email address" }))
@@ -282,6 +282,12 @@ export default function LoginForm() {
     try {
       setIsSubmitting(true)
       const result = await login(formData.email, formData.password)
+
+      if (result.requires2FA) {
+        // The router.push to the 2FA screen is handled inside the login function
+        return
+      }
+
       if (result.error) {
         // Map backend errors to user-friendly messages
         switch (result.error) {
@@ -362,7 +368,7 @@ export default function LoginForm() {
       <div className="flex flex-col items-center mb-6">
         <div className="bg-gray-100 p-3 rounded-full mb-3">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M13 3L4 14H12L11 21L20 10H12L13 3Z" fill="#000" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M13 3L4 14H12L11 21L20 10H12L13 3Z" fill="#000" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Login</h1>
@@ -371,22 +377,21 @@ export default function LoginForm() {
 
       {/* Error Message */}
       {error && (
-        <div 
-          className={`mb-4 p-3 rounded-md border ${
-            errorType === "error" 
-              ? "text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800" 
+        <div
+          className={`mb-4 p-3 rounded-md border ${errorType === "error"
+              ? "text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800"
               : errorType === "warning"
-              ? "text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950 dark:border-amber-800"
-              : "text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800"
-          }`}
+                ? "text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950 dark:border-amber-800"
+                : "text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800"
+            }`}
         >
           <div className="flex items-start gap-2">
             <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
             <div className="flex-1">
               <p className="text-sm">{error}</p>
               {errorType === "info" && (
-                <Link 
-                  href="/auth/signup" 
+                <Link
+                  href="/auth/signup"
                   className="text-sm font-medium underline hover:no-underline mt-2 inline-block"
                 >
                   Sign up here →
@@ -426,15 +431,14 @@ export default function LoginForm() {
               value={formData.email}
               onChange={handleChange}
               placeholder="Enter your Email"
-              className={`w-full transition-colors ${
-                fieldErrors.email
+              className={`w-full transition-colors ${fieldErrors.email
                   ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
-                  : emailStatus === "registered" 
-                  ? "border-green-500 focus:border-green-500 focus:ring-green-500 dark:border-green-600" 
-                  : emailStatus === "not-registered"
-                  ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
-                  : ""
-              }`}
+                  : emailStatus === "registered"
+                    ? "border-green-500 focus:border-green-500 focus:ring-green-500 dark:border-green-600"
+                    : emailStatus === "not-registered"
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
+                      : ""
+                }`}
             />
             {emailStatus === "checking" && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -464,11 +468,10 @@ export default function LoginForm() {
             </p>
           )}
           {emailMessage && !fieldErrors.email && (
-            <p className={`text-sm mt-1 ${
-              emailStatus === "registered" 
-                ? "text-green-600 dark:text-green-400" 
+            <p className={`text-sm mt-1 ${emailStatus === "registered"
+                ? "text-green-600 dark:text-green-400"
                 : "text-red-600 dark:text-red-400"
-            }`}>
+              }`}>
               {emailMessage}
               {emailStatus === "not-registered" && (
                 <Link href="/auth/signup" className="font-medium underline hover:no-underline ml-1">
@@ -499,11 +502,10 @@ export default function LoginForm() {
               value={formData.password}
               onChange={handleChange}
               placeholder="Enter your password"
-              className={`w-full pr-10 ${
-                fieldErrors.password
+              className={`w-full pr-10 ${fieldErrors.password
                   ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
                   : ""
-              }`}
+                }`}
             />
             <button
               type="button"
@@ -531,11 +533,11 @@ export default function LoginForm() {
           className="w-full bg-white text-black border-1 border-black hover:bg-gray-100 dark:bg-neutral-800 dark:text-white dark:border-white dark:hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isSubmitting || loading || isSuspended || isCheckingSuspension || emailStatus === "not-registered" || !!fieldErrors.email || !!fieldErrors.password}
         >
-          {isSubmitting ? "Signing in..." : 
-           isCheckingSuspension ? "Checking..." : 
-           isSuspended ? "Account Suspended" : 
-           emailStatus === "not-registered" ? "Email Not Registered" :
-           "Log In"}
+          {isSubmitting ? "Signing in..." :
+            isCheckingSuspension ? "Checking..." :
+              isSuspended ? "Account Suspended" :
+                emailStatus === "not-registered" ? "Email Not Registered" :
+                  "Log In"}
         </Button>
       </form>
 

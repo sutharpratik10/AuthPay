@@ -41,7 +41,9 @@ class EmailService {
     });
   }
   async sendEmail({ to, subject, html }: EmailOptions) {
-    console.log('[EmailService] Attempting to send email:', { to, subject });
+    // Mask sensitive info in logs like 6-digit OTP codes
+    const safeSubject = subject.replace(/\b\d{6}\b/g, '******');
+    console.log('[EmailService] Attempting to send email:', { to, subject: safeSubject });
     try {
       const result = await this.transporter.sendMail({
         from: `"${getAppName()}" <${APP_CONFIG.EMAIL.USER}>`,
