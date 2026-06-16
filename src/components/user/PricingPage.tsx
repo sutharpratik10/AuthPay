@@ -393,12 +393,12 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
           {/* Success Stats */}
           <div className="flex flex-wrap justify-center gap-6 mb-12">
             <div className="flex items-center gap-2 bg-card backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border border-border">
-              <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-500" />
-              <span className="text-sm font-semibold text-foreground">200% Average Growth</span>
+              <Shield className="h-5 w-5 text-green-600 dark:text-green-500" />
+              <span className="text-sm font-semibold text-foreground">99.9% Auth Uptime</span>
             </div>
             <div className="flex items-center gap-2 bg-card backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border border-border">
               <Users className="h-5 w-5 text-blue-600 dark:text-blue-500" />
-              <span className="text-sm font-semibold text-foreground">10,000+ Happy Clients</span>
+              <span className="text-sm font-semibold text-foreground">10,000+ Developers</span>
             </div>
             <div className="flex items-center gap-2 bg-card backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border border-border">
               <Star className="h-5 w-5 text-yellow-600 dark:text-yellow-500" />
@@ -410,24 +410,24 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
           <div className="text-center space-y-6 max-w-4xl mx-auto">
             <div className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2 rounded-full text-sm font-semibold shadow-lg">
               <Sparkles className="h-4 w-4" />
-              Transform Your Business Today
+              Ship Faster, Stay Secure
             </div>
 
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
               <span className="bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
-                Grow Your Business
+                Authentication & Payments
               </span>
               <br />
               <span className="text-foreground">
-                3x Faster with AuthPay
+                done right
               </span>
             </h1>
 
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Join thousands of successful businesses using our powerful booking system.
-              <span className="font-semibold text-foreground"> Increase bookings by 200%</span>,
-              reduce no-shows by <span className="font-semibold text-foreground">80%</span>,
-              and save <span className="font-semibold text-foreground">15 hours per week</span>.
+              AuthPay gives you secure auth and seamless payment processing out of the box.
+              <span className="font-semibold text-foreground"> Ship faster</span>,
+              stay <span className="font-semibold text-foreground">secure</span>,
+              and get paid — all in one platform.
             </p>
 
             {/* Social Proof */}
@@ -443,7 +443,7 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
                 ))}
               </div>
               <p className="text-sm text-muted-foreground">
-                <span className="font-bold text-foreground">2,547</span> businesses joined this week
+                <span className="font-bold text-foreground">2,547</span> developers joined this week
               </p>
             </div>
           </div>
@@ -633,33 +633,33 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
         <div className="mt-24 max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Why Businesses Love AuthPay
+              Why Developers Love AuthPay
             </h2>
             <p className="text-lg text-muted-foreground">
-              Real results from real businesses
+              Everything you need, nothing you don't
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: TrendingUp,
-                title: "200% More Bookings",
-                description: "Automated reminders and easy online booking increase your bookings dramatically",
+                icon: Shield,
+                title: "Secure Authentication",
+                description: "Enterprise-grade auth with OAuth, MFA, and session management built in.",
                 iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
                 iconColor: "text-emerald-700 dark:text-emerald-400",
               },
               {
-                icon: Clock,
-                title: "Save 15 Hours/Week",
-                description: "Automate scheduling, reminders, and customer management",
+                icon: DollarSign,
+                title: "Seamless Payments",
+                description: "Accept payments globally with built-in gateway integrations and subscription billing.",
                 iconBg: "bg-sky-100 dark:bg-sky-900/30",
                 iconColor: "text-sky-700 dark:text-sky-400",
               },
               {
-                icon: DollarSign,
-                title: "Increase Revenue by 150%",
-                description: "Accept online payments and reduce no-shows by 80%",
+                icon: Shield,
+                title: "Role-Based Access",
+                description: "Fine-grained RBAC policies to control exactly who can access what in your app.",
                 iconBg: "bg-amber-100 dark:bg-amber-900/30",
                 iconColor: "text-amber-700 dark:text-amber-400",
               },
@@ -688,7 +688,7 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
         <div className="mt-24 max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Success Stories
+              Developer Success Stories
             </h2>
           </div>
 
@@ -696,15 +696,15 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
             {[
               {
                 name: "Sarah Johnson",
-                business: "Zen Yoga Studio",
-                quote: "AuthPay transformed my business! I went from 20 bookings a week to 60. The automated reminders alone saved me hours.",
-                growth: "+200% bookings",
+                business: "SaaS Founder",
+                quote: "AuthPay transformed my startup! I integrated authentication and payments in an afternoon instead of weeks. It just works.",
+                growth: "Saved 2 weeks",
               },
               {
                 name: "Michael Chen",
-                business: "Elite Fitness",
-                quote: "Managing 3 locations was a nightmare until AuthPay. Now everything is automated and my revenue increased by 150%.",
-                growth: "+150% revenue",
+                business: "CTO, Fintech Corp",
+                quote: "Managing RBAC and global payments was a nightmare until AuthPay. Now everything is secure and automated.",
+                growth: "Zero auth bugs",
               },
             ].map((testimonial, index) => (
               <Card key={index} className="border-2 border-border bg-card">
