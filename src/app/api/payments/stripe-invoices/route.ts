@@ -63,6 +63,7 @@ export const GET = withApiHandler(
       url.searchParams.get("starting_after") ?? undefined;
     const status = url.searchParams.get("status") ?? undefined;
     const customer = url.searchParams.get("customer") ?? undefined;
+    const subscription = url.searchParams.get("subscription_id") ?? url.searchParams.get("subscription") ?? undefined;
 
     try {
       const params: Stripe.InvoiceListParams = { limit };
@@ -74,6 +75,7 @@ export const GET = withApiHandler(
         params.status = status as Stripe.InvoiceListParams.Status;
       }
       if (customer) params.customer = customer;
+      if (subscription) params.subscription = subscription;
 
       const invoices = await stripe.invoices.list(params);
       const items = invoices.data.map(normalizeInvoice);
