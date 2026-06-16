@@ -24,7 +24,8 @@ export const GET = rateLimiters.api(
           expiryDate: userSubscriptions.expiryDate,
           endDate: userSubscriptions.endDate,
           amount: subscriptionPlans.price,
-          razorpaySubscriptionId: userSubscriptions.razorpaySubscriptionId,
+          providerSubscriptionId: userSubscriptions.providerSubscriptionId,
+          paymentGatewayProvider: userSubscriptions.paymentGatewayProvider,
         })
         .from(userSubscriptions)
         .leftJoin(subscriptionPlans, eq(userSubscriptions.planId, subscriptionPlans.id))
@@ -49,7 +50,8 @@ export const GET = rateLimiters.api(
         expiryDate: r.expiryDate,
         endDate: r.endDate,
         amount: r.amount,
-        razorpaySubscriptionId: r.razorpaySubscriptionId,
+        paymentGatewayProvider: r.paymentGatewayProvider,
+        providerSubscriptionId: r.providerSubscriptionId,
       }));
 
       return successResponse({ history });

@@ -12,8 +12,8 @@ import { eq } from 'drizzle-orm';
 import { RBACService } from '@/lib/rbac/rbac-service';
 
 export interface UserSubscriptionData {
-  razorpaySubscriptionId: string;
-  razorpayCustomerId: string | null;
+  providerSubscriptionId: string;
+  providerCustomerId: string | null;
   email: string;
 }
 
@@ -30,8 +30,8 @@ export async function isAdmin(userId: string): Promise<boolean> {
 export async function getUserRazorpaySubscriptions(userId: string): Promise<UserSubscriptionData[]> {
   const subscriptions = await db
     .select({
-      razorpaySubscriptionId: userSubscriptions.razorpaySubscriptionId,
-      razorpayCustomerId: userSubscriptions.razorpayCustomerId,
+      providerSubscriptionId: userSubscriptions.providerSubscriptionId,
+      providerCustomerId: userSubscriptions.providerCustomerId,
       userId: userSubscriptions.userId,
     })
     .from(userSubscriptions)
@@ -44,10 +44,10 @@ export async function getUserRazorpaySubscriptions(userId: string): Promise<User
   });
 
   return subscriptions
-    .filter(s => s.razorpaySubscriptionId)
+    .filter(s => s.providerSubscriptionId)
     .map(s => ({
-      razorpaySubscriptionId: s.razorpaySubscriptionId!,
-      razorpayCustomerId: s.razorpayCustomerId,
+      providerSubscriptionId: s.providerSubscriptionId!,
+      providerCustomerId: s.providerCustomerId,
       email: user?.email || ''
     }));
 }
@@ -57,10 +57,10 @@ export async function getUserRazorpaySubscriptions(userId: string): Promise<User
  */
 export async function userOwnsSubscription(
   userId: string,
-  razorpaySubscriptionId: string
+  providerSubscriptionId: string
 ): Promise<boolean> {
   const subscription = await db.query.userSubscriptions.findFirst({
-    where: eq(userSubscriptions.razorpaySubscriptionId, razorpaySubscriptionId),
+    where: eq(userSubscriptions.providerSubscriptionId, providerSubscriptionId),
     columns: { userId: true }
   });
 
@@ -84,7 +84,7 @@ export async function filterSubscriptionsForUser(
 
   // Get user's Razorpay subscription IDs
   const userSubs = await getUserRazorpaySubscriptions(userId);
-  const userSubIds = new Set(userSubs.map(s => s.razorpaySubscriptionId));
+  const userSubIds = new Set(userSubs.map(s => s.providerSubscriptionId));
 
   // Filter to only user's subscriptions
   return allSubscriptions.filter(sub => userSubIds.has(sub.id as string));
@@ -109,7 +109,7 @@ export async function filterPaymentsForUser(
   const userSubs = await getUserRazorpaySubscriptions(userId);
   const userEmails = new Set([...userSubs.map(s => s.email)]);
   const userCustomerIds = new Set(
-    userSubs.map(s => s.razorpayCustomerId).filter(Boolean) as string[]
+    userSubs.map(s => s.providerCustomerId).filter(Boolean) as string[]
   );
 
   // Filter to only user's payments (matched by email or customer_id)
@@ -143,9 +143,9 @@ export async function filterInvoicesForUser(
 
   // Get user's subscription IDs and customer IDs
   const userSubs = await getUserRazorpaySubscriptions(userId);
-  const userSubIds = new Set(userSubs.map(s => s.razorpaySubscriptionId));
+  const userSubIds = new Set(userSubs.map(s => s.providerSubscriptionId));
   const userCustomerIds = new Set(
-    userSubs.map(s => s.razorpayCustomerId).filter(Boolean) as string[]
+    userSubs.map(s => s.providerCustomerId).filter(Boolean) as string[]
   );
 
   // Filter to only user's invoices
@@ -168,7 +168,7 @@ export async function filterInvoicesForUser(
  */
 export async function canAccessSubscription(
   userId: string,
-  razorpaySubscriptionId: string
+  providerSubscriptionId: string
 ): Promise<{ canAccess: boolean; isAdmin: boolean }> {
   const isAdminUser = await isAdmin(userId);
   
@@ -176,6 +176,6 @@ export async function canAccessSubscription(
     return { canAccess: true, isAdmin: true };
   }
 
-  const owns = await userOwnsSubscription(userId, razorpaySubscriptionId);
+  const owns = await userOwnsSubscription(userId, providerSubscriptionId);
   return { canAccess: owns, isAdmin: false };
 }

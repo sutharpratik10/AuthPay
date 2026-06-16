@@ -103,7 +103,7 @@ export const POST = withDynamicApiHandler<{ id: string }>(
             const currentSub = await db.query.userSubscriptions.findFirst({
               where: and(
                 eq(userSubscriptions.userId, session.user.id),
-                eq(userSubscriptions.razorpaySubscriptionId, id)
+                eq(userSubscriptions.providerSubscriptionId, id)
               ),
               columns: { expiryDate: true }
             });
@@ -119,7 +119,7 @@ export const POST = withDynamicApiHandler<{ id: string }>(
               })
               .where(and(
                 eq(userSubscriptions.userId, session.user.id),
-                eq(userSubscriptions.razorpaySubscriptionId, id)
+                eq(userSubscriptions.providerSubscriptionId, id)
               ));
             
             console.log('[razorpay/cancel] Updated local database for user:', session.user.id, 'Access until:', currentSub?.expiryDate);

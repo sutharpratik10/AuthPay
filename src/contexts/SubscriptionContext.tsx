@@ -13,7 +13,8 @@ interface SubscriptionStatus {
   billingCycle?: string;
   expiryDate?: string;
   isActive?: boolean;
-  razorpaySubscriptionId?: string;
+  paymentGatewayProvider?: string | null;
+  providerSubscriptionId?: string;
 }
 
 interface SubscriptionContextType {

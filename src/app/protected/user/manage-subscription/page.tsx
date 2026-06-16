@@ -23,7 +23,8 @@ interface SubscriptionStatus {
   price: string;
   billingCycle: string;
   expiryDate: string;
-  razorpaySubscriptionId?: string | null;
+  paymentGatewayProvider?: string | null;
+  providerSubscriptionId?: string | null;
 }
 
 interface SubscriptionHistoryItem {
@@ -34,7 +35,7 @@ interface SubscriptionHistoryItem {
   endDate?: string;
   amount?: string;
   invoiceId?: string;
-  razorpaySubscriptionId?: string;
+  providerSubscriptionId?: string;
 }
 
 export default function ManageSubscriptionPage() {
@@ -92,12 +93,14 @@ export default function ManageSubscriptionPage() {
           price: contextStatus.price || 'N/A',
           billingCycle: contextStatus.billingCycle || 'N/A',
           expiryDate: contextStatus.expiryDate || 'N/A',
-          razorpaySubscriptionId: contextStatus.razorpaySubscriptionId
+          paymentGatewayProvider: contextStatus.paymentGatewayProvider,
+          providerSubscriptionId: contextStatus.providerSubscriptionId
         };
 
-        // Enrich with Razorpay plan details if available
-        const rzSubId = enrichedStatus.razorpaySubscriptionId;
-        if (rzSubId && typeof rzSubId === 'string') {
+        // Enrich with Razorpay plan details if available (only for Razorpay subscriptions)
+        const rzSubId = enrichedStatus.providerSubscriptionId;
+        const isRazorpay = enrichedStatus.paymentGatewayProvider !== 'stripe';
+        if (isRazorpay && rzSubId && typeof rzSubId === 'string') {
           try {
             const subRes = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(rzSubId)}`);
             if (subRes.ok) {
@@ -169,11 +172,13 @@ export default function ManageSubscriptionPage() {
           const history = historyData.data.history || [];
 
           // Enrich history items with Razorpay plan details and invoices when available
+          // Only call Razorpay APIs for actual Razorpay subscriptions (not Stripe)
           const enriched = await Promise.all(history.map(async (item: unknown) => {
             const row = item as Record<string, unknown>;
             try {
-              if (row.razorpaySubscriptionId && typeof row.razorpaySubscriptionId === 'string') {
-                const subRes = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(String(row.razorpaySubscriptionId))}`);
+              const isRazorpay = row.paymentGatewayProvider !== 'stripe';
+              if (isRazorpay && row.providerSubscriptionId && typeof row.providerSubscriptionId === 'string') {
+                const subRes = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(String(row.providerSubscriptionId))}`);
                 if (subRes.ok) {
                   const subJson = await subRes.json();
                   const planId = subJson?.plan_id || subJson?.plan?.id;
@@ -181,7 +186,7 @@ export default function ManageSubscriptionPage() {
                   // Fetch invoices for this subscription
                   let latestInvoiceId = null;
                   try {
-                    const invoicesRes = await fetch(`/api/payments/razorpay-invoices?subscription_id=${encodeURIComponent(String(row.razorpaySubscriptionId))}`);
+                    const invoicesRes = await fetch(`/api/payments/razorpay-invoices?subscription_id=${encodeURIComponent(String(row.providerSubscriptionId))}`);
                     if (invoicesRes.ok) {
                       const invoicesJson = await invoicesRes.json();
                       // Get the most recent invoice (first in the items array)
@@ -205,7 +210,7 @@ export default function ManageSubscriptionPage() {
                         planName: planName || row.planName, 
                         amount: amount ?? row.amount,
                         invoiceId: latestInvoiceId,
-                        razorpaySubscriptionId: row.razorpaySubscriptionId
+                        providerSubscriptionId: row.providerSubscriptionId
                       };
                     }
                   }
@@ -213,7 +218,7 @@ export default function ManageSubscriptionPage() {
                   return {
                     ...row,
                     invoiceId: latestInvoiceId,
-                    razorpaySubscriptionId: row.razorpaySubscriptionId
+                    providerSubscriptionId: row.providerSubscriptionId
                   };
                 }
               }
@@ -249,20 +254,26 @@ export default function ManageSubscriptionPage() {
     };
   }, [toast]);
 
-  // Handler to cancel razorpay subscription
+  // Handler to cancel subscription
   const handleCancelClick = () => {
     setShowCancelDialog(true);
   };
 
   const handleCancel = async () => {
-    const id = subscriptionStatus?.razorpaySubscriptionId as unknown as string;
+    const id = subscriptionStatus?.providerSubscriptionId as unknown as string;
     if (!id) return;
     
     try {
       setCancelling(true);
       setShowCancelDialog(false); // Close dialog immediately
-      
-      const res = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(id)}/cancel`, {
+
+      // Route to the correct cancel endpoint based on payment method
+      const isStripe = subscriptionStatus?.paymentGatewayProvider === 'stripe';
+      const cancelUrl = isStripe
+        ? `/api/payments/stripe-subscriptions/${encodeURIComponent(id)}/cancel`
+        : `/api/payments/razorpay-subscriptions/${encodeURIComponent(id)}/cancel`;
+
+      const res = await fetch(cancelUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cancel_at_cycle_end: false })
@@ -277,7 +288,7 @@ export default function ManageSubscriptionPage() {
 
         toast({ title: 'Cancelled', description: 'Subscription cancelled successfully', variant: 'success' });
       } else {
-        const msg = json?.error?.description || json?.message || 'Failed to cancel subscription';
+        const msg = json?.error?.description || json?.error || json?.message || 'Failed to cancel subscription';
         toast({ title: 'Error', description: String(msg), variant: 'destructive' });
       }
     } catch {
@@ -387,7 +398,7 @@ export default function ManageSubscriptionPage() {
               <Crown className="h-6 w-6 text-white" />
             </div>
             Current Subscription
-            {subscriptionStatus?.razorpaySubscriptionId && subscriptionStatus?.status === 'active' && !isSubscriptionExpired && (
+            {subscriptionStatus?.providerSubscriptionId && subscriptionStatus?.status === 'active' && !isSubscriptionExpired && (
               <button
                 type="button"
                 onClick={handleCancelClick}

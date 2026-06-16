@@ -162,9 +162,9 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
       : null;
   if (!stripeSubId) return;
 
-  // Find user subscription by razorpaySubscriptionId field (we reuse it for Stripe IDs)
+  // Find user subscription by providerSubscriptionId field
   const sub = await db.query.userSubscriptions.findFirst({
-    where: eq(userSubscriptions.razorpaySubscriptionId, stripeSubId),
+    where: eq(userSubscriptions.providerSubscriptionId, stripeSubId),
   });
   if (!sub) return;
 
@@ -198,7 +198,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   if (!pastDueStatus) return;
 
   const sub = await db.query.userSubscriptions.findFirst({
-    where: eq(userSubscriptions.razorpaySubscriptionId, stripeSubId),
+    where: eq(userSubscriptions.providerSubscriptionId, stripeSubId),
   });
   if (!sub) return;
 
@@ -238,7 +238,7 @@ async function activateStripeSubscription({
   if (!activeStatus) return;
 
   const renewalType = await db.query.subscriptionRenewalTypes.findFirst({
-    where: eq(subscriptionRenewalTypes.name, "automatic"),
+    where: eq(subscriptionRenewalTypes.name, "auto"),
   });
 
   const now = new Date();
@@ -255,12 +255,12 @@ async function activateStripeSubscription({
     planId,
     statusId: activeStatus.id,
     renewalTypeId: renewalType?.id,
-    // Reuse razorpaySubscriptionId column for the Stripe subscription ID
-    razorpaySubscriptionId: stripeSubscriptionId,
-    razorpayCustomerId: stripeCustomerId,
+    // Use generic provider columns for the Stripe subscription ID
+    providerSubscriptionId: stripeSubscriptionId,
+    providerCustomerId: stripeCustomerId,
     startDate: now.toISOString(),
     expiryDate: expiry.toISOString(),
-    paymentMethod: "stripe",
+    paymentGatewayProvider: "stripe",
     lastPaymentDate: now.toISOString(),
     nextBillingDate: expiry.toISOString(),
   });

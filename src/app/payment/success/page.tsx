@@ -39,22 +39,26 @@ function PaymentSuccessContent() {
     const provider = searchParams?.get('provider');
     const sessionId = searchParams?.get('session_id');
 
-    // For Stripe, the webhook handles activation automatically.
-    // We do an optional non-blocking verify call here for immediate UI feedback.
-    if (provider === 'stripe' && sessionId) {
-      fetch(`/api/payments/stripe-verify?session_id=${encodeURIComponent(sessionId)}`).catch(() => {});
+    async function verifyAndActivate() {
+      try {
+        // For Stripe, call verify endpoint which also activates the subscription
+        if (provider === 'stripe' && sessionId) {
+          await fetch(`/api/payments/stripe-verify?session_id=${encodeURIComponent(sessionId)}`);
+        }
+      } catch {
+        // Verification failed — subscription may still be activated by webhook
+        console.warn('Stripe verification call failed, webhook will handle activation');
+      } finally {
+        setLoading(false);
+        toast({
+          title: "Subscription Activated",
+          description: "Your subscription has been successfully activated!",
+          variant: "success"
+        });
+      }
     }
 
-    const timer = setTimeout(() => {
-      setLoading(false);
-      toast({
-        title: "Subscription Activated",
-        description: "Your subscription has been successfully activated!",
-        variant: "success"
-      });
-    }, 1000);
-
-    return () => clearTimeout(timer);
+    verifyAndActivate();
   }, [router, toast, searchParams]);
 
   const handleGoToSubscription = () => {

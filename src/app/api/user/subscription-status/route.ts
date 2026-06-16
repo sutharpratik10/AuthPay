@@ -44,8 +44,9 @@ export const GET = rateLimiters.readOnly(
         startDate: userSubscriptions.startDate,
         expiryDate: userSubscriptions.expiryDate,
         statusId: userSubscriptions.statusId,
-        razorpaySubscriptionId: userSubscriptions.razorpaySubscriptionId,
-        razorpayCustomerId: userSubscriptions.razorpayCustomerId,
+        providerSubscriptionId: userSubscriptions.providerSubscriptionId,
+        providerCustomerId: userSubscriptions.providerCustomerId,
+        paymentGatewayProvider: userSubscriptions.paymentGatewayProvider,
         planName: subscriptionPlans.name,
         planDescription: subscriptionPlans.description,
         planPrice: subscriptionPlans.price,
@@ -61,7 +62,7 @@ export const GET = rateLimiters.readOnly(
     const sub = rows[0];
 
     // No subscription found
-    if (!sub || (!sub.planId && !sub.razorpaySubscriptionId)) {
+    if (!sub || (!sub.planId && !sub.providerSubscriptionId)) {
       logger.end(userId);
       return successResponse({ 
         hasSubscription: false, 
@@ -117,8 +118,9 @@ export const GET = rateLimiters.readOnly(
       expiryDate: sub.expiryDate,
       isActive,
       status: statusName,
-      razorpaySubscriptionId: sub.razorpaySubscriptionId ?? null,
-      razorpayCustomerId: sub.razorpayCustomerId ?? null,
+      paymentGatewayProvider: sub.paymentGatewayProvider ?? null,
+      providerSubscriptionId: sub.providerSubscriptionId ?? null,
+      providerCustomerId: sub.providerCustomerId ?? null,
       message: expiryStatus.message,
       daysRemaining: expiryStatus.daysRemaining
     });
