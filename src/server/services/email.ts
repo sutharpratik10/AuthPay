@@ -221,5 +221,12 @@ class EmailService {
   }
 }
 
-export const emailService = new EmailService();
+const globalForEmail = globalThis as unknown as {
+  emailService: EmailService | undefined;
+};
 
+export const emailService = globalForEmail.emailService ?? new EmailService();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForEmail.emailService = emailService;
+}

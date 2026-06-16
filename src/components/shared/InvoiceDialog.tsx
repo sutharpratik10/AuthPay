@@ -100,7 +100,12 @@ export function InvoiceDialog({ invoiceId, open, onOpenChange }: InvoiceDialogPr
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`/api/payments/razorpay-invoices/${encodeURIComponent(id)}`)
+      const isStripe = id.startsWith('in_') && !id.startsWith('inv_');
+      const endpoint = isStripe 
+        ? `/api/payments/stripe-invoices/${encodeURIComponent(id)}`
+        : `/api/payments/razorpay-invoices/${encodeURIComponent(id)}`;
+
+      const response = await fetch(endpoint)
       if (!response.ok) {
         throw new Error('Failed to fetch invoice')
       }

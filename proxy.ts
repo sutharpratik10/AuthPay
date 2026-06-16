@@ -6,12 +6,12 @@ import { rscProtectionMiddleware } from '@/lib/middleware/rsc-protection';
 const ROUTE_POLICY_MAP: Record<string, string> = {
   // Admin routes require admin policies
   '/protected/admin': 'admin:access',
-  
+
   // User profile and settings
   '/protected/profile': 'profile:view',
   '/protected/account': 'account:manage',
   '/protected/settings': 'settings:manage',
-  
+
   // Regular user routes
   '/protected/user': 'user:access',
 };
@@ -22,7 +22,7 @@ const ROUTE_POLICY_MAP: Record<string, string> = {
 async function hasRequiredPolicy(userId: string, path: string): Promise<boolean> {
   try {
     const { RBACService } = await import("./src/lib/rbac");
-    
+
     // Check if path matches any policy-protected route
     for (const [route, requiredPolicy] of Object.entries(ROUTE_POLICY_MAP)) {
       if (path.startsWith(route) || path === route) {
@@ -34,7 +34,7 @@ async function hasRequiredPolicy(userId: string, path: string): Promise<boolean>
         return hasPolicy;
       }
     }
-    
+
     // No specific policy required - allow access
     return true;
   } catch (error) {
@@ -75,7 +75,7 @@ export async function proxy(request: NextRequest) {
   }
 
   const path = request.nextUrl.pathname;
-  
+
   // Skip middleware for:
   // 1. Static assets and Next.js internals
   // 2. ALL API routes (including /api/auth/* - NextAuth handles its own auth)
@@ -93,7 +93,7 @@ export async function proxy(request: NextRequest) {
   if (process.env.NODE_ENV === 'development') {
     console.log(`[MIDDLEWARE] ⚡ Processing: ${request.method} ${path}`);
   }
-  
+
   // Define route categories
   const publicRoutes = [
     '/',
@@ -101,13 +101,13 @@ export async function proxy(request: NextRequest) {
     '/auth/signup',
     '/auth/forgot-password'
   ];
-  
+
   const authRoutes = [
     '/auth/login',
-    '/auth/signup', 
+    '/auth/signup',
     '/auth/forgot-password'
   ];
-  
+
   const protectedRoutes = [
     '/protected/profile',
     '/protected/account',
@@ -115,36 +115,36 @@ export async function proxy(request: NextRequest) {
     '/protected/admin',
     '/protected/user'
   ];
-  
+
   const verificationRoute = '/auth/verify';
-  
+
   // Allow public routes without authentication check
   if (publicRoutes.includes(path)) {
     if (process.env.NODE_ENV === 'development') {
       console.log(`[MIDDLEWARE] ✅ Public route allowed: ${path}`);
     }
-  const res = NextResponse.next();
-  return setSecurityHeaders(res);
+    const res = NextResponse.next();
+    return setSecurityHeaders(res);
   }
 
   // Use NextAuth's JWT check for fast authentication (no database query)
-  const token = await getToken({ 
+  const token = await getToken({
     req: request,
-    secret: process.env.NEXTAUTH_SECRET 
+    secret: process.env.NEXTAUTH_SECRET
   });
 
   const isAuthenticated = !!token;
-  
+
   // Check if this is a protected route
-  const needsProtection = protectedRoutes.some(route => 
+  const needsProtection = protectedRoutes.some(route =>
     path.startsWith(route) || path === route
   );
-  
+
   // SECURITY: Check if JWT token has expired
   if (token && token.exp) {
     const currentTimestamp = Math.floor(Date.now() / 1000);
     const tokenExp = token.exp as number;
-  if (tokenExp < currentTimestamp) {
+    if (tokenExp < currentTimestamp) {
       if (process.env.NODE_ENV === 'development') {
         console.log(`[MIDDLEWARE] ⚠️ JWT token expired at ${new Date(tokenExp * 1000).toISOString()}`);
       }
@@ -164,7 +164,7 @@ export async function proxy(request: NextRequest) {
       return setSecurityHeaders(res);
     }
   }
-  
+
   const user = token ? {
     id: token.sub as string,
     email: token.email as string,
@@ -186,24 +186,24 @@ export async function proxy(request: NextRequest) {
     // Allow both authenticated and unauthenticated users to access verify page
     // Unauthenticated: Have verification token from registration
     // Authenticated: Want to verify their email from dashboard
-    
+
     if (isAuthenticated && isEmailVerified) {
       // Already verified, redirect to dashboard
       const dashboardUrl = getDashboardUrl();
       if (process.env.NODE_ENV === 'development') {
         console.log(`[MIDDLEWARE] ✅ Email already verified, redirecting to dashboard`);
       }
-  const res = NextResponse.redirect(new URL(dashboardUrl, request.url));
-  return setSecurityHeaders(res);
+      const res = NextResponse.redirect(new URL(dashboardUrl, request.url));
+      return setSecurityHeaders(res);
     }
-    
+
     if (process.env.NODE_ENV === 'development') {
       console.log(`[MIDDLEWARE] ✅ Allowing access to verify page`);
     }
-  const res = NextResponse.next();
-  return setSecurityHeaders(res);
+    const res = NextResponse.next();
+    return setSecurityHeaders(res);
   }
-  
+
   // Handle auth pages (login, signup, forgot-password)
   if (authRoutes.includes(path)) {
     if (isAuthenticated) {
@@ -212,25 +212,25 @@ export async function proxy(request: NextRequest) {
       if (process.env.NODE_ENV === 'development') {
         console.log(`[MIDDLEWARE] ✅ Authenticated user, redirecting to dashboard`);
       }
-  const dashboardUrl = getDashboardUrl();
-  const res = NextResponse.redirect(new URL(dashboardUrl, request.url));
-  return setSecurityHeaders(res);
+      const dashboardUrl = getDashboardUrl();
+      const res = NextResponse.redirect(new URL(dashboardUrl, request.url));
+      return setSecurityHeaders(res);
     }
     if (process.env.NODE_ENV === 'development') {
       console.log(`[MIDDLEWARE] ✅ Unauthenticated user accessing auth page: ${path}`);
     }
-  const res = NextResponse.next();
-  return setSecurityHeaders(res);
+    const res = NextResponse.next();
+    return setSecurityHeaders(res);
   }
-  
+
   // Handle protected routes with POLICY-BASED ACCESS CONTROL
   if (needsProtection) {
-  if (!isAuthenticated) {
+    if (!isAuthenticated) {
       if (process.env.NODE_ENV === 'development') {
         console.log(`[MIDDLEWARE] 🔒 Unauthenticated access to protected route: ${path}`);
       }
-  const res = NextResponse.redirect(new URL('/auth/login', request.url));
-  return setSecurityHeaders(res);
+      const res = NextResponse.redirect(new URL('/auth/login', request.url));
+      return setSecurityHeaders(res);
     }
 
     // Allow unverified users to access protected routes
@@ -243,23 +243,23 @@ export async function proxy(request: NextRequest) {
 
     // POLICY-BASED ACCESS CONTROL: Check if user has required policy
     const hasAccess = await hasRequiredPolicy(user!.id, path);
-    
+
     if (!hasAccess) {
       if (process.env.NODE_ENV === 'development') {
         console.log(`[MIDDLEWARE] 🚫 Policy check failed for ${path}`);
       }
       // User doesn't have required policy - redirect to forbidden page or user dashboard
-  const res = NextResponse.redirect(new URL('/protected/user/dashboard?error=Forbidden', request.url));
-  return setSecurityHeaders(res);
+      const res = NextResponse.redirect(new URL('/protected/user/dashboard?error=Forbidden', request.url));
+      return setSecurityHeaders(res);
     }
 
     if (process.env.NODE_ENV === 'development') {
       console.log(`[MIDDLEWARE] ✅ Authorized access to: ${path}`);
     }
-  const res = NextResponse.next();
-  return setSecurityHeaders(res);
+    const res = NextResponse.next();
+    return setSecurityHeaders(res);
   }
-  
+
   if (process.env.NODE_ENV === 'development') {
     console.log(`[MIDDLEWARE] ✅ Allowing access to: ${path}`);
   }
@@ -277,6 +277,3 @@ export const config = {
   ]
 };
 
-// Backwards compatibility aliases for various Next.js versions / examples
-export const middleware = proxy;
-export default proxy;
