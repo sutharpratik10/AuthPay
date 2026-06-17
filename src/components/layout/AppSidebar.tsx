@@ -40,7 +40,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
   // Note: User validation and sign-out is handled globally by UserValidationProvider
-  
+
   // Debug logging for admin status
   console.log('[AppSidebar] Render - isAdmin:', isAdmin, 'isUserLoading:', isUserLoading, 'typeof isAdmin:', typeof isAdmin);
 
@@ -245,12 +245,12 @@ export function AppSidebar() {
                       </div>
                       <span className={cn(
                         "text-sm font-medium transition-all duration-200 truncate flex-1",
-                        "group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:sr-only",
+                        "group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:overflow-hidden",
                         anyActiveChild ? "text-sidebar-accent-foreground dark:text-white" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
                       )}>
                         {item.name}
                       </span>
-                      <svg className={cn("w-3 h-3 ml-2 transform origin-center transition-transform duration-200", open ? "rotate-90" : "rotate-0")} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg className={cn("w-3 h-3 ml-2 transform origin-center transition-all duration-200", open ? "rotate-90" : "rotate-0", "group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:ml-0")} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="9 6 15 12 9 18" />
                       </svg>
                     </button>
@@ -345,13 +345,8 @@ export function AppSidebar() {
           })}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className={cn(
-        "p-4",
-        "group-data-[collapsible=icon]:px-2"
-      )}>
-        <div className={cn(
-          "flex",
-        )}>
+      <SidebarFooter className="p-2">
+        <div className="flex">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
