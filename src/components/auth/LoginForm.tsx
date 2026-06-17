@@ -340,7 +340,10 @@ export default function LoginForm() {
         }
       } else {
         // Login successful - redirect to callbackUrl or default dashboard
-        const callbackUrl = searchParams.get('callbackUrl') || '/protected/user/dashboard'
+        let callbackUrl = searchParams.get('callbackUrl') || '/protected/user/dashboard'
+        if (callbackUrl.includes('/auth/login')) {
+          callbackUrl = '/protected/user/dashboard'
+        }
         window.location.href = callbackUrl
       }
     } catch (err) {

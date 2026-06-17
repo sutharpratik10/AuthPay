@@ -1,7 +1,8 @@
-﻿"use client"
+"use client"
 
-import { Suspense } from "react"
-import { useSearchParams } from "next/navigation"
+import { Suspense, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 import LoginForm from "@/components/auth/LoginForm"
 import Loading from "@/components/Loading"
 
@@ -10,8 +11,22 @@ function LoginContent() {
   const message = searchParams.get('message')
   const error = searchParams.get('error')
   
-  // Middleware handles all authentication routing
-  // If user is already authenticated, middleware will redirect them automatically
+  const { isAuthenticated, loading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      const callbackUrl = searchParams.get('callbackUrl') || '/protected/user/dashboard'
+      if (!callbackUrl.includes('/auth/login')) {
+        router.push(callbackUrl)
+      } else {
+        router.push('/protected/user/dashboard')
+      }
+    }
+  }, [isAuthenticated, loading, router, searchParams])
+  
+  // Middleware handles most authentication routing, 
+  // but we add this client-side check as a fallback
     return (
     <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8 animate-in fade-in duration-500">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
