@@ -1,4 +1,4 @@
-﻿import type { NextAuthConfig } from "next-auth";
+import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
@@ -9,6 +9,7 @@ import bcrypt from "bcryptjs";
 
 import { db } from "@/server/db";
 import { eq } from "drizzle-orm";
+import { users } from "@/server/db/schema";
 import { SessionService } from "@/server/services/session";
 
 const authConfig: NextAuthConfig = {
@@ -61,6 +62,11 @@ const authConfig: NextAuthConfig = {
             return null;
           }
 
+          // Check if account is locked
+          if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+            throw new Error("Account is temporarily locked due to multiple failed login attempts. Please try again later.");
+          }
+
           // Note: We allow unverified users to log in, but they'll see a verification banner
           // This provides better UX than blocking them completely
 
@@ -72,7 +78,34 @@ const authConfig: NextAuthConfig = {
             );
 
             if (!isPasswordValid) {
+              // Increment failed login attempts
+              const failedAttempts = (user.failedLoginAttempts || 0) + 1;
+              let lockedUntil: string | null = null;
+
+              if (failedAttempts >= 5) {
+                // Lock for 15 minutes
+                lockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+                console.log(`Account locked for user: ${email}`);
+              }
+
+              await db.update(users)
+                .set({
+                  failedLoginAttempts: failedAttempts,
+                  lockedUntil: lockedUntil
+                })
+                .where(eq(users.id, user.id));
+
               return null;
+            }
+
+            // Reset failed login attempts on successful password match
+            if (user.failedLoginAttempts && user.failedLoginAttempts > 0) {
+              await db.update(users)
+                .set({
+                  failedLoginAttempts: 0,
+                  lockedUntil: null
+                })
+                .where(eq(users.id, user.id));
             }
 
             // Check if user has 2FA enabled
@@ -101,7 +134,8 @@ const authConfig: NextAuthConfig = {
             email: user.email,
             name: user.name,
             isEmailVerified: user.isEmailVerified ?? false
-          };        } catch (error) {
+          };
+        } catch (error) {
           console.error("Authentication error:", error);
           return null;
         }

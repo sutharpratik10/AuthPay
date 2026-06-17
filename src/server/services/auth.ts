@@ -103,7 +103,7 @@ export class AuthService {
       };
     } catch (error: unknown) {
       console.error("Registration error:", error);
-      return { success: false, error: error instanceof Error ? error.message : "An error occurred during registration" };
+      return { success: false, error: "An unexpected error occurred during registration. Please try again later." };
     }
   }
 
@@ -170,7 +170,7 @@ export class AuthService {
       };
     } catch (error: unknown) {
       console.error("Email verification error:", error);
-      return { success: false, error: error instanceof Error ? error.message : "An error occurred during verification" };
+      return { success: false, error: "An unexpected error occurred during verification. Please try again later." };
     }
   }
 
@@ -223,7 +223,7 @@ export class AuthService {
       return { success: true };
     } catch (error: unknown) {
       console.error("Resend verification email error:", error);
-      return { success: false, error: error instanceof Error ? error.message : "An error occurred while resending verification email" };
+      return { success: false, error: "An unexpected error occurred while resending verification email. Please try again later." };
     }
   }
 
@@ -305,7 +305,7 @@ export class AuthService {
       console.error("Password reset initiation error:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "An error occurred while initiating password reset"
+        error: "An unexpected error occurred while initiating password reset. Please try again later."
       };
     }
   }
@@ -349,7 +349,7 @@ export class AuthService {
       console.error("Password reset code verification error:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "An error occurred during code verification"
+        error: "An unexpected error occurred during code verification. Please try again later."
       };
     }
   }
@@ -391,6 +391,7 @@ export class AuthService {
         .update(users)
         .set({
           password: hashedPassword,
+          passwordChangedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         })
         .where(eq(users.id, verificationResult.userId));
@@ -407,23 +408,9 @@ export class AuthService {
       };
     } catch (error: unknown) {
       console.error("Password reset error:", error);
-      if (error instanceof Error) {
-        if (error.message.includes('duplicate key') || error.message.includes('constraint')) {
-          return {
-            success: false,
-            error: "Database constraint error. Please try again."
-          };
-        }
-        if (error.message.includes('connection')) {
-          return {
-            success: false,
-            error: "Database connection error. Please try again later."
-          };
-        }
-      }
       return {
         success: false,
-        error: "An error occurred while resetting password. Please try again."
+        error: "An unexpected error occurred while resetting password. Please try again later."
       };
     }
   }
@@ -495,6 +482,7 @@ export class AuthService {
         .update(users)
         .set({
           password: hashedPassword,
+          passwordChangedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         })
         .where(eq(users.id, resetCode.userId));
@@ -511,25 +499,9 @@ export class AuthService {
       };
     } catch (error: unknown) {
       console.error("[Reset Password Error]:", error);
-      
-      if (error instanceof Error) {
-        if (error.message.includes('duplicate key') || error.message.includes('constraint')) {
-          return {
-            success: false,
-            error: "Database constraint error. Please try again."
-          };
-        }
-        if (error.message.includes('connection')) {
-          return {
-            success: false,
-            error: "Database connection error. Please try again later."
-          };
-        }
-      }
-      
       return {
         success: false,
-        error: "An error occurred while resetting password. Please try again."
+        error: "An unexpected error occurred while resetting password. Please try again later."
       };
     }
   }
@@ -556,7 +528,7 @@ export class AuthService {
       console.error("OTP cleanup error:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to cleanup expired OTP codes"
+        error: "Failed to cleanup expired OTP codes"
       };
     }
   }

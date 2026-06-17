@@ -4,7 +4,7 @@
  * Tests for rate limiting configuration and functionality
  */
 
-import { RATE_LIMIT_CONFIGS, RateLimiter } from '../src/lib/utils/rate-limiter-bak';
+import { RATE_LIMIT_CONFIGS, RateLimiterCompat as RateLimiter } from '../src/lib/utils/rate-limiter';
 
 describe('Rate Limiter Configuration', () => {
   describe('RATE_LIMIT_CONFIGS', () => {

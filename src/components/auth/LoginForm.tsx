@@ -341,7 +341,7 @@ export default function LoginForm() {
       } else {
         // Login successful - redirect to callbackUrl or default dashboard
         const callbackUrl = searchParams.get('callbackUrl') || '/protected/user/dashboard'
-        router.push(callbackUrl)
+        window.location.href = callbackUrl
       }
     } catch (err) {
       setError("A network error occurred. Please check your internet connection and try again.")
@@ -379,10 +379,10 @@ export default function LoginForm() {
       {error && (
         <div
           className={`mb-4 p-3 rounded-md border ${errorType === "error"
-              ? "text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800"
-              : errorType === "warning"
-                ? "text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950 dark:border-amber-800"
-                : "text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800"
+            ? "text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800"
+            : errorType === "warning"
+              ? "text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950 dark:border-amber-800"
+              : "text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800"
             }`}
         >
           <div className="flex items-start gap-2">
@@ -432,12 +432,12 @@ export default function LoginForm() {
               onChange={handleChange}
               placeholder="Enter your Email"
               className={`w-full transition-colors ${fieldErrors.email
-                  ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
-                  : emailStatus === "registered"
-                    ? "border-green-500 focus:border-green-500 focus:ring-green-500 dark:border-green-600"
-                    : emailStatus === "not-registered"
-                      ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
-                      : ""
+                ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
+                : emailStatus === "registered"
+                  ? "border-green-500 focus:border-green-500 focus:ring-green-500 dark:border-green-600"
+                  : emailStatus === "not-registered"
+                    ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
+                    : ""
                 }`}
             />
             {emailStatus === "checking" && (
@@ -469,8 +469,8 @@ export default function LoginForm() {
           )}
           {emailMessage && !fieldErrors.email && (
             <p className={`text-sm mt-1 ${emailStatus === "registered"
-                ? "text-green-600 dark:text-green-400"
-                : "text-red-600 dark:text-red-400"
+              ? "text-green-600 dark:text-green-400"
+              : "text-red-600 dark:text-red-400"
               }`}>
               {emailMessage}
               {emailStatus === "not-registered" && (
@@ -503,8 +503,8 @@ export default function LoginForm() {
               onChange={handleChange}
               placeholder="Enter your password"
               className={`w-full pr-10 ${fieldErrors.password
-                  ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
-                  : ""
+                ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
+                : ""
                 }`}
             />
             <button

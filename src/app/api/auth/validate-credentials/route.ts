@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from "@/server/db";
+import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { rateLimiters } from '@/lib/middleware/rate-limit';
@@ -67,6 +68,14 @@ export const POST = rateLimiters.validation(async (request: NextRequest) => {
       );
     }
 
+    // Check if account is locked
+    if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+      return NextResponse.json(
+        { error: 'Account is temporarily locked due to multiple failed login attempts. Please try again later.' },
+        { status: 403 }
+      );
+    }
+
     // Note: We allow unverified users to log in
     // They will see a verification banner on their dashboard
 
@@ -81,10 +90,37 @@ export const POST = rateLimiters.validation(async (request: NextRequest) => {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
+      // Increment failed login attempts
+      const failedAttempts = (user.failedLoginAttempts || 0) + 1;
+      let lockedUntil: string | null = null;
+      
+      if (failedAttempts >= 5) {
+        // Lock for 15 minutes
+        lockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+        console.log(`[SECURITY] Account locked for user: ${sanitizedEmail}`);
+      }
+
+      await db.update(users)
+        .set({
+          failedLoginAttempts: failedAttempts,
+          lockedUntil: lockedUntil
+        })
+        .where(eq(users.id, user.id));
+
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       );
+    }
+
+    // Reset failed login attempts on successful password match
+    if (user.failedLoginAttempts && user.failedLoginAttempts > 0) {
+      await db.update(users)
+        .set({
+          failedLoginAttempts: 0,
+          lockedUntil: null
+        })
+        .where(eq(users.id, user.id));
     }
 
     // Check if 2FA is enabled

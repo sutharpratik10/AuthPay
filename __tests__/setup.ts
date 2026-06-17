@@ -4,7 +4,7 @@
  */
 
 // Setup environment variables for testing
-process.env.NODE_ENV = 'test';
+Object.defineProperty(process.env, 'NODE_ENV', { value: 'test', writable: true });
 process.env.NEXTAUTH_SECRET = 'test-secret-key-for-testing-purposes-only';
 process.env.NEXTAUTH_URL = 'http://localhost:3000';
 

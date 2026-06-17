@@ -176,6 +176,10 @@ export const {
 
       return true;
     },    async session({ session, token }: { session: Session; token: JWT }) {
+      if (token.error === "SessionExpired") {
+        return {} as Session;
+      }
+
       if (token.sub && session.user) {
         session.user.id = token.sub;
       }
@@ -219,10 +223,19 @@ export const {
           try {
             const userRecord = await db.query.users.findFirst({
               where: (users, { eq }) => eq(users.id, token.sub as string),
-              columns: { isEmailVerified: true, name: true },
+              columns: { isEmailVerified: true, name: true, passwordChangedAt: true },
             });
 
             if (userRecord) {
+              // Session Invalidation: Check if password was changed after token was issued
+              if (userRecord.passwordChangedAt && token.iat) {
+                const passwordChangeTime = new Date(userRecord.passwordChangedAt).getTime();
+                if (token.iat * 1000 < passwordChangeTime) {
+                  console.log(`[SECURITY] Invalidating session for user ${token.sub} due to password change`);
+                  return { ...token, error: "SessionExpired" };
+                }
+              }
+
               token.isEmailVerified = userRecord.isEmailVerified ?? false;
               token.name = userRecord.name;
               
