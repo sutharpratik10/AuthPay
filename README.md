@@ -90,10 +90,22 @@ Authpay is a comprehensive authentication and payment platform that combines:
   - Apple Sign-In
   
 - ✅ **Two-Factor Authentication (2FA)**
-  - Email-based OTP authentication
-  - Secure code delivery
+  - Authenticator App support (TOTP) with AES-256 encrypted secrets
+  - Secure backup recovery codes (10 single-use codes)
+  - Email-based OTP authentication fallback
   - Time-limited verification codes
   
+- ✅ **Passwordless Authentication**
+  - Magic Links for direct, secure login without passwords
+  - Passwordless Email OTP authentication
+  - Intelligent account matching (prevents duplicate OAuth/Magic Link accounts)
+  
+- ✅ **Device Tracking & Security Alerts**
+  - Advanced login history tracking (Browser, OS, Device Model)
+  - Intelligent Geolocation (GPS and IP-based fallback)
+  - Automated "New Device Login" security emails
+  - User-configurable security alert preferences
+
 - ✅ **Email Verification**
   - Automated verification emails
   - Secure token-based verification
@@ -134,12 +146,24 @@ Authpay is a comprehensive authentication and payment platform that combines:
 
 ### 💳 Payment Gateway Integration
 
+- ✅ **Dual Payment Gateway Support**
+  - Seamlessly switch between Razorpay and Stripe
+  - Unified database schema for orders and subscriptions
+  - Pluggable payment provider architecture
+
 - ✅ **Razorpay Integration**
   - Order creation and management
   - Payment verification (HMAC)
-  - Subscription management
+  - Subscription management & Plans
   - Invoice generation
   - Webhook handling
+  
+- ✅ **Stripe Integration**
+  - Checkout session creation
+  - Customer and Product management
+  - Subscriptions and Billing cycles
+  - Invoice handling
+  - Secure Webhook endpoint processing
   
 - ✅ **Subscription Management**
   - Recurring billing setup
@@ -154,12 +178,6 @@ Authpay is a comprehensive authentication and payment platform that combines:
   - Multi-currency support
   - Payment verification
   - Transaction logging
-  
-- ✅ **Provider Abstraction**
-  - Pluggable payment providers
-  - Easy provider switching
-  - Extensible architecture
-  - Future-ready (Stripe, PayPal support planned)
 
 ### 👥 User Management
 
@@ -761,20 +779,20 @@ Authpay/
 ├── src/
 │   ├── app/                      # Next.js App Router
 │   │   ├── api/                  # API routes
-│   │   │   ├── auth/            # Authentication APIs
+│   │   │   ├── auth/            # Authentication APIs (TOTP, Passwordless, OAuth)
 │   │   │   ├── rbac/            # RBAC management APIs
-│   │   │   ├── payments/        # Payment APIs
+│   │   │   ├── payments/        # Dual Payment Gateway APIs (Stripe & Razorpay)
 │   │   │   └── user/            # User management APIs
-│   │   ├── auth/                # Auth pages (login, signup, etc.)
+│   │   ├── auth/                # Auth pages (login, signup, magic-link, otp)
 │   │   ├── protected/           # Protected routes
 │   │   │   ├── admin/          # Admin dashboard
-│   │   │   └── user/           # User dashboard
+│   │   │   └── user/           # User dashboard (Account, Security, Billing)
 │   │   └── page.tsx             # Homepage
 │   │
 │   ├── components/              # React components
-│   │   ├── auth/               # Auth-related components
+│   │   ├── auth/               # Auth-related components (Login forms, 2FA setup)
 │   │   ├── admin/              # Admin components
-│   │   ├── user/               # User components
+│   │   ├── user/               # User components (Login History, Preferences)
 │   │   ├── layout/             # Layout components
 │   │   └── ui/                 # shadcn/ui components
 │   │
@@ -782,15 +800,17 @@ Authpay/
 │   │   ├── auth/               # Auth utilities
 │   │   ├── rbac/               # RBAC utilities
 │   │   ├── payments/           # Payment utilities
-│   │   └── email/              # Email utilities
+│   │   ├── email/              # Email utilities
+│   │   └── utils/              # Core utilities (encryption, device tracking, geolocation)
 │   │
 │   ├── server/                  # Server-side code
 │   │   ├── db/                 # Database layer
-│   │   │   └── schema/         # Drizzle schema
-│   │   └── services/           # Business logic
+│   │   │   └── schema/         # Drizzle schema (Users, Login History, 2FA, Orders)
+│   │   └── services/           # Business logic (TOTP, Session, Email queue)
 │   │
 │   ├── config/                  # Configuration files
-│   │   └── auth.ts             # NextAuth config
+│   │   ├── auth.ts             # NextAuth callbacks, tracking & Next.js config
+│   │   └── auth.config.ts      # NextAuth providers & authorization logic
 │   │
 │   └── types/                   # TypeScript types
 │
@@ -825,14 +845,27 @@ Authpay/
 
 | Endpoint | Method | Description | Auth Required |
 |----------|--------|-------------|---------------|
-| `/api/auth/signup` | POST | Register new user | No |
-| `/api/auth/login` | POST | Login user | No |
-| `/api/auth/logout` | POST | Logout user | Yes |
-| `/api/auth/verify-email` | POST | Verify email address | No |
+| `/api/auth/register` | POST | Register new user | No |
+| `/api/auth/[...nextauth]` | POST | NextAuth endpoints (login, logout) | No |
+| `/api/auth/passwordless/send` | POST | Send Magic Link / Email OTP | No |
+| `/api/auth/passwordless/verify` | POST | Verify Passwordless login | No |
+| `/api/auth/totp/setup` | GET | Generate TOTP secret & QR code | Yes |
+| `/api/auth/totp/verify-setup` | POST | Verify and enable TOTP | Yes |
+| `/api/auth/totp/verify-login` | POST | Verify TOTP during login | No (Temp Token) |
+| `/api/auth/totp/disable` | POST | Disable TOTP 2FA | Yes |
 | `/api/auth/forgot-password` | POST | Request password reset | No |
 | `/api/auth/reset-password` | POST | Reset password | No |
-| `/api/auth/2fa/setup` | POST | Setup 2FA | Yes |
-| `/api/auth/2fa/verify` | POST | Verify 2FA code | Yes |
+| `/api/auth/verify-email` | POST | Verify email address | No |
+
+### User APIs
+
+| Endpoint | Method | Description | Auth Required |
+|----------|--------|-------------|---------------|
+| `/api/user/data` | GET | Get user profile data | Yes |
+| `/api/user/login-history` | GET | Get user login sessions | Yes |
+| `/api/user/preferences` | GET/POST | Manage user settings | Yes |
+| `/api/user/password-status` | GET | Check if user has native password | Yes |
+| `/api/user/subscription-status`| GET | Get user subscription | Yes |
 
 ### RBAC APIs
 
@@ -861,25 +894,52 @@ For complete API documentation, see [docs/05-API-ROUTES.md](./docs/05-API-ROUTES
 
 ## 🗄️ Database Schema
 
-### Core Tables
+### Authentication & Security Tables
 
 - **users** - User accounts and profiles
+- **accounts** - OAuth provider connections (NextAuth)
+- **sessions** - Active user sessions and session tracking
+- **login_history** - Comprehensive login tracking, device info, and IP geolocation logs
+- **otp_codes** - Passwordless logins and 2FA temporary codes
+- **two_factor_auth** - Authenticator App (TOTP) configuration and encrypted secrets
+- **recovery_codes** - Backup recovery codes for 2FA
+- **verification_tokens** - Email verification tokens (NextAuth)
+- **password_reset_tokens** - Secure password reset tracking
+
+### User Management Tables
+
+- **user_preferences** - User-specific settings (e.g., security alerts, 2FA toggles)
+- **user_avatars** - Profile picture management
+- **user_notifications** - In-app user notifications
+- **user_usage_metrics** - User activity and session analytics
+- **languages** - Supported languages
+- **timezones** - Supported timezones
+
+### Role-Based Access Control (RBAC) Tables
+
 - **roles** - System and custom roles
 - **permissions** - Policy definitions
 - **user_roles** - User-role assignments (many-to-many)
 - **role_permissions** - Role-permission assignments (many-to-many)
-- **sessions** - Active user sessions
-- **otp_codes** - Email verification and 2FA codes
-- **two_factor_auth** - 2FA configuration
 
-### Payment Tables
+### Payment & Subscription Tables
 
+- **payment_gateway_config** - Configuration for Stripe and Razorpay
 - **payment_orders** - Payment order tracking
 - **payment_transactions** - Transaction history
-- **subscription_plans** - Available plans
-- **user_subscriptions** - User subscription data
+- **subscription_plans** - Available pricing plans
+- **user_subscriptions** - Active user subscription data
 - **subscription_statuses** - Status definitions
 - **subscription_renewal_types** - Renewal configurations
+- **billings** - Billing history and invoices
+
+### Admin & System Tables
+
+- **admin_dashboard_stats** - Aggregated analytics for the admin dashboard
+- **subscription_analytics** - Revenue and subscription tracking
+- **admin_notifications** - Important system notifications for admins
+- **audit_logs** - System-wide audit trail for critical actions
+- **error_logs** - Application error logging
 
 For detailed schema documentation, see [docs/04-DATABASE.md](./docs/04-DATABASE.md).
 
