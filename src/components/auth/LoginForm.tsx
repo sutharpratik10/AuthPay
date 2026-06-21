@@ -32,6 +32,11 @@ export default function LoginForm() {
   const [isSuspended, setIsSuspended] = useState(false)
   const [isCheckingSuspension, setIsCheckingSuspension] = useState(false)
   const [emailStatus, setEmailStatus] = useState<"unknown" | "checking" | "registered" | "not-registered">("unknown")
+  const [loginMethod, setLoginMethod] = useState<"password" | "passwordless">("password")
+  const [otpSent, setOtpSent] = useState(false)
+  const [otp, setOtp] = useState("")
+  const [isSending, setIsSending] = useState(false)
+  
   const [emailMessage, setEmailMessage] = useState("")
 
   // Track last checked email to avoid duplicate API calls
@@ -243,6 +248,99 @@ export default function LoginForm() {
     setFieldErrors(prev => ({ ...prev, [name]: errorMessage }))
   }
 
+  const handlePasswordlessSubmit = async (type: 'magic_link' | 'otp') => {
+    if (!formData.email || !EMAIL_REGEX.test(formData.email)) {
+      setFieldErrors(prev => ({ ...prev, email: "Please enter a valid email address" }))
+      return
+    }
+
+    if (isSuspended) {
+      setError("Your account has been suspended. Please contact support for assistance.")
+      setErrorType("error")
+      return
+    }
+
+    try {
+      setIsSending(true)
+      setError("")
+
+      const res = await fetch('/api/auth/passwordless/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, type }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        if (type === 'magic_link') {
+          setError("Magic link sent! Please check your email inbox to sign in.")
+          setErrorType("info")
+        } else {
+          setOtpSent(true)
+          setError("Login code sent! Please check your email.")
+          setErrorType("info")
+        }
+      } else {
+        setError(data.error || "Failed to send. Please try again.")
+        setErrorType("error")
+      }
+    } catch (err) {
+      setError("A network error occurred. Please try again.")
+      setErrorType("error")
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  const handleVerifyOTP = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!otp || otp.length < 6) {
+      setError("Please enter a valid 6-digit code.")
+      setErrorType("warning")
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      setError("")
+
+      const res = await fetch('/api/auth/passwordless/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, token: otp }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success && data.credentials) {
+        // Sign in using bypass credentials
+        const signInResult = await login(data.credentials.email, data.credentials.password, data.credentials.skipPasswordCheck)
+        
+        if (signInResult.requires2FA) {
+          return // handled by login function
+        }
+
+        if (signInResult.error) {
+          setError(`Sign in failed: ${signInResult.error}`)
+          setErrorType("error")
+        } else {
+          let callbackUrl = searchParams.get('callbackUrl') || '/protected/user/dashboard'
+          if (callbackUrl.includes('/auth/login')) callbackUrl = '/protected/user/dashboard'
+          window.location.href = callbackUrl
+        }
+      } else {
+        setError(data.error || "Invalid or expired code.")
+        setErrorType("error")
+      }
+    } catch (err) {
+      setError("A network error occurred. Please try again.")
+      setErrorType("error")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
@@ -420,8 +518,26 @@ export default function LoginForm() {
         </div>
       )}
 
+      {/* Tabs */}
+      <div className="flex rounded-md border border-gray-200 dark:border-gray-800 p-1 mb-6 bg-gray-50 dark:bg-neutral-900">
+        <button
+          type="button"
+          className={`flex-1 py-1.5 text-sm font-medium rounded-sm transition-colors ${loginMethod === 'password' ? 'bg-white dark:bg-neutral-800 shadow-sm text-black dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'}`}
+          onClick={() => { setLoginMethod('password'); setOtpSent(false); }}
+        >
+          Password
+        </button>
+        <button
+          type="button"
+          className={`flex-1 py-1.5 text-sm font-medium rounded-sm transition-colors ${loginMethod === 'passwordless' ? 'bg-white dark:bg-neutral-800 shadow-sm text-black dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'}`}
+          onClick={() => setLoginMethod('passwordless')}
+        >
+          Passwordless
+        </button>
+      </div>
+
       {/* Login Form */}
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form onSubmit={otpSent ? handleVerifyOTP : handleSubmit} className="space-y-4" noValidate>
         <div className="space-y-2">
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Email
@@ -485,63 +601,115 @@ export default function LoginForm() {
           )}
         </div>
 
-        <div className="space-y-2">
-          <div className="flex justify-between">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Password
-            </label>
-            <Link
-              href="/auth/forgot-password"
-              className="text-xs text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
-            >
-              Forgot password?
-            </Link>
+        {loginMethod === 'password' && (
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Password
+              </label>
+              <Link
+                href="/auth/forgot-password"
+                className="text-xs text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+              >
+                Forgot password?
+              </Link>
+            </div>
+            <div className="relative">
+              <Input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Enter your password"
+                className={`w-full pr-10 ${fieldErrors.password
+                  ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
+                  : ""
+                  }`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+            {fieldErrors.password && (
+              <p className="text-sm mt-1 text-red-600 dark:text-red-400 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {fieldErrors.password}
+              </p>
+            )}
           </div>
-          <div className="relative">
-            <Input
-              id="password"
-              name="password"
-              type={showPassword ? "text" : "password"}
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Enter your password"
-              className={`w-full pr-10 ${fieldErrors.password
-                ? "border-red-500 focus:border-red-500 focus:ring-red-500 dark:border-red-600"
-                : ""
-                }`}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
-            >
-              {showPassword ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-          {/* Inline field error for password */}
-          {fieldErrors.password && (
-            <p className="text-sm mt-1 text-red-600 dark:text-red-400 flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />
-              {fieldErrors.password}
-            </p>
-          )}
-        </div>
+        )}
 
-        <Button
-          type="submit"
-          className="w-full bg-white text-black border-1 border-black hover:bg-gray-100 dark:bg-neutral-800 dark:text-white dark:border-white dark:hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={isSubmitting || loading || isSuspended || isCheckingSuspension || emailStatus === "not-registered" || !!fieldErrors.email || !!fieldErrors.password}
-        >
-          {isSubmitting ? "Signing in..." :
-            isCheckingSuspension ? "Checking..." :
-              isSuspended ? "Account Suspended" :
-                emailStatus === "not-registered" ? "Email Not Registered" :
-                  "Log In"}
-        </Button>
+        {loginMethod === 'passwordless' && otpSent && (
+          <div className="space-y-2">
+            <label htmlFor="otp" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              6-Digit Login Code
+            </label>
+            <Input
+              id="otp"
+              name="otp"
+              type="text"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="Enter 6-digit code"
+              className="w-full text-center tracking-widest text-lg"
+            />
+          </div>
+        )}
+
+        {loginMethod === 'password' && (
+          <Button
+            type="submit"
+            className="w-full bg-white text-black border-1 border-black hover:bg-gray-100 dark:bg-neutral-800 dark:text-white dark:border-white dark:hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isSubmitting || loading || isSuspended || isCheckingSuspension || emailStatus === "not-registered" || !!fieldErrors.email || !!fieldErrors.password}
+          >
+            {isSubmitting ? "Signing in..." :
+              isCheckingSuspension ? "Checking..." :
+                isSuspended ? "Account Suspended" :
+                  emailStatus === "not-registered" ? "Email Not Registered" :
+                    "Log In"}
+          </Button>
+        )}
+
+        {loginMethod === 'passwordless' && !otpSent && (
+          <div className="flex flex-col gap-3">
+            <Button
+              type="button"
+              onClick={() => handlePasswordlessSubmit('magic_link')}
+              className="w-full bg-white text-black border border-black hover:bg-gray-100 dark:bg-neutral-800 dark:text-white dark:border-white dark:hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSending || isSuspended || isCheckingSuspension || !!fieldErrors.email || !formData.email}
+            >
+              {isSending ? "Sending..." : "Send Magic Link"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handlePasswordlessSubmit('otp')}
+              className="w-full text-gray-700 dark:text-gray-300"
+              disabled={isSending || isSuspended || isCheckingSuspension || !!fieldErrors.email || !formData.email}
+            >
+              {isSending ? "Sending..." : "Send Login Code"}
+            </Button>
+          </div>
+        )}
+
+        {loginMethod === 'passwordless' && otpSent && (
+          <Button
+            type="submit"
+            className="w-full bg-white text-black border-1 border-black hover:bg-gray-100 dark:bg-neutral-800 dark:text-white dark:border-white dark:hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isSubmitting || otp.length < 6}
+          >
+            {isSubmitting ? "Verifying..." : "Verify Code"}
+          </Button>
+        )}
       </form>
 
       {/* Divider */}

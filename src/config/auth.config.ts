@@ -58,7 +58,12 @@ const authConfig: NextAuthConfig = {
             }
           });
 
-          if (!user || !user.password) {
+          if (!user) {
+            return null;
+          }
+
+          // If the user has no password and we aren't skipping the check, reject
+          if (!user.password && !skipPasswordCheck) {
             return null;
           }
 
@@ -70,8 +75,12 @@ const authConfig: NextAuthConfig = {
           // Note: We allow unverified users to log in, but they'll see a verification banner
           // This provides better UX than blocking them completely
 
-          // Skip password check if this is a 2FA completion (already verified)
+          // Skip password check if this is a 2FA completion or Passwordless
           if (!skipPasswordCheck) {
+            if (!user.password) {
+              return null; // Should not happen due to above check, but TypeScript safety
+            }
+
             const isPasswordValid = await bcrypt.compare(
               password,
               user.password

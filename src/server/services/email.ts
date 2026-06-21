@@ -11,6 +11,8 @@ import {
   subscriptionPurchaseTemplate,
   bookingConfirmationCustomerTemplate,
   bookingNotificationBusinessTemplate,
+  passwordlessOTPTemplate,
+  magicLinkTemplate,
 } from "@/lib/email/templates";
 
 interface EmailOptions {
@@ -94,6 +96,27 @@ class EmailService {
     return this.sendEmail({
       to: email,
       subject: `Password Change Verification Code: ${otpCode}`,
+      html,
+    });
+  }
+
+  async sendPasswordlessOTP(email: string, otpCode: string) {
+    const html = passwordlessOTPTemplate(otpCode, getAppName() || 'Our App');
+
+    return this.sendEmail({
+      to: email,
+      subject: `Your Login Code: ${otpCode}`,
+      html,
+    });
+  }
+
+  async sendMagicLink(email: string, token: string) {
+    const loginUrl = `${APP_CONFIG.APP_URL}/auth/magic-link?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+    const html = magicLinkTemplate(loginUrl, getAppName() || 'Our App');
+
+    return this.sendEmail({
+      to: email,
+      subject: `Sign in to ${getAppName() || 'Our App'}`,
       html,
     });
   }

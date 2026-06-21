@@ -25,7 +25,7 @@ interface AuthContextType {
   user: ExtendedUser | null;
   isAuthenticated: boolean;
   isEmailVerified: boolean;
-  login: (email: string, password: string) => Promise<{ error?: string; requires2FA?: boolean }>;
+  login: (email: string, password: string, skipPasswordCheck?: string) => Promise<{ error?: string; requires2FA?: boolean }>;
   socialLogin: (provider: string, callbackUrl?: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
@@ -57,62 +57,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAuthenticated = !!session;
   const isEmailVerified = !!session?.user?.isEmailVerified;
-  const login = async (email: string, password: string): Promise<{ error?: string; requires2FA?: boolean }> => {
+  const login = async (email: string, password: string, skipPasswordCheck: string = 'false'): Promise<{ error?: string; requires2FA?: boolean }> => {
     try {
       // First, validate the credentials and get specific error messages
-      const validateResponse = await fetch('/api/auth/validate-credentials', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      // Only if not skipping password check
+      if (skipPasswordCheck !== 'true') {
+        const validateResponse = await fetch('/api/auth/validate-credentials', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
 
-      if (!validateResponse.ok) {
-        const errorData = await validateResponse.json();
-        return { error: errorData.error || "An unexpected error occurred" };
-      }
+        if (!validateResponse.ok) {
+          const errorData = await validateResponse.json();
+          return { error: errorData.error || "An unexpected error occurred" };
+        }
 
-      const validationResult = await validateResponse.json();
-      
-      // Check if 2FA is required
-      if (validationResult.requires2FA) {
-        const twoFAMethod = validationResult.method || 'email'; // 'app' or 'email'
+        const validationResult = await validateResponse.json();
         
-        // Generate temporary token for 2FA flow
-        try {
-          const tempToken = await fetch('/api/auth/generate-temp-token', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, password, method: twoFAMethod }),
-          });
+        // Check if 2FA is required
+        if (validationResult.requires2FA) {
+          const twoFAMethod = validationResult.method || 'email'; // 'app' or 'email'
+          
+          // Generate temporary token for 2FA flow
+          try {
+            const tempToken = await fetch('/api/auth/generate-temp-token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ email, password, method: twoFAMethod }),
+            });
 
-          if (tempToken.ok) {
-            const tokenData = await tempToken.json();
-            // Redirect to 2FA verification page with method
-            try {
-              router.push(`/auth/2fa-verify?email=${encodeURIComponent(email)}&token=${tokenData.tempToken}&method=${twoFAMethod}`);
-              return { requires2FA: true };
-            } catch (routerError) {
-              console.error('Failed to redirect to 2FA page:', routerError);
-              return { error: "Failed to redirect to verification page" };
+            if (tempToken.ok) {
+              const tokenData = await tempToken.json();
+              // Redirect to 2FA verification page with method
+              try {
+                router.push(`/auth/2fa-verify?email=${encodeURIComponent(email)}&token=${tokenData.tempToken}&method=${twoFAMethod}`);
+                return { requires2FA: true };
+              } catch (routerError) {
+                console.error('Failed to redirect to 2FA page:', routerError);
+                return { error: "Failed to redirect to verification page" };
+              }
+            } else {
+              const errorData = await tempToken.json().catch(() => ({ error: 'Unknown error' }));
+              return { error: errorData.error || "Failed to initiate 2FA verification" };
             }
-          } else {
-            const errorData = await tempToken.json().catch(() => ({ error: 'Unknown error' }));
-            return { error: errorData.error || "Failed to initiate 2FA verification" };
+          } catch (tempTokenError) {
+            console.error('Failed to generate temp token:', tempTokenError);
+            return { error: "Failed to initiate 2FA verification" };
           }
-        } catch (tempTokenError) {
-          console.error('Failed to generate temp token:', tempTokenError);
-          return { error: "Failed to initiate 2FA verification" };
         }
       }
 
-      // If validation passed and no 2FA required, proceed with NextAuth sign in
+      // If validation passed and no 2FA required (or if skipped), proceed with NextAuth sign in
       const result = await signIn("credentials", {
         email,
         password,
+        skipPasswordCheck,
         redirect: false,
       });
 

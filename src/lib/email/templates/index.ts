@@ -15,6 +15,10 @@ export {
   bookingConfirmationCustomerTemplate,
   bookingNotificationBusinessTemplate
 } from './booking';
+export { 
+  passwordlessOTPTemplate, 
+  magicLinkTemplate 
+} from './passwordless';
 
 // Export base components for custom templates
 export {
