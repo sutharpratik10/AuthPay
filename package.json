@@ -63,6 +63,7 @@
     "stripe": "^20.4.1",
     "swr": "^2.3.6",
     "tailwind-merge": "^3.4.0",
+    "ua-parser-js": "^2.0.10",
     "uuid": "^13.0.0",
     "zod": "^4.4.3"
   },
@@ -77,6 +78,7 @@
     "@types/nodemailer": "^7.0.4",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@types/ua-parser-js": "^0.7.39",
     "@types/uuid": "^10.0.0",
     "autocannon": "^8.0.0",
     "baseline-browser-mapping": "^2.9.19",

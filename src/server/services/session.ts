@@ -32,9 +32,9 @@ interface SessionExtendOptions {
  */
 function parseBrowserName(userAgent: string): string {
   if (!userAgent) return 'Unknown Browser';
-  
+
   const ua = userAgent.toLowerCase();
-  
+
   // Check for specific browsers in order of specificity
   if (ua.includes('edg/') || ua.includes('edge/')) {
     return 'Microsoft Edge';
@@ -63,14 +63,14 @@ export class SessionService {
   private static readonly MAX_SESSION_DURATION_HOURS = 72;
   private static readonly SESSION_EXTENSION_MINUTES = 30;
   private static readonly CLEANUP_INTERVAL_HOURS = 1;
-  
+
   /**
    * Validate a session token and return session details
    */
   static async validateSession(sessionToken: string): Promise<SessionValidationResult> {
     try {
       const now = new Date();
-      
+
       const sessionRecord = await db.query.sessions.findFirst({
         where: eq(sessions.token, sessionToken),
         columns: {
@@ -116,13 +116,13 @@ export class SessionService {
    * Extend a session's expiration time (for active users)
    */
   static async extendSession(
-    sessionToken: string, 
+    sessionToken: string,
     options: SessionExtendOptions = {}
   ): Promise<boolean> {
     try {
-      const { 
-        extendByMinutes = this.SESSION_EXTENSION_MINUTES, 
-        maxSessionDuration = this.MAX_SESSION_DURATION_HOURS 
+      const {
+        extendByMinutes = this.SESSION_EXTENSION_MINUTES,
+        maxSessionDuration = this.MAX_SESSION_DURATION_HOURS
       } = options;
 
       const sessionRecord = await db.query.sessions.findFirst({
@@ -141,7 +141,7 @@ export class SessionService {
       const now = new Date();
       const sessionCreatedAt = new Date(sessionRecord.createdAt);
       const sessionAge = (now.getTime() - sessionCreatedAt.getTime()) / (1000 * 60 * 60); // hours
-      
+
       // Don't extend if session has already been running for too long
       if (sessionAge >= maxSessionDuration) {
         console.log(`Session ${sessionToken.substring(0, 8)}... not extended - max duration reached`);
@@ -150,16 +150,16 @@ export class SessionService {
 
       // Calculate new expiration time
       const newExpirationTime = new Date(now.getTime() + (extendByMinutes * 60 * 1000));
-      
+
       // Ensure we don't exceed max session duration
       const maxAllowedExpiration = new Date(sessionCreatedAt.getTime() + (maxSessionDuration * 60 * 60 * 1000));
-      const finalExpirationTime = newExpirationTime > maxAllowedExpiration 
-        ? maxAllowedExpiration 
+      const finalExpirationTime = newExpirationTime > maxAllowedExpiration
+        ? maxAllowedExpiration
         : newExpirationTime;
 
       await db
         .update(sessions)
-        .set({ 
+        .set({
           expiresAt: finalExpirationTime,
           lastActiveAt: now,
         })
@@ -200,7 +200,7 @@ export class SessionService {
 
   /**
    * Create a new session record in the database
-   */  
+   */
   static async createSession({ userId, userAgent, ipAddress }: CreateSessionOptions) {
     try {
       const sessionToken = nanoid(32);
@@ -229,7 +229,7 @@ export class SessionService {
         // Update user's last login time in the same transaction
         await tx
           .update(users)
-          .set({ 
+          .set({
             lastLoginAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           })
@@ -239,8 +239,8 @@ export class SessionService {
       });
 
       // Queue security alert email for background processing
-      // This returns immediately and doesn't block the HTTP response
-      EmailQueueService.enqueueSecurityAlert(userId, userAgent, ipAddress);
+      // REMOVED: This is now handled in `src/config/auth.ts` jwt callback with more accurate location and device tracking
+      // EmailQueueService.enqueueSecurityAlert(userId, userAgent, ipAddress);
 
       console.log(`Session created for user ${userId}: ${sessionToken.substring(0, 8)}...`);
       return result;
@@ -270,11 +270,11 @@ export class SessionService {
       if (activeSessions.length >= maxSessions) {
         // Remove oldest sessions
         const sessionsToRemove = activeSessions.slice(0, activeSessions.length - maxSessions + 1);
-        
+
         for (const session of sessionsToRemove) {
           await this.invalidateSessionById(session.id);
         }
-        
+
         console.log(`Removed ${sessionsToRemove.length} old sessions for user ${userId}`);
       }
     } catch (error) {
@@ -312,7 +312,7 @@ export class SessionService {
 
       // Check if user has security alerts enabled (defaults to true if no preferences set)
       const securityAlertsEnabled = user.userPreferences?.securityAlerts !== false;
-      
+
       if (!securityAlertsEnabled) {
         console.log('Security alerts disabled for user:', user.email);
         return;
@@ -334,7 +334,7 @@ export class SessionService {
       ]);
 
       // Format location for email
-      const location = locationData 
+      const location = locationData
         ? LocationService.formatLocationForEmail(locationData, browserInfo)
         : `Unknown Location (${browserInfo.browser} on ${browserInfo.os})`;
 
@@ -364,10 +364,10 @@ export class SessionService {
   static async updateSessionActivity(sessionToken: string): Promise<boolean> {
     try {
       const now = new Date();
-      
+
       // Check if session should be extended
       const shouldExtend = await this.shouldExtendSession(sessionToken);
-      
+
       if (shouldExtend) {
         // Extend session and update activity
         return await this.extendSession(sessionToken);
@@ -375,8 +375,8 @@ export class SessionService {
         // Just update activity timestamp
         await db
           .update(sessions)
-          .set({ 
-            lastActiveAt: now 
+          .set({
+            lastActiveAt: now
           })
           .where(eq(sessions.token, sessionToken));
         return true;
@@ -439,7 +439,7 @@ export class SessionService {
     try {
       await db
         .update(sessions)
-        .set({ 
+        .set({
           expiresAt: new Date() // Set to current time to expire it
         })
         .where(eq(sessions.token, sessionToken));
@@ -455,7 +455,7 @@ export class SessionService {
     try {
       await db
         .update(sessions)
-        .set({ 
+        .set({
           expiresAt: new Date() // Set to current time to expire it
         })
         .where(eq(sessions.id, sessionId));
@@ -471,7 +471,7 @@ export class SessionService {
     try {
       await db
         .update(sessions)
-        .set({ 
+        .set({
           expiresAt: new Date() // Set to current time to expire them
         })
         .where(eq(sessions.userId, userId));
@@ -487,10 +487,10 @@ export class SessionService {
     cleanupTime: number;
   }> {
     const startTime = Date.now();
-    
+
     try {
       const now = new Date();
-      
+
       // First count how many will be deleted
       const expiredSessions = await db
         .select({ id: sessions.id, userId: sessions.userId })
@@ -498,9 +498,9 @@ export class SessionService {
         .where(
           lt(sessions.expiresAt, now)
         );
-      
+
       const totalExpired = expiredSessions.length;
-      
+
       if (totalExpired === 0) {
         return {
           deletedCount: 0,
@@ -508,15 +508,15 @@ export class SessionService {
           cleanupTime: Date.now() - startTime,
         };
       }
-      
+
       // Delete expired sessions in batches for better performance
       const batchSize = 100;
       let deletedCount = 0;
-      
+
       for (let i = 0; i < expiredSessions.length; i += batchSize) {
         const batch = expiredSessions.slice(i, i + batchSize);
         const sessionIds = batch.map(s => s.id);
-        
+
         // Delete batch
         await db
           .delete(sessions)
@@ -527,14 +527,14 @@ export class SessionService {
               eq(sessions.id, sessionIds[0]) // This is simplified - in real implementation you'd use IN operator
             )
           );
-        
+
         deletedCount += batch.length;
       }
-      
+
       const cleanupTime = Date.now() - startTime;
-      
+
       console.log(`Session cleanup completed: ${deletedCount}/${totalExpired} expired sessions deleted in ${cleanupTime}ms`);
-      
+
       return {
         deletedCount,
         totalExpired,
@@ -557,7 +557,7 @@ export class SessionService {
     try {
       const cutoffTime = new Date();
       cutoffTime.setHours(cutoffTime.getHours() - inactiveHours);
-      
+
       const inactiveSessions = await db
         .select({ id: sessions.id })
         .from(sessions)
@@ -567,15 +567,15 @@ export class SessionService {
             lt(sessions.lastActiveAt, cutoffTime) // But inactive
           )
         );
-      
+
       if (inactiveSessions.length === 0) {
         return 0;
       }
-      
+
       // Mark inactive sessions as expired
       await db
         .update(sessions)
-        .set({ 
+        .set({
           expiresAt: new Date() // Expire them now
         })
         .where(
@@ -584,7 +584,7 @@ export class SessionService {
             lt(sessions.lastActiveAt, cutoffTime)
           )
         );
-      
+
       console.log(`Marked ${inactiveSessions.length} inactive sessions as expired`);
       return inactiveSessions.length;
     } catch (error) {
@@ -601,7 +601,7 @@ export class SessionService {
       const now = new Date();
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      
+
       const [
         totalActiveSessions,
         expiredSessions,
@@ -622,7 +622,7 @@ export class SessionService {
           )
         )
       ]);
-      
+
       return {
         activeSessionsCount: totalActiveSessions.length,
         expiredSessionsCount: expiredSessions.length,
@@ -647,12 +647,12 @@ export class SessionService {
    */
   static startAutomaticCleanup(intervalHours: number = 1) {
     const intervalMs = intervalHours * 60 * 60 * 1000;
-    
+
     // Run cleanup immediately on startup
     this.cleanupExpiredSessions().catch(error => {
       console.error('Initial session cleanup failed:', error);
     });
-    
+
     // Schedule recurring cleanup
     setInterval(async () => {
       try {
@@ -662,7 +662,7 @@ export class SessionService {
         console.error('Scheduled session cleanup failed:', error);
       }
     }, intervalMs);
-    
+
     console.log(`Automatic session cleanup scheduled every ${intervalHours} hour(s)`);
   }
 }

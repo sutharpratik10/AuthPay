@@ -212,6 +212,84 @@ export const {
       if (user) {
         token.isEmailVerified = user.isEmailVerified;
         token.role = user.role;
+
+        // --- Login Tracking & Security Alerts ---
+        try {
+          const { headers } = await import("next/headers");
+          const headersList = await headers();
+          const ipAddress = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "127.0.0.1";
+          const userAgent = headersList.get("user-agent");
+          
+          const { parseUserAgent } = await import("@/lib/utils/device");
+          const { getLocationFromIP } = await import("@/lib/utils/location");
+          
+          const deviceData = parseUserAgent(userAgent);
+          
+          const { cookies } = await import("next/headers");
+          const cookieStore = await cookies();
+          const gpsLocation = cookieStore.get("client-location")?.value;
+          
+          let location = "Unknown Location";
+          if (gpsLocation) {
+            location = decodeURIComponent(gpsLocation);
+          } else {
+            location = await getLocationFromIP(ipAddress);
+          }
+          
+          const { loginHistory, userPreferences, users } = await import("@/server/db/schema");
+          const { eq, and } = await import("drizzle-orm");
+          
+          // Check if device is new
+          const pastLogin = await db.query.loginHistory.findFirst({
+            where: (history) => and(
+              eq(history.userId, token.sub as string),
+              eq(history.device, deviceData.device),
+              eq(history.browser, deviceData.browser),
+              eq(history.os, deviceData.os)
+            )
+          });
+          const isNewDevice = !pastLogin;
+
+          // Save to database
+          await db.insert(loginHistory).values({
+            userId: token.sub as string,
+            ipAddress,
+            location,
+            device: deviceData.device,
+            os: deviceData.os,
+            browser: deviceData.browser,
+            userAgent,
+          });
+          
+          // Check user preferences for security alerts
+          const prefs = await db.query.userPreferences.findFirst({
+            where: eq(userPreferences.userId, token.sub as string),
+            columns: { securityAlerts: true }
+          });
+          
+          const userRecord = await db.query.users.findFirst({
+            where: eq(users.id, token.sub as string),
+            columns: { email: true, name: true }
+          });
+          
+          const shouldAlert = prefs?.securityAlerts || isNewDevice;
+          
+          if (shouldAlert && userRecord?.email) {
+            const { emailService } = await import("@/server/services/email");
+            // Async send email so we don't block login
+            emailService.sendSecurityAlertEmail(
+              userRecord.email,
+              userRecord.name || "User",
+              new Date(),
+              location,
+              ipAddress,
+              `${deviceData.device} - ${deviceData.os} - ${deviceData.browser}`
+            ).catch(console.error);
+          }
+        } catch (err) {
+          console.error("Error tracking login:", err);
+        }
+        // --- End Login Tracking ---
       } else {
         // Only query database if we don't have the verification status or it's been a while
         const shouldRefresh = !token.isEmailVerified || 

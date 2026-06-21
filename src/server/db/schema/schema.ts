@@ -561,3 +561,21 @@ export const userSubscriptions = pgTable("user_subscriptions", {
 	createdAt: timestamp('created_at', { mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp('updated_at', { mode: 'string' }).defaultNow().notNull(),
 });
+
+export const loginHistory = pgTable("login_history", {
+	id: uuid('id').defaultRandom().primaryKey(),
+	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+	ipAddress: varchar('ip_address', { length: 45 }), // 45 chars for IPv6
+	location: varchar('location', { length: 255 }), // City, Country
+	device: varchar('device', { length: 255 }), // Mobile, Desktop
+	os: varchar('os', { length: 255 }), // Windows, iOS
+	browser: varchar('browser', { length: 255 }), // Chrome, Safari
+	userAgent: text('user_agent'), // Raw string just in case
+	loginAt: timestamp('login_at').defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "login_history_user_id_users_id_fk"
+	}).onDelete("cascade"),
+]);

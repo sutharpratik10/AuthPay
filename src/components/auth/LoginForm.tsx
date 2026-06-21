@@ -44,6 +44,47 @@ export default function LoginForm() {
   // Track validated emails to avoid re-checking the same email
   const validatedEmails = useRef<Map<string, { status: "registered" | "not-registered", isSuspended: boolean }>>(new Map())
 
+  // Fetch GPS location on mount to improve location accuracy
+  useEffect(() => {
+    if (typeof window !== "undefined" && "geolocation" in navigator) {
+      // Check if we already have the cookie to avoid repeated prompts/API calls
+      if (document.cookie.includes("client-location")) return;
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            // Use free reverse geocoding API
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`);
+            const data = await res.json();
+            
+            let locationName = "Unknown Location";
+            if (data && data.address) {
+              const city = data.address.city || data.address.town || data.address.village || data.address.county;
+              const country = data.address.country;
+              if (city && country) {
+                locationName = `${city}, ${country}`;
+              } else if (country) {
+                locationName = country;
+              }
+            }
+            
+            if (locationName !== "Unknown Location") {
+              // Set cookie for 1 hour
+              document.cookie = `client-location=${encodeURIComponent(locationName)}; path=/; max-age=3600; SameSite=Lax`;
+            }
+          } catch (err) {
+            console.error("Failed to reverse geocode GPS location", err);
+          }
+        },
+        (error) => {
+          console.warn("GPS location access denied or failed", error.message);
+        },
+        { timeout: 10000, maximumAge: 60000 }
+      );
+    }
+  }, []);
+
   // Helper function to check if email format is valid
   const isValidEmailFormat = useCallback((email: string): boolean => {
     return email.length > 0 && EMAIL_REGEX.test(email) && !hasSQLInjectionPatterns(email)

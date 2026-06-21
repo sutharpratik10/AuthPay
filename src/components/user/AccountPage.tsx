@@ -97,6 +97,29 @@ export default function AccountPage() {
     message?: string
   }>({ status: 'idle' })
 
+  // Login History state
+  const [loginHistory, setLoginHistory] = useState<any[]>([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
+
+  // Load login history
+  useEffect(() => {
+    const loadLoginHistory = async () => {
+      try {
+        const response = await fetch('/api/user/login-history')
+        if (response.ok) {
+          const data = await response.json()
+          setLoginHistory(data)
+        }
+      } catch (error) {
+        console.error('Failed to load login history:', error)
+      } finally {
+        setIsLoadingHistory(false)
+      }
+    }
+
+    loadLoginHistory()
+  }, [])
+
   // OTP Timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout
@@ -1469,6 +1492,40 @@ export default function AccountPage() {
                 {isLoading ? 'Exporting...' : 'Export Data'}
               </Button>
             </div>
+          </div>
+        </div>
+
+        {/* Login History */}
+        <div className="border rounded-lg p-6 bg-card">
+          <h2 className="flex items-center text-lg font-semibold mb-4">
+            <Smartphone className="w-5 h-5 mr-2" />
+            Recent Logins
+          </h2>
+          <div className="space-y-4">
+            {isLoadingHistory ? (
+              <div className="flex justify-center p-4">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : loginHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No login history available.</p>
+            ) : (
+              <div className="divide-y border rounded-md">
+                {loginHistory.map((login) => (
+                  <div key={login.id} className="p-4 flex flex-col md:flex-row justify-between md:items-center gap-4 hover:bg-muted/30 transition-colors">
+                    <div>
+                      <p className="font-medium text-sm">{login.device} ({login.os})</p>
+                      <p className="text-xs text-muted-foreground">{login.browser}</p>
+                    </div>
+                    <div className="text-left md:text-right">
+                      <p className="text-sm">{login.location}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(login.loginAt).toLocaleString()} • {login.ipAddress}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
