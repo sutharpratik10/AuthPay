@@ -249,7 +249,7 @@ export const otpCodes = pgTable("otp_codes", {
 export const recoveryCodes = pgTable("recovery_codes", {
 	id: uuid('id').defaultRandom().primaryKey(),
 	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-	code: varchar('code', { length: 20 }).notNull(),
+	code: varchar('code', { length: 255 }).notNull(),
 	isUsed: boolean('is_used').default(false),
 	usedAt: timestamp('used_at'),
 	createdAt: timestamp('created_at').defaultNow().notNull(),

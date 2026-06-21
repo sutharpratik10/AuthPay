@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from "@/server/db";
-import { users } from "@/server/db/schema";
+import { users, twoFactorAuth } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { rateLimiters } from '@/lib/middleware/rate-limit';
@@ -124,13 +124,29 @@ export const POST = rateLimiters.validation(async (request: NextRequest) => {
     }
 
     // Check if 2FA is enabled
-    const has2FA = user.userPreferences?.twoFactorAuth === true;
+    const hasEmail2FA = user.userPreferences?.twoFactorAuth === true;
     
-    if (has2FA) {
+    // Check if App 2FA is enabled
+    const totpRecord = await db.query.twoFactorAuth.findFirst({
+      where: (table) => eq(table.userId, user.id),
+    });
+    
+    const hasApp2FA = totpRecord?.enabled && totpRecord.method === 'app';
+
+    if (hasEmail2FA || hasApp2FA) {
+      let method: 'email' | 'app' | 'both' = 'email';
+      
+      if (hasEmail2FA && hasApp2FA) {
+        method = 'both';
+      } else if (hasApp2FA) {
+        method = 'app';
+      }
+      
       return NextResponse.json(
         { 
           success: true,
           requires2FA: true,
+          method,
           message: 'Two-factor authentication required'
         },
         { status: 200 }

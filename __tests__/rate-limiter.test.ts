@@ -53,45 +53,45 @@ describe('Rate Limiter Configuration', () => {
       limiter.destroy();
     });
 
-    it('should allow requests within the limit', () => {
+    it('should allow requests within the limit', async () => {
       const config = { windowMs: 1000, maxRequests: 5 };
       const clientId = 'test-client-1';
 
       for (let i = 0; i < 5; i++) {
-        const result = limiter.check(clientId, config);
+        const result = await limiter.check(clientId, config);
         expect(result.allowed).toBe(true);
         expect(result.remaining).toBe(4 - i);
       }
     });
 
-    it('should block requests exceeding the limit', () => {
+    it('should block requests exceeding the limit', async () => {
       const config = { windowMs: 1000, maxRequests: 3 };
       const clientId = 'test-client-2';
 
       // Use up all allowed requests
       for (let i = 0; i < 3; i++) {
-        limiter.check(clientId, config);
+        await limiter.check(clientId, config);
       }
 
       // This one should be blocked
-      const result = limiter.check(clientId, config);
+      const result = await limiter.check(clientId, config);
       expect(result.allowed).toBe(false);
       expect(result.remaining).toBe(0);
     });
 
-    it('should track separate limits for different clients', () => {
+    it('should track separate limits for different clients', async () => {
       const config = { windowMs: 1000, maxRequests: 2 };
       const client1 = 'client-1';
       const client2 = 'client-2';
 
       // Client 1 uses up their limit
-      limiter.check(client1, config);
-      limiter.check(client1, config);
-      const result1 = limiter.check(client1, config);
+      await limiter.check(client1, config);
+      await limiter.check(client1, config);
+      const result1 = await limiter.check(client1, config);
       expect(result1.allowed).toBe(false);
 
       // Client 2 should still be able to make requests
-      const result2 = limiter.check(client2, config);
+      const result2 = await limiter.check(client2, config);
       expect(result2.allowed).toBe(true);
     });
 
@@ -100,56 +100,56 @@ describe('Rate Limiter Configuration', () => {
       const clientId = 'test-client-3';
 
       // Use up the limit
-      limiter.check(clientId, config);
-      limiter.check(clientId, config);
-      expect(limiter.check(clientId, config).allowed).toBe(false);
+      await limiter.check(clientId, config);
+      await limiter.check(clientId, config);
+      expect((await limiter.check(clientId, config)).allowed).toBe(false);
 
       // Wait for window to expire
       await new Promise(resolve => setTimeout(resolve, 150));
 
       // Should be allowed again
-      const result = limiter.check(clientId, config);
+      const result = await limiter.check(clientId, config);
       expect(result.allowed).toBe(true);
     });
 
-    it('should handle auth rate limit (45 req/15min)', () => {
+    it('should handle auth rate limit (45 req/15min)', async () => {
       const clientId = 'auth-client';
       
       // Should allow 45 requests
       for (let i = 0; i < 45; i++) {
-        const result = limiter.check(clientId, RATE_LIMIT_CONFIGS.auth);
+        const result = await limiter.check(clientId, RATE_LIMIT_CONFIGS.auth);
         expect(result.allowed).toBe(true);
       }
 
       // 46th request should be blocked
-      const result = limiter.check(clientId, RATE_LIMIT_CONFIGS.auth);
+      const result = await limiter.check(clientId, RATE_LIMIT_CONFIGS.auth);
       expect(result.allowed).toBe(false);
     });
 
-    it('should handle sensitive rate limit (2 req/sec)', () => {
+    it('should handle sensitive rate limit (2 req/sec)', async () => {
       const clientId = 'sensitive-client';
       
       // Should allow 2 requests
-      expect(limiter.check(clientId, RATE_LIMIT_CONFIGS.sensitive).allowed).toBe(true);
-      expect(limiter.check(clientId, RATE_LIMIT_CONFIGS.sensitive).allowed).toBe(true);
+      expect((await limiter.check(clientId, RATE_LIMIT_CONFIGS.sensitive)).allowed).toBe(true);
+      expect((await limiter.check(clientId, RATE_LIMIT_CONFIGS.sensitive)).allowed).toBe(true);
 
       // 3rd request should be blocked
-      expect(limiter.check(clientId, RATE_LIMIT_CONFIGS.sensitive).allowed).toBe(false);
+      expect((await limiter.check(clientId, RATE_LIMIT_CONFIGS.sensitive)).allowed).toBe(false);
     });
 
-    it('should reset client limit when reset() is called', () => {
+    it('should reset client limit when reset() is called', async () => {
       const config = { windowMs: 1000, maxRequests: 1 };
       const clientId = 'reset-client';
 
       // Use up the limit
-      limiter.check(clientId, config);
-      expect(limiter.check(clientId, config).allowed).toBe(false);
+      await limiter.check(clientId, config);
+      expect((await limiter.check(clientId, config)).allowed).toBe(false);
 
       // Reset the client
-      limiter.reset(clientId);
+      await limiter.reset(clientId);
 
       // Should be allowed again
-      expect(limiter.check(clientId, config).allowed).toBe(true);
+      expect((await limiter.check(clientId, config)).allowed).toBe(true);
     });
   });
 });

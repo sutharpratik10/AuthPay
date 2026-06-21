@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/server/db';
-import { users, otpCodes } from '@/server/db/schema';
+import { users, otpCodes, twoFactorAuth } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { rateLimiters } from '@/lib/middleware/rate-limit';
@@ -115,13 +115,28 @@ export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response
     // Delete the used OTP
     await db.delete(otpCodes).where(eq(otpCodes.id, otpRecord.id));
 
+    // Check if App 2FA is ALSO enabled
+    const totpRecord = await db.query.twoFactorAuth.findFirst({
+      where: (table) => eq(table.userId, user.id),
+    });
+    
+    const hasApp2FA = totpRecord?.enabled && totpRecord.method === 'app';
+
+    if (hasApp2FA) {
+      return NextResponse.json({
+        success: true,
+        requiresApp2FA: true,
+        message: 'Email verified. Authenticator app code required.',
+      });
+    }
+
     // Return success with the credentials needed for client-side signIn
     return NextResponse.json({
       success: true,
       message: 'Two-factor authentication verified successfully',
       credentials: {
         email: user.email,
-        password: decodedToken.password, // Password was verified during initial login
+        password: '2fa-verified', // Dummy value, will be skipped by skipPasswordCheck
         skipPasswordCheck: 'true' // Custom flag to skip password verification since we already verified it
       }
     });

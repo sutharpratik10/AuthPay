@@ -77,6 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Check if 2FA is required
       if (validationResult.requires2FA) {
+        const twoFAMethod = validationResult.method || 'email'; // 'app' or 'email'
+        
         // Generate temporary token for 2FA flow
         try {
           const tempToken = await fetch('/api/auth/generate-temp-token', {
@@ -84,14 +86,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ email, password, method: twoFAMethod }),
           });
 
           if (tempToken.ok) {
             const tokenData = await tempToken.json();
-            // Redirect to 2FA verification page
+            // Redirect to 2FA verification page with method
             try {
-              router.push(`/auth/2fa-verify?email=${encodeURIComponent(email)}&token=${tokenData.tempToken}`);
+              router.push(`/auth/2fa-verify?email=${encodeURIComponent(email)}&token=${tokenData.tempToken}&method=${twoFAMethod}`);
               return { requires2FA: true };
             } catch (routerError) {
               console.error('Failed to redirect to 2FA page:', routerError);
