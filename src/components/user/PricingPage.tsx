@@ -1,13 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Script from "next/script";
+import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { APP_CONFIG } from "@/lib/utils/constants";
+import PricingAuthModal from "@/components/user/PricingAuthModal";
 import {
   Check,
   Crown,
@@ -56,10 +59,82 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { refreshSubscription } = useSubscription();
+  const { data: session, status: sessionStatus } = useSession();
+  const searchParams = useSearchParams();
+
+  // Auth modal state
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<RazorpayPlan | null>(null);
+  const autoResumeHandled = useRef(false);
 
   useEffect(() => {
     loadPlans();
   }, []);
+
+  // Handle auto-resume after social login OAuth redirect
+  useEffect(() => {
+    if (autoResumeHandled.current) return;
+    const autoPlanId = searchParams?.get("plan");
+    const autoFlag = searchParams?.get("auto");
+
+    if (autoFlag === "true" && autoPlanId && sessionStatus === "authenticated" && plans.length > 0) {
+      autoResumeHandled.current = true;
+      // Find the plan and auto-resume purchase
+      const plan = plans.find(
+        (p) => p.id === autoPlanId || p.dbPlanId === autoPlanId
+      );
+      if (plan) {
+        // Check subscription first, then purchase
+        checkSubscriptionThenPurchase(plan);
+      }
+      // Clean up URL params
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("plan");
+        url.searchParams.delete("auto");
+        window.history.replaceState({}, "", url.toString());
+      }
+    }
+  }, [searchParams, sessionStatus, plans]);
+
+  // Check subscription status, then purchase if no active sub
+  const checkSubscriptionThenPurchase = async (plan: RazorpayPlan) => {
+    try {
+      const res = await fetch("/api/user/subscription-status");
+      const data = await res.json();
+      if (data.success && data.data?.isActive) {
+        toast({
+          title: "Already Subscribed",
+          description: "You already have an active subscription.",
+          variant: "default",
+        });
+        return;
+      }
+    } catch {
+      // On error, proceed with purchase
+    }
+    handlePurchase(plan);
+  };
+
+  // Gated purchase handler — checks auth before proceeding
+  const handleGatedPurchase = (plan: RazorpayPlan) => {
+    if (sessionStatus === "authenticated") {
+      // Already logged in → check subscription then purchase
+      checkSubscriptionThenPurchase(plan);
+    } else {
+      // Not logged in → open auth modal
+      setSelectedPlan(plan);
+      setShowAuthModal(true);
+    }
+  };
+
+  // Called when auth modal completes successfully (user is logged in, no active sub)
+  const handleAuthSuccess = () => {
+    if (selectedPlan) {
+      handlePurchase(selectedPlan);
+      setSelectedPlan(null);
+    }
+  };
 
   const loadPlans = async () => {
     try {
@@ -385,6 +460,15 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
         strategy="lazyOnload"
       />
 
+      {/* Auth Modal */}
+      <PricingAuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        onAuthSuccess={handleAuthSuccess}
+        planName={selectedPlan?.name}
+        planId={selectedPlan?.dbPlanId || selectedPlan?.id}
+      />
+
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-primary/10" />
@@ -606,7 +690,7 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
                             : "bg-gradient-to-r from-slate-700 to-slate-600 dark:from-slate-600 dark:to-slate-700 hover:from-slate-800 hover:to-slate-700 dark:hover:from-slate-500 dark:hover:to-slate-600 text-white shadow-lg hover:shadow-xl hover:scale-105"
                             }`}
                           disabled={!!purchasing}
-                          onClick={() => handlePurchase(plan)}
+                          onClick={() => handleGatedPurchase(plan)}
                         >
                           {purchasing === plan.id ? (
                             <>

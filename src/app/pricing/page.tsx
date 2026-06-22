@@ -1,16 +1,24 @@
 "use client";
 
+import { Suspense } from 'react';
 import PricingPage from '@/components/user/PricingPage';
 
-export default function PricingPreviewPage() {
+function PricingContent() {
   return (
     <div>
-      <PricingPage 
+      <PricingPage
         onPlanSelected={(planId) => {
-          console.log('Selected plan:', planId);
-          alert(`You selected the ${planId} plan!`);
+          console.log('Plan selected:', planId);
         }}
       />
     </div>
+  );
+}
+
+export default function PricingPreviewPage() {
+  return (
+    <Suspense>
+      <PricingContent />
+    </Suspense>
   );
 }
