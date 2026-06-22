@@ -228,7 +228,7 @@ export class LocationService {
    * Format location data for display in emails
    */
   static formatLocationForEmail(location: LocationData, browserInfo: ReturnType<typeof LocationService.parseBrowserInfo>): string {
-    const parts = [];
+    const parts: string[] = [];
     
     if (location.city !== 'Unknown') parts.push(location.city);
     if (location.region !== 'Unknown') parts.push(location.region);

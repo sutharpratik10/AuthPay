@@ -11,7 +11,7 @@ export async function register() {
   // Only run on the Node.js runtime (not Edge)
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     console.log('[Next.js] Instrumentation hook triggered');
-    
+
     // Initialize server-side caches and services
     const { initializeServer } = await import('@/lib/utils/initialize-server');
     await initializeServer();

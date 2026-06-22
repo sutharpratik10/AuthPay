@@ -5,16 +5,18 @@ import { ThemeProvider } from "@/components/shared/theme-provider";
 import { Navigationbar } from "@/components/layout/navigationbar";
 import { AuthProvider } from "@/contexts/auth-context";
 import { SessionProvider, useSession } from "next-auth/react";
-import { Footer } from "@/components/layout/footer"; // Import the Footer component
 import { Toaster } from "@/components/ui/toaster";
 import { useOAuthSessionTracking } from "@/hooks/use-oauth-session-tracking";
 import CookieBanner from "@/components/shared/CookieBanner";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import { UserValidationProvider } from "@/contexts/UserValidationContext";
+import { SWRConfig } from "swr";
+import { swrConfig } from "@/lib/swr-config";
 
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider 
+    <SessionProvider
       refetchInterval={0}  // Disable automatic session polling
       refetchOnWindowFocus={false}  // Disable refetch on window focus
     >
@@ -32,7 +34,7 @@ function OAuthSessionTracker() {
 function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
-  
+
   // Global error handler for unhandled promise rejections
   useEffect(() => {
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
@@ -54,28 +56,32 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  return (    <ThemeProvider
+  return (
+    <ThemeProvider
       attribute="class"
       defaultTheme="system"
       enableSystem
       disableTransitionOnChange
     >
-      <AuthProvider>
-        <SubscriptionProvider>
-          {/* Track OAuth sessions with Suspense boundary for useSearchParams */}
-          <Suspense fallback={null}>
-            <OAuthSessionTracker />
-          </Suspense>
-          <Navigationbar />
-          <div className="h-16"></div>
-          <main className="min-h-[calc(100vh-148px)]">
-            {children}
-          </main>
-          {!isAuthenticated && <Footer />}
-          <CookieBanner />
-          <Toaster />
-        </SubscriptionProvider>
-      </AuthProvider>
+      <SWRConfig value={swrConfig}>
+        <AuthProvider>
+          <UserValidationProvider>
+            <SubscriptionProvider>
+              {/* Track OAuth sessions with Suspense boundary for useSearchParams */}
+              <Suspense fallback={null}>
+                <OAuthSessionTracker />
+              </Suspense>
+              <Navigationbar />
+              <div className="h-16"></div>
+              <main className="min-h-[calc(100vh-148px)]">
+                {children}
+              </main>
+              <CookieBanner />
+              <Toaster />
+            </SubscriptionProvider>
+          </UserValidationProvider>
+        </AuthProvider>
+      </SWRConfig>
     </ThemeProvider>
   );
 }

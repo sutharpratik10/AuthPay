@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/config/auth';
-import { PermissionService } from '@/server/services/permissions';
+import { RBACService } from '@/lib/rbac/rbac-service';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -109,7 +109,7 @@ export async function requireAuth(
 
   // Check admin status if required
   if (options.requireAdmin) {
-    const isAdmin = await PermissionService.isAdmin(user.id);
+    const isAdmin = await RBACService.isAdmin(user.id);
     if (!isAdmin) {
       return {
         user: null,
@@ -120,7 +120,7 @@ export async function requireAuth(
 
   // Check specific permission if required
   if (options.permission) {
-    const hasPermission = await PermissionService.hasPermission(
+    const hasPermission = await RBACService.hasPolicy(
       user.id,
       options.permission
     );

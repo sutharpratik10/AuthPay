@@ -13,6 +13,7 @@ export interface SubscriptionPlan {
   updatedAt: string;
   priceNumber: number;
   formattedPrice: string;
+  currencySymbol?: string;
   canPurchase: boolean;
 }
 

@@ -1,40 +1,61 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { auth } from '@/config/auth';
 import { db } from '@/server/db';
 import { userSubscriptions, subscriptionStatuses } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { withDynamicApiHandler, errorResponse } from '@/lib/api/helpers';
+import { canAccessSubscription } from '@/lib/api/payment-authorization';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
+/**
+ * POST /api/payments/razorpay-subscriptions/[id]/cancel
+ * Cancel a Razorpay subscription
+ * 
+ * @protected Requires authentication
+ * @authorization User must own the subscription or be an admin
+ * @param {string} id - Subscription ID
+ * @body {boolean} cancel_at_cycle_end - Whether to cancel at end of billing cycle
+ */
+export const POST = withDynamicApiHandler<{ id: string }>(
+  async (request, { user, params }) => {
     const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-      return NextResponse.json({ success: false, error: { description: 'Missing Razorpay credentials' } }, { status: 500 });
+      return errorResponse('Missing Razorpay credentials', 500);
     }
 
-    const { id } = await params;
+    const { id } = params;
     if (!id) {
-      return NextResponse.json({ success: false, error: { description: 'Missing subscription id' } }, { status: 400 });
+      return errorResponse('Missing subscription id', 400);
     }
 
-    const body = await req.json().catch(() => ({}));
+    // Check if user can access this subscription
+    const { canAccess, isAdmin: isAdminUser } = await canAccessSubscription(user!.id, id);
+    
+    if (!canAccess) {
+      console.log(`[razorpay-subscriptions/cancel] User ${user?.id} denied access to subscription ${id}`);
+      return errorResponse('You do not have permission to cancel this subscription', 403);
+    }
+
+    const body = await request.json().catch(() => ({}));
     const cancelAtCycleEnd = !!body?.cancel_at_cycle_end;
+
+    console.log(`[razorpay-subscriptions/cancel] Cancelling subscription ${id} for user: ${user?.id} (admin: ${isAdminUser})`);
 
     const razorpay = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
 
     // Fetch existing subscription to validate status
     const existing = await razorpay.subscriptions.fetch(id);
     if (!existing) {
-      return NextResponse.json({ success: false, error: { description: 'Subscription not found' } }, { status: 404 });
+      return errorResponse('Subscription not found', 404);
     }
 
     // Disallow cancelling when subscription hasn't entered a billing cycle
     // Razorpay returns 400 for 'created' subscriptions — only allow cancel for 'active' or 'paused'
     const statusStr = String(existing.status);
     if (statusStr !== 'active' && statusStr !== 'paused') {
-      return NextResponse.json({ success: false, error: { description: `Subscription in status '${statusStr}' cannot be cancelled` } }, { status: 400 });
+      return errorResponse(`Subscription in status '${statusStr}' cannot be cancelled`, 400);
     }
 
     // Call Razorpay API directly using POST endpoint
@@ -58,10 +79,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (!cancelResponse.ok) {
         const errorData = await cancelResponse.json().catch(() => ({}));
         console.error('[razorpay/cancel] API error:', errorData);
-        return NextResponse.json({ 
-          success: false, 
-          error: { description: errorData?.error?.description || 'Failed to cancel subscription on Razorpay' } 
-        }, { status: cancelResponse.status });
+        return errorResponse(
+          errorData?.error?.description || 'Failed to cancel subscription on Razorpay',
+          cancelResponse.status
+        );
       }
 
       const result = await cancelResponse.json();
@@ -82,7 +103,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             const currentSub = await db.query.userSubscriptions.findFirst({
               where: and(
                 eq(userSubscriptions.userId, session.user.id),
-                eq(userSubscriptions.razorpaySubscriptionId, id)
+                eq(userSubscriptions.providerSubscriptionId, id)
               ),
               columns: { expiryDate: true }
             });
@@ -98,7 +119,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               })
               .where(and(
                 eq(userSubscriptions.userId, session.user.id),
-                eq(userSubscriptions.razorpaySubscriptionId, id)
+                eq(userSubscriptions.providerSubscriptionId, id)
               ));
             
             console.log('[razorpay/cancel] Updated local database for user:', session.user.id, 'Access until:', currentSub?.expiryDate);
@@ -113,12 +134,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     } catch (sdkErr) {
       console.error('[razorpay/cancel] sdk error:', sdkErr);
       const sdkMessage = (sdkErr instanceof Error) ? sdkErr.message : 'Razorpay SDK cancel failed';
-      return NextResponse.json({ success: false, error: { description: sdkMessage } }, { status: 500 });
+      return errorResponse(sdkMessage, 500);
     }
-  } catch (err) {
-  const message = (err instanceof Error) ? err.message : 'Failed to cancel subscription';
-  // Log full error for debugging
-  console.error('[razorpay/cancel] error:', err);
-  return NextResponse.json({ success: false, error: { description: message } }, { status: 500 });
-  }
-}
+  },
+  { requireAuth: true }
+);

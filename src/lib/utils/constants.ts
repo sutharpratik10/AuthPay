@@ -5,8 +5,8 @@
 
 export const APP_CONFIG = {
   // Application Information
-  APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
-  APP_DESCRIPTION: 'Modern Access Control System',
+  APP_NAME: process.env.NEXT_PUBLIC_APP_NAME || 'AuthPay',
+  APP_DESCRIPTION: 'Secure Authentication and Payment Platform',
   APP_VERSION: '1.0.0',
   APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   APP_LOGO: '/logo.svg',
@@ -14,15 +14,15 @@ export const APP_CONFIG = {
   COMPANY_NAME: 'ByteLoom',
   COMPANY_URL: 'https://byteloom.com.au',
   COMPANY_LOGO: '/file.svg',
-  
+
   // Database
   DATABASE_URL: process.env.DATABASE_URL,
-  
+
   // Authentication
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
   AUTH_SECRET: process.env.AUTH_SECRET,
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-  
+
   // Social Auth Providers
   GITHUB: {
     CLIENT_ID: process.env.GITHUB_CLIENT_ID,
@@ -40,13 +40,13 @@ export const APP_CONFIG = {
     CLIENT_ID: process.env.MICROSOFT_CLIENT_ID,
     CLIENT_SECRET: process.env.MICROSOFT_CLIENT_SECRET,
   },
-  
+
   // Admin Settings
   ADMIN: {
     EMAIL: process.env.ADMIN_EMAIL || 'admin@example.com',
     DEFAULT_TENANT: process.env.ADMIN_DEFAULT_TENANT || 'admin',
   },
-  
+
   // Email Configuration
   EMAIL: {
     HOST: process.env.EMAIL_HOST,
@@ -55,7 +55,7 @@ export const APP_CONFIG = {
     USER: process.env.EMAIL_USER,
     PASS: process.env.EMAIL_PASS,
   },
-  
+
   // UI Constants
   UI: {
     DEFAULT_PAGE_SIZE: 10,
@@ -63,14 +63,14 @@ export const APP_CONFIG = {
     SIDEBAR_WIDTH: 280,
     HEADER_HEIGHT: 64,
   },
-  
+
   // API Constants
   API: {
     TIMEOUT: 30000, // 30 seconds
     RETRY_ATTEMPTS: 3,
     RATE_LIMIT: 100, // requests per minute
   },
-  
+
   // Feature Flags
   FEATURES: {
     SOCIAL_LOGIN: true,
@@ -79,24 +79,29 @@ export const APP_CONFIG = {
     DARK_MODE: true,
     ANALYTICS: false,
   },
-  
-  // Routes
+
+  // Routes - Import from routeUtils for single source of truth
+  // See src/routes/routeUtils.ts for the main route definitions
   ROUTES: {
-    HOME: '/',    LOGIN: '/auth/login',
+    // Auth routes (aligned with routeUtils.ROUTES.AUTH)
+    HOME: '/',
+    LOGIN: '/auth/login',
     REGISTER: '/auth/signup',
     FORGOT_PASSWORD: '/auth/forgot-password',
+    // Protected routes (aligned with routeUtils.ROUTES.PROTECTED)
     VERIFY: '/auth/verify',
     ADMIN_DASHBOARD: '/protected/admin/dashboard',
     USER_DASHBOARD: '/protected/user/dashboard',
     PROFILE: '/protected/profile',
     ACCOUNT: '/protected/account',
     SETTINGS: '/protected/settings',
+    // Admin routes
     ADMIN: '/admin',
-    ROLES: '/roles',
-    PERMISSIONS: '/permissions',
-    USERS: '/users',
+    ROLES: '/admin/roles',
+    PERMISSIONS: '/admin/permissions',
+    USERS: '/admin/users',
   },
-  
+
   // Messages
   MESSAGES: {
     SUCCESS: {
@@ -123,7 +128,7 @@ export const APP_CONFIG = {
       EMAIL_EXISTS: 'An account with this email already exists',
     },
   },
-    // Navigation Items
+  // Navigation Items
   NAVIGATION: {
     MAIN: [
       {
@@ -201,9 +206,9 @@ export function validateConfig() {
     'AUTH_SECRET',
     'NEXTAUTH_SECRET',
   ];
-  
+
   const missing = required.filter(key => !process.env[key]);
-  
+
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }

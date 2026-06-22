@@ -126,7 +126,7 @@ export class PermissionService {
         .where(inArray(rolePermissions.roleId, roleIds));
 
       // Return unique permissions
-      return [...new Set(perms.map(p => p.name))];
+      return [...new Set(perms.map((p: any) => p.name))] as string[];
     } catch (error) {
       console.error("Error getting user permissions:", error);
       return [];

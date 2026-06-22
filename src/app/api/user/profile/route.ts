@@ -1,46 +1,39 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
-import { auth } from '@/config/auth';
+import { NextRequest } from 'next/server';
+import { withPolicy, API_POLICIES } from '@/lib/api/permissions';
+import { 
+  withApiHandler, 
+  successResponse, 
+  errorResponse,
+  parseRequestBody 
+} from '@/lib/api/helpers';
 import { db } from '@/server/db';
 import { users } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 
-async function updateProfile(req: NextRequest) {
-  try {
-    const session = await auth();
-    const userId = session?.user?.id;
+/**
+ * PUT /api/user/profile - Update user profile
+ * Uses centralized API helpers for auth and response handling
+ */
+const updateProfile = withApiHandler(
+  async (req: NextRequest, { user }) => {
+    const userId = user!.id;
 
-    // Validate session and user ID
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const { data: body, error: parseError } = await parseRequestBody<{ name: string }>(req);
+    if (parseError) return parseError;
 
-    const body = await req.json();
-    const { name } = body;
+    const { name } = body!;
 
     // Validate input
     if (!name || typeof name !== 'string') {
-      return NextResponse.json(
-        { error: 'Name is required and must be a string' },
-        { status: 400 }
-      );
+      return errorResponse('Name is required and must be a string', 400);
     }
 
     if (name.trim().length < 1) {
-      return NextResponse.json(
-        { error: 'Name cannot be empty' },
-        { status: 400 }
-      );
+      return errorResponse('Name cannot be empty', 400);
     }
 
     if (name.trim().length > 100) {
-      return NextResponse.json(
-        { error: 'Name cannot be longer than 100 characters' },
-        { status: 400 }
-      );
+      return errorResponse('Name cannot be longer than 100 characters', 400);
     }
 
     // Update user name in database
@@ -63,20 +56,13 @@ async function updateProfile(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Profile updated successfully',
-      user: updatedUser
-    });
-
-  } catch (error) {
-    console.error('Profile update error:', error);
-    return NextResponse.json(
-      { error: 'An unexpected error occurred while updating profile' },
-      { status: 500 }
+    return successResponse(
+      { user: updatedUser },
+      'Profile updated successfully'
     );
-  }
-}
+  },
+  { requireAuth: true }
+);
 
-// Export the route handler wrapped with permission checking
-export const PUT = withPermission(updateProfile, API_PERMISSIONS.PROFILE_EDIT);
+// Export the route handler wrapped with policy checking
+export const PUT = withPolicy(updateProfile, API_POLICIES.PROFILE_EDIT);

@@ -6,17 +6,23 @@ import "dotenv/config";
 import { getPostgresSSLConfig } from "./ssl-config";
 
 const connectionString = process.env.DATABASE_URL!;
-if (!connectionString) throw new Error("DATABASE_URL not set");
+
+// Allow build to proceed without DATABASE_URL
+if (!connectionString) {
+  console.warn("DATABASE_URL not set - using placeholder for build");
+}
 
 // Get SSL configuration using shared utility
-const ssl = getPostgresSSLConfig();
-const client = postgres(connectionString, {
-  ...(ssl !== undefined ? { ssl } : {}), // ✅ don’t pass `undefined`
-  max: Number(process.env.DB_POOL_MAX ?? 10),
-  idle_timeout: Number(process.env.DB_IDLE_TIMEOUT ?? 20),
-  connect_timeout: Number(process.env.DB_CONNECT_TIMEOUT ?? 10),
-  prepare: false,
-});
+const ssl = connectionString ? getPostgresSSLConfig() : undefined;
+const client = connectionString
+  ? postgres(connectionString, {
+      ...(ssl !== undefined ? { ssl } : {}), // ✅ don't pass `undefined`
+      max: Number(process.env.DB_POOL_MAX ?? 10),
+      idle_timeout: Number(process.env.DB_IDLE_TIMEOUT ?? 20),
+      connect_timeout: Number(process.env.DB_CONNECT_TIMEOUT ?? 10),
+      prepare: false,
+    })
+  : (null as any); // Will fail at runtime if used without DATABASE_URL
 
-export const db = drizzle(client, { schema });
+export const db = client ? drizzle(client, { schema }) : (null as any);
 export { client as sql };

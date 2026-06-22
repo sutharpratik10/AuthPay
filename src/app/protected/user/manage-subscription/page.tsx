@@ -23,7 +23,8 @@ interface SubscriptionStatus {
   price: string;
   billingCycle: string;
   expiryDate: string;
-  razorpaySubscriptionId?: string | null;
+  paymentGatewayProvider?: string | null;
+  providerSubscriptionId?: string | null;
 }
 
 interface SubscriptionHistoryItem {
@@ -34,7 +35,7 @@ interface SubscriptionHistoryItem {
   endDate?: string;
   amount?: string;
   invoiceId?: string;
-  razorpaySubscriptionId?: string;
+  providerSubscriptionId?: string;
 }
 
 export default function ManageSubscriptionPage() {
@@ -57,8 +58,15 @@ export default function ManageSubscriptionPage() {
   // Use context subscription status and enrich with Razorpay details
   React.useEffect(() => {
     let isMounted = true;
+    let isFetching = false;
 
     const enrichSubscriptionWithRazorpay = async () => {
+      // Prevent concurrent calls during React Strict Mode
+      if (isFetching) {
+        console.log('[MANAGE-SUBSCRIPTION] Enrichment already in progress, skipping...');
+        return;
+      }
+
       if (!contextStatus || !contextStatus.hasSubscription) {
         if (isMounted) {
           setSubscriptionStatus(null);
@@ -66,6 +74,8 @@ export default function ManageSubscriptionPage() {
         }
         return;
       }
+
+      isFetching = true;
 
       const formatCurrency = (minorAmount: number | string | undefined, currency?: string) => {
         if (minorAmount == null) return null;
@@ -83,12 +93,14 @@ export default function ManageSubscriptionPage() {
           price: contextStatus.price || 'N/A',
           billingCycle: contextStatus.billingCycle || 'N/A',
           expiryDate: contextStatus.expiryDate || 'N/A',
-          razorpaySubscriptionId: contextStatus.razorpaySubscriptionId
+          paymentGatewayProvider: contextStatus.paymentGatewayProvider,
+          providerSubscriptionId: contextStatus.providerSubscriptionId
         };
 
-        // Enrich with Razorpay plan details if available
-        const rzSubId = enrichedStatus.razorpaySubscriptionId;
-        if (rzSubId && typeof rzSubId === 'string') {
+        // Enrich with Razorpay plan details if available (only for Razorpay subscriptions)
+        const rzSubId = enrichedStatus.providerSubscriptionId;
+        const isRazorpay = enrichedStatus.paymentGatewayProvider !== 'stripe';
+        if (isRazorpay && rzSubId && typeof rzSubId === 'string') {
           try {
             const subRes = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(rzSubId)}`);
             if (subRes.ok) {
@@ -103,7 +115,7 @@ export default function ManageSubscriptionPage() {
                   const minor = plan?.item?.amount ?? plan?.amount;
                   const currency = plan?.item?.currency ?? plan?.currency ?? 'INR';
                   const priceDisplay = formatCurrency(minor, currency);
-                  
+
                   if (name) enrichedStatus.planName = name;
                   if (priceDisplay) enrichedStatus.price = priceDisplay;
                   if (plan?.period) enrichedStatus.billingCycle = plan.period;
@@ -124,6 +136,7 @@ export default function ManageSubscriptionPage() {
         if (isMounted) {
           setLoading(false);
         }
+        isFetching = false;
       }
     };
 
@@ -137,8 +150,17 @@ export default function ManageSubscriptionPage() {
   // Load subscription history separately
   React.useEffect(() => {
     let isMounted = true;
+    let isFetching = false;
 
     const loadData = async () => {
+      // Prevent concurrent calls during React Strict Mode
+      if (isFetching) {
+        console.log('[MANAGE-SUBSCRIPTION] History fetch already in progress, skipping...');
+        return;
+      }
+
+      isFetching = true;
+
       try {
         const historyResponse = await fetch('/api/user/subscription-history');
         const historyData = await historyResponse.json();
@@ -150,51 +172,75 @@ export default function ManageSubscriptionPage() {
           const history = historyData.data.history || [];
 
           // Enrich history items with Razorpay plan details and invoices when available
+          // Only call Razorpay APIs for actual Razorpay subscriptions (not Stripe)
           const enriched = await Promise.all(history.map(async (item: unknown) => {
-            const row = item as Record<string, unknown>;
-            try {
-              if (row.razorpaySubscriptionId && typeof row.razorpaySubscriptionId === 'string') {
-                const subRes = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(String(row.razorpaySubscriptionId))}`);
-                if (subRes.ok) {
-                  const subJson = await subRes.json();
-                  const planId = subJson?.plan_id || subJson?.plan?.id;
-                  
-                  // Fetch invoices for this subscription
+            const row = item as Record<string, unknown>; try {
+              const isRazorpay = row.paymentGatewayProvider !== 'stripe';
+
+              if (row.providerSubscriptionId && typeof row.providerSubscriptionId === 'string') {
+                if (isRazorpay) {
+                  const subRes = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(row.providerSubscriptionId)}`);
+                  if (subRes.ok) {
+                    const subJson = await subRes.json();
+                    const planId = subJson?.plan_id || subJson?.plan?.id;
+
+                    // Fetch invoices for this subscription
+                    let latestInvoiceId = null;
+                    try {
+                      const invoicesRes = await fetch(`/api/payments/razorpay-invoices?subscription_id=${encodeURIComponent(row.providerSubscriptionId)}`);
+                      if (invoicesRes.ok) {
+                        const invoicesJson = await invoicesRes.json();
+                        // Get the most recent invoice (first in the items array)
+                        if (invoicesJson?.items && invoicesJson.items.length > 0) {
+                          latestInvoiceId = invoicesJson.items[0]?.id;
+                        }
+                      }
+                    } catch (err) {
+                      console.error('Error fetching invoices:', err);
+                    }
+
+                    if (planId) {
+                      const planRes = await fetch(`/api/payments/razorpay-plans/${encodeURIComponent(String(planId))}`);
+                      if (planRes.ok) {
+                        const planJson = await planRes.json();
+                        const plan = planJson?.data || planJson;
+                        const planName = plan?.name || plan?.item?.name;
+                        const amount = plan?.item?.amount ?? plan?.amount;
+                        return {
+                          ...row,
+                          planName: planName || row.planName,
+                          amount: amount ?? row.amount,
+                          invoiceId: latestInvoiceId,
+                          providerSubscriptionId: row.providerSubscriptionId
+                        };
+                      }
+                    }
+
+                    return {
+                      ...row,
+                      invoiceId: latestInvoiceId,
+                      providerSubscriptionId: row.providerSubscriptionId
+                    };
+                  }
+                } else {
+                  // It's a Stripe subscription
                   let latestInvoiceId = null;
                   try {
-                    const invoicesRes = await fetch(`/api/payments/razorpay-invoices?subscription_id=${encodeURIComponent(String(row.razorpaySubscriptionId))}`);
+                    const invoicesRes = await fetch(`/api/payments/stripe-invoices?subscription_id=${encodeURIComponent(row.providerSubscriptionId)}&limit=1`);
                     if (invoicesRes.ok) {
                       const invoicesJson = await invoicesRes.json();
-                      // Get the most recent invoice (first in the items array)
                       if (invoicesJson?.items && invoicesJson.items.length > 0) {
                         latestInvoiceId = invoicesJson.items[0]?.id;
                       }
                     }
                   } catch (err) {
-                    console.error('Error fetching invoices:', err);
+                    console.error('Error fetching stripe invoices:', err);
                   }
-                  
-                  if (planId) {
-                    const planRes = await fetch(`/api/payments/razorpay-plans/${encodeURIComponent(String(planId))}`);
-                    if (planRes.ok) {
-                      const planJson = await planRes.json();
-                      const plan = planJson?.data || planJson;
-                      const planName = plan?.name || plan?.item?.name;
-                      const amount = plan?.item?.amount ?? plan?.amount;
-                      return { 
-                        ...row, 
-                        planName: planName || row.planName, 
-                        amount: amount ?? row.amount,
-                        invoiceId: latestInvoiceId,
-                        razorpaySubscriptionId: row.razorpaySubscriptionId
-                      };
-                    }
-                  }
-                  
+
                   return {
                     ...row,
                     invoiceId: latestInvoiceId,
-                    razorpaySubscriptionId: row.razorpaySubscriptionId
+                    providerSubscriptionId: row.providerSubscriptionId
                   };
                 }
               }
@@ -218,6 +264,8 @@ export default function ManageSubscriptionPage() {
             variant: 'destructive'
           });
         }
+      } finally {
+        isFetching = false;
       }
     };
 
@@ -228,20 +276,26 @@ export default function ManageSubscriptionPage() {
     };
   }, [toast]);
 
-  // Handler to cancel razorpay subscription
+  // Handler to cancel subscription
   const handleCancelClick = () => {
     setShowCancelDialog(true);
   };
 
   const handleCancel = async () => {
-    const id = subscriptionStatus?.razorpaySubscriptionId as unknown as string;
+    const id = subscriptionStatus?.providerSubscriptionId as unknown as string;
     if (!id) return;
-    
+
     try {
       setCancelling(true);
       setShowCancelDialog(false); // Close dialog immediately
-      
-      const res = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(id)}/cancel`, {
+
+      // Route to the correct cancel endpoint based on payment method
+      const isStripe = subscriptionStatus?.paymentGatewayProvider === 'stripe';
+      const cancelUrl = isStripe
+        ? `/api/payments/stripe-subscriptions/${encodeURIComponent(id)}/cancel`
+        : `/api/payments/razorpay-subscriptions/${encodeURIComponent(id)}/cancel`;
+
+      const res = await fetch(cancelUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cancel_at_cycle_end: false })
@@ -256,7 +310,7 @@ export default function ManageSubscriptionPage() {
 
         toast({ title: 'Cancelled', description: 'Subscription cancelled successfully', variant: 'success' });
       } else {
-        const msg = json?.error?.description || json?.message || 'Failed to cancel subscription';
+        const msg = json?.error?.description || json?.error || json?.message || 'Failed to cancel subscription';
         toast({ title: 'Error', description: String(msg), variant: 'destructive' });
       }
     } catch {
@@ -284,6 +338,16 @@ export default function ManageSubscriptionPage() {
     return major.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  // Check if subscription has expired - must be before any conditional returns
+  const isSubscriptionExpired = React.useMemo(() => {
+    if (!subscriptionStatus?.expiryDate) return false;
+    if (subscriptionStatus.status === 'lifetime') return false;
+    return new Date(subscriptionStatus.expiryDate) < new Date();
+  }, [subscriptionStatus?.expiryDate, subscriptionStatus?.status]);
+
+  // Determine the effective display status
+  const displayStatus = isSubscriptionExpired ? 'expired' : subscriptionStatus?.status;
+
   if (loading) {
     // Inline skeletons while subscription data and history load
     return (
@@ -291,12 +355,12 @@ export default function ManageSubscriptionPage() {
         <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-slate-50/30 to-gray-50/20 dark:from-gray-800 dark:via-slate-950/20 dark:to-slate-950/10 backdrop-blur-sm">
           <CardHeader className="pb-6">
             <CardTitle className="flex items-center text-2xl">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 mr-3">
-                  <Crown className="h-6 w-6 text-white" />
-                </div>
-                Current Subscription
-                {/* cancel button intentionally hidden on loading skeleton */}
-              </CardTitle>
+              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 mr-3">
+                <Crown className="h-6 w-6 text-white" />
+              </div>
+              Current Subscription
+              {/* cancel button intentionally hidden on loading skeleton */}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -352,11 +416,11 @@ export default function ManageSubscriptionPage() {
       <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-slate-50/30 to-gray-50/20 dark:from-gray-800 dark:via-slate-950/20 dark:to-slate-950/10 backdrop-blur-sm">
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center text-2xl">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 mr-3">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-neutral-700 to-neutral-500 mr-3">
               <Crown className="h-6 w-6 text-white" />
             </div>
             Current Subscription
-            {subscriptionStatus?.razorpaySubscriptionId && subscriptionStatus?.status === 'active' && (
+            {subscriptionStatus?.providerSubscriptionId && subscriptionStatus?.status === 'active' && !isSubscriptionExpired && (
               <button
                 type="button"
                 onClick={handleCancelClick}
@@ -366,8 +430,11 @@ export default function ManageSubscriptionPage() {
                 {cancelling ? 'Cancelling...' : 'Cancel subscription'}
               </button>
             )}
-            {subscriptionStatus?.status === 'cancelled' && (
+            {subscriptionStatus?.status === 'cancelled' && !isSubscriptionExpired && (
               <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-gray-700 text-white text-sm font-medium">cancelled</span>
+            )}
+            {isSubscriptionExpired && (
+              <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-red-600 text-white text-sm font-medium">expired</span>
             )}
           </CardTitle>
         </CardHeader>
@@ -378,8 +445,8 @@ export default function ManageSubscriptionPage() {
               <p className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
                 {!subscriptionStatus
                   ? "You don't have a subscription yet. Choose a plan to get started!"
-                  : !['active', 'trialing', 'cancelled'].includes(subscriptionStatus.status)
-                    ? 'No plan is active currently'
+                  : isSubscriptionExpired || !['active', 'trialing', 'cancelled'].includes(subscriptionStatus.status)
+                    ? 'No active plan'
                     : (subscriptionStatus.planName || (subscriptionHistory && subscriptionHistory.length > 0 ? subscriptionHistory[0].planName : undefined))}
               </p>
             </div>
@@ -387,23 +454,28 @@ export default function ManageSubscriptionPage() {
             <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
               <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Status</p>
               <div className="space-y-2">
-                {subscriptionStatus?.status && subscriptionStatus.planName && subscriptionStatus.planName !== 'No plan is active currently' && (
+                {displayStatus && subscriptionStatus?.planName && subscriptionStatus.planName !== 'No plan is active currently' && (
                   <>
                     <Badge
                       className={
-                        subscriptionStatus.status === 'trialing'
+                        displayStatus === 'trialing'
                           ? 'bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 dark:from-yellow-900/30 dark:to-yellow-900/30 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800 px-3 py-1.5 font-semibold'
-                          : subscriptionStatus.status === 'cancelled'
-                          ? 'bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 dark:from-orange-900/30 dark:to-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800 px-3 py-1.5 font-semibold'
-                          : subscriptionStatus.status === 'expired'
-                          ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 dark:from-red-900/30 dark:to-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800 px-3 py-1.5 font-semibold'
-                          : 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300 border-green-200 dark:border-green-800 px-3 py-1.5 font-semibold'
+                          : displayStatus === 'cancelled'
+                            ? 'bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 dark:from-orange-900/30 dark:to-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800 px-3 py-1.5 font-semibold'
+                            : displayStatus === 'expired'
+                              ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 dark:from-red-900/30 dark:to-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800 px-3 py-1.5 font-semibold'
+                              : 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300 border-green-200 dark:border-green-800 px-3 py-1.5 font-semibold'
                       }
                     >
-                      <CheckCircle className="h-4 w-4 mr-1.5" />
-                      {subscriptionStatus.status}
+                      {displayStatus === 'expired' ? (
+                        <AlertTriangle className="h-4 w-4 mr-1.5" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 mr-1.5" />
+                      )}
+                      {displayStatus}
                     </Badge>
-                    {subscriptionStatus.status === 'cancelled' && subscriptionStatus.expiryDate && new Date(subscriptionStatus.expiryDate) > new Date() && (
+
+                    {displayStatus === 'cancelled' && subscriptionStatus.expiryDate && new Date(subscriptionStatus.expiryDate) > new Date() && (
                       <p className="text-xs text-muted-foreground mt-1">
                         You have access until {formatDate(subscriptionStatus.expiryDate)}
                       </p>
@@ -413,8 +485,8 @@ export default function ManageSubscriptionPage() {
               </div>
             </div>
 
-            {/* Only show Billing and Next Billing/Valid Until if active/trialing */}
-            {subscriptionStatus && (['active', 'trialing'].includes(subscriptionStatus.status) || subscriptionStatus.status === 'cancelled') && (
+            {/* Only show Billing and Next Billing/Valid Until if active/trialing (not cancelled or expired) */}
+            {subscriptionStatus && ['active', 'trialing', 'lifetime'].includes(subscriptionStatus.status) && !isSubscriptionExpired && (
               <>
                 <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
                   <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Billing</p>
@@ -427,20 +499,12 @@ export default function ManageSubscriptionPage() {
                 </div>
                 <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
                   <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                    {subscriptionStatus.status === 'cancelled' 
-                      ? 'Access Until' 
-                      : subscriptionStatus.status === 'lifetime' 
-                      ? 'Valid Until' 
+                    {subscriptionStatus.status === 'lifetime'
+                      ? 'Valid Until'
                       : 'Next Billing'}
                   </p>
                   <p className="text-xl font-bold">
-                    {subscriptionStatus.status === 'cancelled' ? (
-                      subscriptionStatus.expiryDate ? (
-                        <span className="text-orange-600 dark:text-orange-400">
-                          {formatDate(subscriptionStatus.expiryDate)}
-                        </span>
-                      ) : 'N/A'
-                    ) : subscriptionStatus.expiryDate ? (
+                    {subscriptionStatus.expiryDate ? (
                       subscriptionStatus.status === 'lifetime' ?
                         'Lifetime' :
                         formatDate(subscriptionStatus.expiryDate)
@@ -528,7 +592,7 @@ export default function ManageSubscriptionPage() {
             </DialogTitle>
             <DialogDescription className="pt-3 space-y-2">
               <p>
-                Are you sure you want to cancel your subscription? Your subscription will not renew, 
+                Are you sure you want to cancel your subscription? Your subscription will not renew,
                 but you&apos;ll continue to have access to premium features until the end of your current billing period.
               </p>
               {subscriptionStatus?.expiryDate && (

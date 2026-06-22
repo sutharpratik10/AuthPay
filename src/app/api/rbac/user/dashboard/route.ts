@@ -6,8 +6,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/rbac";
 import { getDashboardUrl } from "@/lib/rbac/routing-utils";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function GET(req: NextRequest) {
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const GET = rateLimiters.api(async (req: NextRequest) => {
   const authCheck = await getAuthenticatedUser(req);
   
   if (!authCheck.authorized || !authCheck.userId) {
@@ -31,4 +35,4 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

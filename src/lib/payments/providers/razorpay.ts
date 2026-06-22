@@ -19,13 +19,19 @@ class RazorpayProvider implements PaymentProvider {
   constructor() {
     const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-      throw new Error("Missing Razorpay credentials. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.");
+      console.warn("Missing Razorpay credentials - using placeholder for build. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET for runtime.");
+      this.keyId = 'placeholder_key_id';
+      this.keySecret = 'placeholder_key_secret';
+      return;
     }
     this.keyId = RAZORPAY_KEY_ID;
     this.keySecret = RAZORPAY_KEY_SECRET;
   }
 
   async createOrder(input: CreateOrderInput): Promise<RazorpayCreateOrderResponse> {
+    if (this.keyId === 'placeholder_key_id') {
+      throw new Error("Razorpay credentials not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment.");
+    }
     const client = new Razorpay({ key_id: this.keyId, key_secret: this.keySecret });
     const amountPaise = Math.round(input.amount * 100);
     const currency = (input.currency || "INR").toUpperCase();
@@ -50,6 +56,9 @@ class RazorpayProvider implements PaymentProvider {
     razorpay_payment_id: string;
     razorpay_signature: string;
   }): Promise<boolean> {
+    if (this.keySecret === 'placeholder_key_secret') {
+      throw new Error("Razorpay credentials not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment.");
+    }
     const { razorpay_order_id, razorpay_subscription_id, razorpay_payment_id, razorpay_signature } = options;
 
     let signedString: string;

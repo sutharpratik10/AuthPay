@@ -3,12 +3,12 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { 
-  Table, 
-  TableHeader, 
-  TableRow, 
-  TableHead, 
-  TableBody, 
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
   TableCell,
   TableHeadSortable,
   TableColumnSearch,
@@ -60,9 +60,10 @@ export default function Transactions() {
     email?: string;
     contact?: string;
     created_at?: number;
+    _gateway?: 'razorpay' | 'stripe';
   }
 
-  type SortField = 'id' | 'amount' | 'currency' | 'status' | 'method' | 'email' | 'created_at';
+  type SortField = 'id' | 'amount' | 'currency' | 'status' | 'method' | 'email' | 'created_at' | '_gateway';
   type SortDirection = 'asc' | 'desc';
 
   const [allPayments, setAllPayments] = useState<PaymentItem[]>([]);
@@ -77,6 +78,7 @@ export default function Transactions() {
   const [q, setQ] = useState('');
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
   const [methodFilters, setMethodFilters] = useState<string[]>([]);
+  const [gatewayFilters, setGatewayFilters] = useState<string[]>([]);
   const [fromDate, setFromDate] = useState<Date | undefined>();
   const [toDate, setToDate] = useState<Date | undefined>();
 
@@ -92,7 +94,9 @@ export default function Transactions() {
     setError(null);
     try {
       const skip = (p - 1) * pageSize;
-      const params = new URLSearchParams({
+
+      // Build Razorpay params
+      const rzpParams = new URLSearchParams({
         count: String(pageSize),
         skip: String(skip),
         ...(q && { q }),
@@ -100,14 +104,71 @@ export default function Transactions() {
         ...(toDate && { to: String(Math.floor(toDate.getTime() / 1000)) })
       });
 
-      const res = await fetch(`/api/payments/razorpay-payments?${params.toString()}`);
-      const data = await res.json();
-      
-      if (data?.entity === 'collection') {
-        setAllPayments(data.items || []);
-        setTotalCount(data.count || data.items?.length || 0);
+      // Build Stripe params
+      const stripeParams = new URLSearchParams({
+        limit: String(pageSize),
+        ...(q && { q }),
+        ...(fromDate && { from: String(Math.floor(fromDate.getTime() / 1000)) }),
+        ...(toDate && { to: String(Math.floor(toDate.getTime() / 1000)) })
+      });
+
+      // Fetch from both gateways in parallel
+      const [rzpRes, stripeRes] = await Promise.allSettled([
+        fetch(`/api/payments/razorpay-payments?${rzpParams.toString()}`),
+        fetch(`/api/payments/stripe-payments?${stripeParams.toString()}`),
+      ]);
+
+      let allItems: PaymentItem[] = [];
+      const errors: string[] = [];
+
+      // Process Razorpay response
+      if (rzpRes.status === 'fulfilled' && rzpRes.value.ok) {
+        const data = await rzpRes.value.json();
+        if (data?.entity === 'collection') {
+          const rzpItems = (data.items || []).map((item: PaymentItem) => ({
+            ...item,
+            _gateway: 'razorpay' as const,
+          }));
+          allItems.push(...rzpItems);
+        }
       } else {
-        setError(data?.error?.description || data?.message);
+        const errMsg = rzpRes.status === 'rejected'
+          ? 'Razorpay API unavailable'
+          : 'Failed to load Razorpay payments';
+        errors.push(errMsg);
+        console.warn('[Transactions] Razorpay fetch issue:', errMsg);
+      }
+
+      // Process Stripe response
+      if (stripeRes.status === 'fulfilled' && stripeRes.value.ok) {
+        const data = await stripeRes.value.json();
+        if (data?.entity === 'collection') {
+          const stripeItems = (data.items || []).map((item: PaymentItem) => ({
+            ...item,
+            _gateway: 'stripe' as const,
+          }));
+          allItems.push(...stripeItems);
+        }
+      } else {
+        const errMsg = stripeRes.status === 'rejected'
+          ? 'Stripe API unavailable'
+          : 'Failed to load Stripe payments';
+        errors.push(errMsg);
+        console.warn('[Transactions] Stripe fetch issue:', errMsg);
+      }
+
+      // Sort merged results by created_at descending
+      allItems.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+
+      if (allItems.length > 0 || errors.length === 0) {
+        setAllPayments(allItems);
+        setTotalCount(allItems.length);
+        if (errors.length > 0) {
+          // Partial success — show data but note the error
+          console.warn('[Transactions] Partial load:', errors.join('; '));
+        }
+      } else {
+        setError(errors.join('; '));
       }
     } catch (err) {
       console.error('Error loading payments', err);
@@ -124,6 +185,9 @@ export default function Transactions() {
     }
     if (methodFilters.length > 0) {
       filtered = filtered.filter((item: PaymentItem) => methodFilters.includes(String(item.method || '').toLowerCase()));
+    }
+    if (gatewayFilters.length > 0) {
+      filtered = filtered.filter((item: PaymentItem) => gatewayFilters.includes(String(item._gateway || '').toLowerCase()));
     }
 
     // Apply column filters
@@ -160,13 +224,11 @@ export default function Transactions() {
       return 0;
     });
     setFilteredPayments(filtered);
-  }, [allPayments, statusFilters, methodFilters, sortField, sortDirection, columnFilters]);
-
-
+  }, [allPayments, statusFilters, methodFilters, gatewayFilters, sortField, sortDirection, columnFilters]);
 
   // Load data from API when page or search/date filters change
-  useEffect(() => { 
-    loadPayments(page); 
+  useEffect(() => {
+    loadPayments(page);
   }, [loadPayments, page]);
 
   // Apply client-side filters and sorting when data or filters change
@@ -178,6 +240,7 @@ export default function Transactions() {
     setQ('');
     setStatusFilters([]);
     setMethodFilters([]);
+    setGatewayFilters([]);
     setFromDate(undefined);
     setToDate(undefined);
     setPage(1);
@@ -216,6 +279,7 @@ export default function Transactions() {
     setPaymentDetailsError(null);
     setPaymentDetails(null);
     try {
+      // Logic for multi-gateway fetch if necessary, currently assumes id prefix/lookup
       const res = await fetch(`/api/payments/razorpay-payments/${encodeURIComponent(id)}`);
       const text = await res.text();
 
@@ -224,7 +288,7 @@ export default function Transactions() {
         try {
           const parsed = JSON.parse(text);
           message = parsed?.error || parsed?.message || JSON.stringify(parsed);
-        } catch {}
+        } catch { }
         throw new Error(message);
       }
 
@@ -232,7 +296,7 @@ export default function Transactions() {
         const data = JSON.parse(text);
         setPaymentDetails(data);
       } catch {
-        setPaymentDetailsError(`Unexpected response format from server. First 1000 chars: ${String(text).slice(0,1000)}`);
+        setPaymentDetailsError(`Unexpected response format from server. First 1000 chars: ${String(text).slice(0, 1000)}`);
       }
     } catch (err) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -264,8 +328,8 @@ export default function Transactions() {
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<string[]>([]);
   type InvoiceSortField = 'id' | 'invoice_number' | 'customer_id' | 'amount' | 'status' | 'date';
   const [invoiceSortField, setInvoiceSortField] = useState<InvoiceSortField>('date');
-  const [invoiceSortDirection, setInvoiceSortDirection] = useState<'asc'|'desc'>('desc');
-  
+  const [invoiceSortDirection, setInvoiceSortDirection] = useState<'asc' | 'desc'>('desc');
+
   // Invoice column filters for table search
   const [invoiceColumnFilters, setInvoiceColumnFilters] = useState<Record<string, string>>({});
 
@@ -290,19 +354,59 @@ export default function Transactions() {
     setInvoicesError(null);
     try {
       const skip = (p - 1) * invoicesPageSize;
-      const params = new URLSearchParams();
-      params.set('count', String(invoicesPageSize));
-      params.set('skip', String(skip));
-      if (invoiceStatusFilter.length > 0) params.set('status', invoiceStatusFilter[0]);
 
-      const res = await fetch(`/api/payments/razorpay-invoices?${params.toString()}`);
-      const data = await res.json();
-      if (data && data.entity === 'collection') {
-        setInvoices(data.items || []);
-        setInvoicesTotal(data.count || (data.items || []).length);
+      // Build Razorpay invoice params
+      const rzpParams = new URLSearchParams();
+      rzpParams.set('count', String(invoicesPageSize));
+      rzpParams.set('skip', String(skip));
+      if (invoiceStatusFilter.length > 0) rzpParams.set('status', invoiceStatusFilter[0]);
+
+      // Build Stripe invoice params
+      const stripeParams = new URLSearchParams();
+      stripeParams.set('limit', String(invoicesPageSize));
+      if (invoiceStatusFilter.length > 0) stripeParams.set('status', invoiceStatusFilter[0]);
+
+      // Fetch from both gateways in parallel
+      const [rzpRes, stripeRes] = await Promise.allSettled([
+        fetch(`/api/payments/razorpay-invoices?${rzpParams.toString()}`),
+        fetch(`/api/payments/stripe-invoices?${stripeParams.toString()}`),
+      ]);
+
+      let allItems: Record<string, unknown>[] = [];
+
+      // Process Razorpay invoices
+      if (rzpRes.status === 'fulfilled' && rzpRes.value.ok) {
+        const data = await rzpRes.value.json();
+        if (data?.entity === 'collection') {
+          const rzpItems = (data.items || []).map((item: Record<string, unknown>) => ({
+            ...item,
+            _gateway: 'razorpay',
+          }));
+          allItems.push(...rzpItems);
+        }
       } else {
-        setInvoicesError(data?.error?.description || 'Failed to load invoices');
+        console.warn('[Transactions] Razorpay invoices fetch issue');
       }
+
+      // Process Stripe invoices
+      if (stripeRes.status === 'fulfilled' && stripeRes.value.ok) {
+        const data = await stripeRes.value.json();
+        if (data?.entity === 'collection') {
+          const stripeItems = (data.items || []).map((item: Record<string, unknown>) => ({
+            ...item,
+            _gateway: 'stripe',
+          }));
+          allItems.push(...stripeItems);
+        }
+      } else {
+        console.warn('[Transactions] Stripe invoices fetch issue');
+      }
+
+      // Sort by date descending
+      allItems.sort((a, b) => (Number(b.date) || 0) - (Number(a.date) || 0));
+
+      setInvoices(allItems);
+      setInvoicesTotal(allItems.length);
     } catch (err) {
       console.error('Error loading invoices', err);
       setInvoicesError('Failed to load invoices');
@@ -368,11 +472,9 @@ export default function Transactions() {
 
   useEffect(() => {
     return () => {
-  // nothing to cleanup for unified copy
+      // nothing to cleanup for unified copy
     };
   }, []);
-
-  // removed old copyId/copyJson functions (using copyToClipboard + copiedKey)
 
   // Safe helpers to access card fields without using `any`
   const getCardRaw = useCallback((field: string) => {
@@ -389,8 +491,6 @@ export default function Transactions() {
     return String(v);
   }, []);
 
-  // remove unused getCardDisplay; call getCardRaw directly where needed
-
   const openPaymentDialog = (id: string) => {
     setSelectedPaymentId(id);
     setPaymentDialogOpen(true);
@@ -398,26 +498,32 @@ export default function Transactions() {
   };
 
   const toggleStatusFilter = (status: string) => {
-    setStatusFilters(prev => 
-      prev.includes(status) 
+    setStatusFilters(prev =>
+      prev.includes(status)
         ? prev.filter(s => s !== status)
         : [...prev, status]
     );
-    // No API call needed - applyFiltersAndSort will run via useEffect
   };
 
   const toggleMethodFilter = (method: string) => {
-    setMethodFilters(prev => 
-      prev.includes(method) 
+    setMethodFilters(prev =>
+      prev.includes(method)
         ? prev.filter(m => m !== method)
         : [...prev, method]
     );
-    // No API call needed - applyFiltersAndSort will run via useEffect
+  };
+
+  const toggleGatewayFilter = (gateway: string) => {
+    setGatewayFilters(prev =>
+      prev.includes(gateway)
+        ? prev.filter(g => g !== gateway)
+        : [...prev, gateway]
+    );
   };
 
   const StatusFilterDropdown = () => {
     const statuses = ['created', 'authorized', 'captured', 'refunded', 'failed'];
-    
+
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -437,8 +543,8 @@ export default function Transactions() {
                   checked={statusFilters.includes(status)}
                   onCheckedChange={() => toggleStatusFilter(status)}
                 />
-                <label 
-                  htmlFor={`status-${status}`} 
+                <label
+                  htmlFor={`status-${status}`}
                   className="text-sm font-medium capitalize cursor-pointer"
                 >
                   {status}
@@ -453,7 +559,7 @@ export default function Transactions() {
 
   const MethodFilterDropdown = () => {
     const methods = ['card', 'netbanking', 'wallet', 'emi', 'upi'];
-    
+
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -473,8 +579,8 @@ export default function Transactions() {
                   checked={methodFilters.includes(method)}
                   onCheckedChange={() => toggleMethodFilter(method)}
                 />
-                <label 
-                  htmlFor={`method-${method}`} 
+                <label
+                  htmlFor={`method-${method}`}
                   className="text-sm font-medium capitalize cursor-pointer"
                 >
                   {method}
@@ -487,8 +593,40 @@ export default function Transactions() {
     );
   };
 
-  const DatePicker = ({ date, setDate, placeholder }: { 
-    date: Date | undefined; 
+  const GatewayFilterDropdown = () => {
+    const gateways = ['razorpay', 'stripe'];
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="flex items-center gap-2">
+            <span>Gateway {gatewayFilters.length > 0 && `(${gatewayFilters.length})`}</span>
+            <ChevronDown className="w-4 h-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-48">
+          <DropdownMenuLabel>Filter by Gateway</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <div className="p-2 space-y-2">
+            {gateways.map(gateway => (
+              <div key={gateway} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`gateway-${gateway}`}
+                  checked={gatewayFilters.includes(gateway)}
+                  onCheckedChange={() => toggleGatewayFilter(gateway)}
+                />
+                <label htmlFor={`gateway-${gateway}`} className="text-sm font-medium capitalize cursor-pointer">
+                  {gateway}
+                </label>
+              </div>
+            ))}
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
+  const DatePicker = ({ date, setDate, placeholder }: {
+    date: Date | undefined;
     setDate: (date: Date | undefined) => void;
     placeholder: string;
   }) => (
@@ -520,7 +658,7 @@ export default function Transactions() {
   return (
     <div className="space-y-6">
 
-       {/* Transactions */}
+      {/* Transactions */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -547,9 +685,9 @@ export default function Transactions() {
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search by payment ID, order ID, or email..." 
-                  value={q} 
+                <Input
+                  placeholder="Search by payment ID, order ID, or email..."
+                  value={q}
                   onChange={e => setQ(e.target.value)}
                   className="pl-10 lg:w-96"
                 />
@@ -561,9 +699,10 @@ export default function Transactions() {
               <DatePicker date={toDate} setDate={setToDate} placeholder="To date" />
               <StatusFilterDropdown />
               <MethodFilterDropdown />
-              {(statusFilters.length > 0 || methodFilters.length > 0 || fromDate || toDate || q) && (
-                <Button 
-                  variant="ghost" 
+              <GatewayFilterDropdown />
+              {(statusFilters.length > 0 || methodFilters.length > 0 || gatewayFilters.length > 0 || fromDate || toDate || q) && (
+                <Button
+                  variant="ghost"
                   onClick={clearFilters}
                   className="flex items-center gap-2"
                 >
@@ -574,7 +713,7 @@ export default function Transactions() {
             </div>
           </div>
           {/* Results */}
-          
+
           {loading ? (
             <div className="py-12 text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -641,6 +780,14 @@ export default function Transactions() {
                     </TableHeadSortable>
                     <TableHeadSortable
                       sortable
+                      sortDirection={sortField === '_gateway' ? sortDirection : null}
+                      onSort={() => handleSort('_gateway')}
+                      className="w-32"
+                    >
+                      Gateway
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
                       sortDirection={sortField === 'created_at' ? sortDirection : null}
                       onSort={() => handleSort('created_at')}
                       className="w-44"
@@ -687,6 +834,12 @@ export default function Transactions() {
                     </TableHead>
                     <TableHead>
                       <TableColumnSearch
+                        placeholder="Search gateway..."
+                        onSearch={(value) => handleColumnFilter('_gateway', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
                         placeholder="Search date..."
                         onSearch={(value) => handleColumnFilter('created_at', value)}
                       />
@@ -697,7 +850,7 @@ export default function Transactions() {
                 <TableBody>
                   {filteredPayments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
                         <div className="flex flex-col items-center gap-2">
                           <Search className="w-8 h-8 opacity-50" />
                           <p>No transactions found</p>
@@ -719,12 +872,12 @@ export default function Transactions() {
                         </TableCell>
                         <TableCell className="font-medium">
                           {payment.amount ? (
-                            payment.currency ? 
-                              new Intl.NumberFormat('en-IN', { 
-                                style: 'currency', 
-                                currency: payment.currency 
-                              }).format(payment.amount/100) : 
-                              `₹${(payment.amount/100).toFixed(2)}`
+                            payment.currency ?
+                              new Intl.NumberFormat('en-IN', {
+                                style: 'currency',
+                                currency: payment.currency
+                              }).format(payment.amount / 100) :
+                              `₹${(payment.amount / 100).toFixed(2)}`
                           ) : '--'}
                         </TableCell>
                         <TableCell className="text-xs uppercase font-medium">
@@ -732,12 +885,12 @@ export default function Transactions() {
                         </TableCell>
                         <TableCell>
                           {payment.status ? (
-                            <Badge 
+                            <Badge
                               variant={
                                 payment.status === 'captured' ? 'default' :
-                                payment.status === 'failed' ? 'destructive' :
-                                payment.status === 'authorized' ? 'secondary' :
-                                'outline'
+                                  payment.status === 'failed' ? 'destructive' :
+                                    payment.status === 'authorized' ? 'secondary' :
+                                      'outline'
                               }
                               className={cn('text-xs', payment.status === 'failed' && 'text-white')}
                             >
@@ -751,8 +904,21 @@ export default function Transactions() {
                         <TableCell className="text-sm">
                           {payment.email || '--'}
                         </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant="outline"
+                            className={cn(
+                              'text-xs font-medium',
+                              payment._gateway === 'stripe' 
+                                ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300' 
+                                : 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                            )}
+                          >
+                            {payment._gateway === 'stripe' ? 'Stripe' : 'Razorpay'}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-sm">
-                          {payment.created_at ? 
+                          {payment.created_at ?
                             new Date(payment.created_at * 1000).toLocaleString('en-IN', {
                               dateStyle: 'short',
                               timeStyle: 'short'
@@ -786,7 +952,7 @@ export default function Transactions() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-2xl font-bold">Invoices</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">List of Razorpay invoices</p>
+              <p className="text-sm text-muted-foreground mt-1">Invoices from all payment gateways</p>
             </div>
             <div className="flex items-center gap-2">
               <Input placeholder="Search invoices..." value={invoiceQ} onChange={e => setInvoiceQ(e.target.value)} className="w-64" />
@@ -798,10 +964,10 @@ export default function Transactions() {
                   <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <div className="p-2 space-y-2">
-                    {['draft','issued','partially_paid','paid','cancelled','expired','deleted'].map(s => (
+                    {['draft', 'issued', 'partially_paid', 'paid', 'cancelled', 'expired', 'deleted'].map(s => (
                       <div key={s} className="flex items-center space-x-2">
                         <Checkbox id={`inv-status-${s}`} checked={invoiceStatusFilter.includes(s)} onCheckedChange={() => toggleInvoiceStatus(s)} />
-                        <label htmlFor={`inv-status-${s}`} className="text-sm capitalize cursor-pointer">{s.replace('_',' ')}</label>
+                        <label htmlFor={`inv-status-${s}`} className="text-sm capitalize cursor-pointer">{s.replace('_', ' ')}</label>
                       </div>
                     ))}
                   </div>
@@ -868,6 +1034,13 @@ export default function Transactions() {
                     >
                       Date
                     </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={invoiceSortField === 'date' ? invoiceSortDirection : null}
+                      onSort={() => handleInvoiceSort('date')}
+                    >
+                      Gateway
+                    </TableHeadSortable>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                   <TableRow>
@@ -907,6 +1080,12 @@ export default function Transactions() {
                         onSearch={(value) => handleInvoiceColumnFilter('date', value)}
                       />
                     </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search gateway..."
+                        onSearch={(value) => handleInvoiceColumnFilter('_gateway', value)}
+                      />
+                    </TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -920,17 +1099,30 @@ export default function Transactions() {
                       <TableCell className="font-medium">{getInvoiceVal(inv, 'amount') ? (getInvoiceVal(inv, 'currency') ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: String(getInvoiceVal(inv, 'currency')) }).format(Number(getInvoiceVal(inv, 'amount')) / 100) : `₹${(Number(getInvoiceVal(inv, 'amount')) / 100).toFixed(2)}`) : '--'}</TableCell>
                       <TableCell><Badge className="text-xs">{String(getInvoiceVal(inv, 'status') || '--')}</Badge></TableCell>
                       <TableCell className="text-sm">{getInvoiceVal(inv, 'date') ? new Date(Number(getInvoiceVal(inv, 'date')) * 1000).toLocaleString('en-IN') : '--'}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline"
+                          className={cn(
+                            'text-xs font-medium',
+                            getInvoiceVal(inv, '_gateway') === 'stripe' 
+                              ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300' 
+                              : 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                          )}
+                        >
+                          {getInvoiceVal(inv, '_gateway') === 'stripe' ? 'Stripe' : 'Razorpay'}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="flex items-center gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           className="h-auto p-1 text-sm inline-flex items-center gap-2"
                           onClick={() => openInvoiceDialog(String(getInvoiceVal(inv, 'id') || ''))}
                         >
                           Open
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-id', String(getInvoiceVal(inv, 'id')))}>{copiedKey === 'invoice-id' ? 'Copied' : 'Copy ID'}</Button>
-                        {getInvoiceVal(inv, 'short_url') && <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-url', String(getInvoiceVal(inv, 'short_url')))}>{copiedKey === 'invoice-url' ? 'Copied' : 'Copy Link'}</Button>}
+                        {(getInvoiceVal(inv, 'short_url') || getInvoiceVal(inv, 'hosted_invoice_url')) && <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-url', String(getInvoiceVal(inv, 'short_url') || getInvoiceVal(inv, 'hosted_invoice_url')))}>{copiedKey === 'invoice-url' ? 'Copied' : 'Copy Link'}</Button>}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -986,6 +1178,17 @@ export default function Transactions() {
                       <div className="text-sm text-muted-foreground">Payment</div>
                       <div className="mt-1 flex items-center gap-3">
                         <div className="text-lg font-semibold break-all">{paymentDetails.id}</div>
+                        <Badge 
+                          variant="outline"
+                          className={cn(
+                            'text-xs font-medium',
+                            paymentDetails._gateway === 'stripe' 
+                              ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300' 
+                              : 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                          )}
+                        >
+                          {paymentDetails._gateway === 'stripe' ? 'Stripe' : 'Razorpay'}
+                        </Badge>
                         <Button size="sm" variant="ghost" className="h-auto p-1 text-xs" onClick={() => copyToClipboard('payment-id', String(paymentDetails.id))}>
                           {copiedKey === 'payment-id' ? 'Copied' : 'Copy'}
                         </Button>
@@ -1130,7 +1333,7 @@ export default function Transactions() {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* Invoice Dialog */}
       <InvoiceDialog
         invoiceId={selectedInvoiceId}

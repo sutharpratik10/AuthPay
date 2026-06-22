@@ -22,7 +22,7 @@ export default function Logo({ showName = true, className = "", size = "md" }: L
         <span className="text-white font-bold">{initial}</span>
       </div>
       {showName && (
-        <h2 className="text-lg font-semibold tracking-tight text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+        <h2 className="text-lg font-semibold tracking-tight text-sidebar-foreground transition-all duration-200 truncate group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:overflow-hidden">
           {appName}
         </h2>
       )}

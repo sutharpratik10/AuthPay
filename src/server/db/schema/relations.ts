@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { subscriptionPlans, adminDashboardStats, userUsageMetrics, users, auditLogs, errorLogs, userNotifications, billings, permissions, roles, rolePermissions, otpCodes, userPreferences, userRoles } from "./schema";
+import { subscriptionPlans, adminDashboardStats, userUsageMetrics, users, auditLogs, errorLogs, userNotifications, billings, permissions, roles, rolePermissions, otpCodes, userPreferences, userRoles, twoFactorAuth, recoveryCodes, loginHistory } from "./schema";
 
 export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({
   billings: many(billings),
@@ -31,12 +31,18 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.id],
     references: [userPreferences.userId],
   }),
+  twoFactorAuth: one(twoFactorAuth, {
+    fields: [users.id],
+    references: [twoFactorAuth.userId],
+  }),
   userRoles: many(userRoles),
+  recoveryCodes: many(recoveryCodes),
   userUsageMetrics: many(userUsageMetrics),
   auditLogs: many(auditLogs),
   errorLogs: many(errorLogs),
   userNotifications: many(userNotifications),
   billings: many(billings),
+  loginHistory: many(loginHistory),
 }));
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
@@ -110,4 +116,23 @@ export const otpCodesRelations = relations(otpCodes, ({ one }) => ({
   }),
 }));
 
+export const twoFactorAuthRelations = relations(twoFactorAuth, ({ one }) => ({
+  user: one(users, {
+    fields: [twoFactorAuth.userId],
+    references: [users.id],
+  }),
+}));
 
+export const recoveryCodesRelations = relations(recoveryCodes, ({ one }) => ({
+  user: one(users, {
+    fields: [recoveryCodes.userId],
+    references: [users.id],
+  }),
+}));
+
+export const loginHistoryRelations = relations(loginHistory, ({ one }) => ({
+  user: one(users, {
+    fields: [loginHistory.userId],
+    references: [users.id],
+  }),
+}));

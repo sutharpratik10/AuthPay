@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { withPolicy, API_POLICIES } from '@/lib/api/permissions';
 import { db } from '@/server/db';
 import { users, userRoles, roles } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -97,5 +97,5 @@ async function createUser(req: NextRequest) {
   }
 }
 
-// Export with admin-only permission
-export const POST = withPermission(createUser, API_PERMISSIONS.USER_CREATE);
+// Export with admin-only policy
+export const POST = withPolicy(createUser, API_POLICIES.USER_MANAGE);

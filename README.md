@@ -1,4 +1,4 @@
-# AuthPay – Next.js Authentication, Payments & RBAC Platform
+# Authpay – Next.js Authentication, Payments & RBAC Platform
 
 [![Next.js](https://img.shields.io/badge/Next.js_15-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
@@ -8,15 +8,18 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 [![Razorpay](https://img.shields.io/badge/Razorpay-02042B?style=flat-square&logo=razorpay)](https://razorpay.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=flat-square)](https://github.com/sutharpratik10/AuthPay/graphs/commit-activity)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=flat-square)](https://github.com/sutharpratik10/Authpay/graphs/commit-activity)
+[![Tests](https://img.shields.io/badge/tests-156%20passed-brightgreen?style=flat-square)](./TEST-SUMMARY.md)
+[![Security](https://img.shields.io/badge/security-87%20tests-brightgreen?style=flat-square)](./SECURITY-TEST-REPORT.md)
+[![Coverage](https://img.shields.io/badge/coverage-6.18%25-orange?style=flat-square)](./TEST-SUMMARY.md)
 
 > **A production-ready, full-stack authentication and payment platform built with Next.js 15, featuring advanced RBAC, secure payment processing, and comprehensive user management.**
 
-AuthPay is a modern, scalable authentication and payment platform designed for SaaS applications and enterprise solutions. Built on Next.js 15 with TypeScript, it provides a robust foundation for applications requiring secure authentication, role-based access control, and integrated payment processing.
+Authpay is a modern, scalable authentication and payment platform designed for SaaS applications and enterprise solutions. Built on Next.js 15 with TypeScript, it provides a robust foundation for applications requiring secure authentication, role-based access control, and integrated payment processing.
 
-![AuthPay Dashboard](https://via.placeholder.com/1200x600/1e293b/38bdf8?text=AuthPay+Dashboard)
+![Authpay Dashboard](https://via.placeholder.com/1200x600/1e293b/38bdf8?text=Authpay+Dashboard)
 
-## 🌟 Why AuthPay?
+## 🌟 Why Authpay?
 
 - 🔐 **Enterprise-Grade Security**: Industry-standard authentication with 2FA, email verification, and secure password handling
 - 🏷️ **Advanced RBAC System**: Policy-based access control with fine-grained permissions and multi-role support
@@ -30,7 +33,7 @@ AuthPay is a modern, scalable authentication and payment platform designed for S
 
 ## 📑 Table of Contents
 
-- [What is AuthPay?](#-what-is-authpay)
+- [What is Authpay?](#-what-is-Authpay)
 - [Features](#-features)
 - [Core Modules](#-core-modules)
 - [Tech Stack](#-tech-stack)
@@ -50,9 +53,9 @@ AuthPay is a modern, scalable authentication and payment platform designed for S
 
 ---
 
-## 🎯 What is AuthPay?
+## 🎯 What is Authpay?
 
-AuthPay is a comprehensive authentication and payment platform that combines:
+Authpay is a comprehensive authentication and payment platform that combines:
 
 1. **Authentication System**: Secure user authentication with multiple strategies (email/password, OAuth, 2FA)
 2. **Authorization Layer**: Policy-based RBAC system for fine-grained access control
@@ -87,10 +90,22 @@ AuthPay is a comprehensive authentication and payment platform that combines:
   - Apple Sign-In
   
 - ✅ **Two-Factor Authentication (2FA)**
-  - Email-based OTP authentication
-  - Secure code delivery
+  - Authenticator App support (TOTP) with AES-256 encrypted secrets
+  - Secure backup recovery codes (10 single-use codes)
+  - Email-based OTP authentication fallback
   - Time-limited verification codes
   
+- ✅ **Passwordless Authentication**
+  - Magic Links for direct, secure login without passwords
+  - Passwordless Email OTP authentication
+  - Intelligent account matching (prevents duplicate OAuth/Magic Link accounts)
+  
+- ✅ **Device Tracking & Security Alerts**
+  - Advanced login history tracking (Browser, OS, Device Model)
+  - Intelligent Geolocation (GPS and IP-based fallback)
+  - Automated "New Device Login" security emails
+  - User-configurable security alert preferences
+
 - ✅ **Email Verification**
   - Automated verification emails
   - Secure token-based verification
@@ -131,12 +146,24 @@ AuthPay is a comprehensive authentication and payment platform that combines:
 
 ### 💳 Payment Gateway Integration
 
+- ✅ **Dual Payment Gateway Support**
+  - Seamlessly switch between Razorpay and Stripe
+  - Unified database schema for orders and subscriptions
+  - Pluggable payment provider architecture
+
 - ✅ **Razorpay Integration**
   - Order creation and management
   - Payment verification (HMAC)
-  - Subscription management
+  - Subscription management & Plans
   - Invoice generation
   - Webhook handling
+  
+- ✅ **Stripe Integration**
+  - Checkout session creation
+  - Customer and Product management
+  - Subscriptions and Billing cycles
+  - Invoice handling
+  - Secure Webhook endpoint processing
   
 - ✅ **Subscription Management**
   - Recurring billing setup
@@ -151,12 +178,6 @@ AuthPay is a comprehensive authentication and payment platform that combines:
   - Multi-currency support
   - Payment verification
   - Transaction logging
-  
-- ✅ **Provider Abstraction**
-  - Pluggable payment providers
-  - Easy provider switching
-  - Extensible architecture
-  - Future-ready (Stripe, PayPal support planned)
 
 ### 👥 User Management
 
@@ -386,7 +407,7 @@ Email notification system:
 
 ## 📋 Prerequisites
 
-Before installing AuthPay, ensure you have the following installed:
+Before installing Authpay, ensure you have the following installed:
 
 ### Required Software
 
@@ -444,12 +465,12 @@ git --version
 
 ## ⚡ Quick Start
 
-Get AuthPay running in 5 minutes:
+Get Authpay running in 5 minutes:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/sutharpratik10/AuthPay.git
-cd AuthPay
+git clone https://github.com/sutharpratik10/Authpay.git
+cd Authpay
 
 # 2. Install dependencies
 npm install
@@ -480,13 +501,13 @@ Visit [http://localhost:3000](http://localhost:3000) and login with:
 
 ```bash
 # Using HTTPS
-git clone https://github.com/sutharpratik10/AuthPay.git
+git clone https://github.com/sutharpratik10/Authpay.git
 
 # Or using SSH
-git clone git@github.com:sutharpratik10/AuthPay.git
+git clone git@github.com:sutharpratik10/Authpay.git
 
 # Navigate to project directory
-cd AuthPay
+cd Authpay
 ```
 
 ### Step 2: Install Dependencies
@@ -517,11 +538,11 @@ Choose one of these options:
 psql -U postgres
 
 # Create database
-CREATE DATABASE authpay_db;
+CREATE DATABASE Authpay_db;
 
 # Create user (optional)
-CREATE USER authpay_user WITH PASSWORD 'secure_password';
-GRANT ALL PRIVILEGES ON DATABASE authpay_db TO authpay_user;
+CREATE USER Authpay_user WITH PASSWORD 'secure_password';
+GRANT ALL PRIVILEGES ON DATABASE Authpay_db TO Authpay_user;
 
 # Exit
 \q
@@ -536,11 +557,11 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: authpay_postgres
+    container_name: Authpay_postgres
     environment:
-      POSTGRES_USER: authpay_user
+      POSTGRES_USER: Authpay_user
       POSTGRES_PASSWORD: secure_password
-      POSTGRES_DB: authpay_db
+      POSTGRES_DB: Authpay_db
     ports:
       - "5432:5432"
     volumes:
@@ -574,7 +595,7 @@ nano .env.local  # or use your preferred editor
 
 ```bash
 # Database
-DATABASE_URL="postgresql://authpay_user:secure_password@localhost:5432/authpay_db"
+DATABASE_URL="postgresql://Authpay_user:secure_password@localhost:5432/Authpay_db"
 
 # NextAuth
 NEXTAUTH_URL="http://localhost:3000"
@@ -656,7 +677,7 @@ Create `.env.local` file in the root directory:
 # ============================================
 # Database Configuration
 # ============================================
-DATABASE_URL="postgresql://username:password@localhost:5432/authpay_db"
+DATABASE_URL="postgresql://username:password@localhost:5432/Authpay_db"
 
 # ============================================
 # NextAuth Configuration
@@ -754,24 +775,24 @@ docs/
 ## 📁 Project Structure
 
 ```
-AuthPay/
+Authpay/
 ├── src/
 │   ├── app/                      # Next.js App Router
 │   │   ├── api/                  # API routes
-│   │   │   ├── auth/            # Authentication APIs
+│   │   │   ├── auth/            # Authentication APIs (TOTP, Passwordless, OAuth)
 │   │   │   ├── rbac/            # RBAC management APIs
-│   │   │   ├── payments/        # Payment APIs
+│   │   │   ├── payments/        # Dual Payment Gateway APIs (Stripe & Razorpay)
 │   │   │   └── user/            # User management APIs
-│   │   ├── auth/                # Auth pages (login, signup, etc.)
+│   │   ├── auth/                # Auth pages (login, signup, magic-link, otp)
 │   │   ├── protected/           # Protected routes
 │   │   │   ├── admin/          # Admin dashboard
-│   │   │   └── user/           # User dashboard
+│   │   │   └── user/           # User dashboard (Account, Security, Billing)
 │   │   └── page.tsx             # Homepage
 │   │
 │   ├── components/              # React components
-│   │   ├── auth/               # Auth-related components
+│   │   ├── auth/               # Auth-related components (Login forms, 2FA setup)
 │   │   ├── admin/              # Admin components
-│   │   ├── user/               # User components
+│   │   ├── user/               # User components (Login History, Preferences)
 │   │   ├── layout/             # Layout components
 │   │   └── ui/                 # shadcn/ui components
 │   │
@@ -779,15 +800,17 @@ AuthPay/
 │   │   ├── auth/               # Auth utilities
 │   │   ├── rbac/               # RBAC utilities
 │   │   ├── payments/           # Payment utilities
-│   │   └── email/              # Email utilities
+│   │   ├── email/              # Email utilities
+│   │   └── utils/              # Core utilities (encryption, device tracking, geolocation)
 │   │
 │   ├── server/                  # Server-side code
 │   │   ├── db/                 # Database layer
-│   │   │   └── schema/         # Drizzle schema
-│   │   └── services/           # Business logic
+│   │   │   └── schema/         # Drizzle schema (Users, Login History, 2FA, Orders)
+│   │   └── services/           # Business logic (TOTP, Session, Email queue)
 │   │
 │   ├── config/                  # Configuration files
-│   │   └── auth.ts             # NextAuth config
+│   │   ├── auth.ts             # NextAuth callbacks, tracking & Next.js config
+│   │   └── auth.config.ts      # NextAuth providers & authorization logic
 │   │
 │   └── types/                   # TypeScript types
 │
@@ -822,14 +845,27 @@ AuthPay/
 
 | Endpoint | Method | Description | Auth Required |
 |----------|--------|-------------|---------------|
-| `/api/auth/signup` | POST | Register new user | No |
-| `/api/auth/login` | POST | Login user | No |
-| `/api/auth/logout` | POST | Logout user | Yes |
-| `/api/auth/verify-email` | POST | Verify email address | No |
+| `/api/auth/register` | POST | Register new user | No |
+| `/api/auth/[...nextauth]` | POST | NextAuth endpoints (login, logout) | No |
+| `/api/auth/passwordless/send` | POST | Send Magic Link / Email OTP | No |
+| `/api/auth/passwordless/verify` | POST | Verify Passwordless login | No |
+| `/api/auth/totp/setup` | GET | Generate TOTP secret & QR code | Yes |
+| `/api/auth/totp/verify-setup` | POST | Verify and enable TOTP | Yes |
+| `/api/auth/totp/verify-login` | POST | Verify TOTP during login | No (Temp Token) |
+| `/api/auth/totp/disable` | POST | Disable TOTP 2FA | Yes |
 | `/api/auth/forgot-password` | POST | Request password reset | No |
 | `/api/auth/reset-password` | POST | Reset password | No |
-| `/api/auth/2fa/setup` | POST | Setup 2FA | Yes |
-| `/api/auth/2fa/verify` | POST | Verify 2FA code | Yes |
+| `/api/auth/verify-email` | POST | Verify email address | No |
+
+### User APIs
+
+| Endpoint | Method | Description | Auth Required |
+|----------|--------|-------------|---------------|
+| `/api/user/data` | GET | Get user profile data | Yes |
+| `/api/user/login-history` | GET | Get user login sessions | Yes |
+| `/api/user/preferences` | GET/POST | Manage user settings | Yes |
+| `/api/user/password-status` | GET | Check if user has native password | Yes |
+| `/api/user/subscription-status`| GET | Get user subscription | Yes |
 
 ### RBAC APIs
 
@@ -858,25 +894,52 @@ For complete API documentation, see [docs/05-API-ROUTES.md](./docs/05-API-ROUTES
 
 ## 🗄️ Database Schema
 
-### Core Tables
+### Authentication & Security Tables
 
 - **users** - User accounts and profiles
+- **accounts** - OAuth provider connections (NextAuth)
+- **sessions** - Active user sessions and session tracking
+- **login_history** - Comprehensive login tracking, device info, and IP geolocation logs
+- **otp_codes** - Passwordless logins and 2FA temporary codes
+- **two_factor_auth** - Authenticator App (TOTP) configuration and encrypted secrets
+- **recovery_codes** - Backup recovery codes for 2FA
+- **verification_tokens** - Email verification tokens (NextAuth)
+- **password_reset_tokens** - Secure password reset tracking
+
+### User Management Tables
+
+- **user_preferences** - User-specific settings (e.g., security alerts, 2FA toggles)
+- **user_avatars** - Profile picture management
+- **user_notifications** - In-app user notifications
+- **user_usage_metrics** - User activity and session analytics
+- **languages** - Supported languages
+- **timezones** - Supported timezones
+
+### Role-Based Access Control (RBAC) Tables
+
 - **roles** - System and custom roles
 - **permissions** - Policy definitions
 - **user_roles** - User-role assignments (many-to-many)
 - **role_permissions** - Role-permission assignments (many-to-many)
-- **sessions** - Active user sessions
-- **otp_codes** - Email verification and 2FA codes
-- **two_factor_auth** - 2FA configuration
 
-### Payment Tables
+### Payment & Subscription Tables
 
+- **payment_gateway_config** - Configuration for Stripe and Razorpay
 - **payment_orders** - Payment order tracking
 - **payment_transactions** - Transaction history
-- **subscription_plans** - Available plans
-- **user_subscriptions** - User subscription data
+- **subscription_plans** - Available pricing plans
+- **user_subscriptions** - Active user subscription data
 - **subscription_statuses** - Status definitions
 - **subscription_renewal_types** - Renewal configurations
+- **billings** - Billing history and invoices
+
+### Admin & System Tables
+
+- **admin_dashboard_stats** - Aggregated analytics for the admin dashboard
+- **subscription_analytics** - Revenue and subscription tracking
+- **admin_notifications** - Important system notifications for admins
+- **audit_logs** - System-wide audit trail for critical actions
+- **error_logs** - Application error logging
 
 For detailed schema documentation, see [docs/04-DATABASE.md](./docs/04-DATABASE.md).
 
@@ -1003,8 +1066,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### Community
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/sutharpratik10/AuthPay/issues)
-- **Discussions**: [Ask questions and share ideas](https://github.com/sutharpratik10/AuthPay/discussions)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/sutharpratik10/Authpay/issues)
+- **Discussions**: [Ask questions and share ideas](https://github.com/sutharpratik10/Authpay/discussions)
 
 ### Contact
 
@@ -1038,15 +1101,15 @@ Built with amazing open-source technologies:
 
 ## 📊 Project Stats
 
-![GitHub stars](https://img.shields.io/github/stars/sutharpratik10/AuthPay?style=social)
-![GitHub forks](https://img.shields.io/github/forks/sutharpratik10/AuthPay?style=social)
-![GitHub watchers](https://img.shields.io/github/watchers/sutharpratik10/AuthPay?style=social)
+![GitHub stars](https://img.shields.io/github/stars/sutharpratik10/Authpay?style=social)
+![GitHub forks](https://img.shields.io/github/forks/sutharpratik10/Authpay?style=social)
+![GitHub watchers](https://img.shields.io/github/watchers/sutharpratik10/Authpay?style=social)
 
 ---
 
 <div align="center">
 
-**[⬆ Back to Top](#authpay--nextjs-authentication-payments--rbac-platform)**
+**[⬆ Back to Top](#Authpay--nextjs-authentication-payments--rbac-platform)**
 
 Made with ❤️ by [Pratik Suthar](https://github.com/sutharpratik10)
 

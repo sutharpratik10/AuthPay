@@ -41,20 +41,25 @@ export interface CreateSubscriptionPlanData {
   razorpaySubscriptionId?: string;
   razorpaySubscriptionPlanId?: string;
   razorpaySubscriptionLink?: string;
+  badgeText?: string;
+  enableAutoPopular?: boolean;
 }
 
+
 export class SubscriptionPlanService {
-  private razorpay: Razorpay;
+  private razorpay: Razorpay | null;
 
   constructor() {
     const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-      throw new Error('Missing Razorpay credentials');
+      console.warn('Missing Razorpay credentials - using placeholder for build');
+      this.razorpay = null;
+      return;
     }
-    
-    this.razorpay = new Razorpay({ 
-      key_id: RAZORPAY_KEY_ID, 
-      key_secret: RAZORPAY_KEY_SECRET 
+
+    this.razorpay = new Razorpay({
+      key_id: RAZORPAY_KEY_ID,
+      key_secret: RAZORPAY_KEY_SECRET
     });
   }
 
@@ -62,6 +67,9 @@ export class SubscriptionPlanService {
    * Fetch all subscription plans from Razorpay
    */
   async fetchRazorpayPlans(options?: { count?: number; skip?: number }): Promise<RazorpayPlan[]> {
+    if (!this.razorpay) {
+      throw new Error('Razorpay client not initialized - missing credentials');
+    }
     try {
       const response = await this.razorpay.plans.all(options || {});
       // Cast to our interface - Razorpay types may vary
@@ -86,7 +94,7 @@ export class SubscriptionPlanService {
     try {
       // Fetch all plans from Razorpay
       const razorpayPlans = await this.fetchRazorpayPlans({ count: 100 });
-      
+
       for (const rzPlan of razorpayPlans) {
         try {
           // Check if plan already exists by razorpaySubscriptionPlanId
@@ -122,7 +130,7 @@ export class SubscriptionPlanService {
                 updatedAt: new Date()
               })
               .where(eq(subscriptionPlans.id, existingPlan.id));
-            
+
             results.updated++;
           } else {
             // Create new plan
@@ -137,10 +145,10 @@ export class SubscriptionPlanService {
               razorpaySubscriptionPlanId: planData.razorpaySubscriptionPlanId,
               razorpaySubscriptionLink: planData.razorpaySubscriptionLink
             });
-            
+
             results.created++;
           }
-          
+
           results.synced++;
         } catch (error) {
           const errorMsg = `Failed to sync plan ${rzPlan.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -257,6 +265,8 @@ export class SubscriptionPlanService {
         razorpaySubscriptionId: planData.razorpaySubscriptionId,
         razorpaySubscriptionPlanId: planData.razorpaySubscriptionPlanId,
         razorpaySubscriptionLink: planData.razorpaySubscriptionLink,
+        badgeText: planData.badgeText,
+        enableAutoPopular: planData.enableAutoPopular,
         updatedAt: new Date()
       };
 
@@ -267,7 +277,7 @@ export class SubscriptionPlanService {
           .set(dataToUpsert)
           .where(eq(subscriptionPlans.id, planData.id))
           .returning();
-        
+
         return updated[0];
       } else if (planData.razorpaySubscriptionPlanId) {
         // Check if plan exists by Razorpay ID
@@ -282,7 +292,7 @@ export class SubscriptionPlanService {
             .set(dataToUpsert)
             .where(eq(subscriptionPlans.id, existing.id))
             .returning();
-          
+
           return updated[0];
         }
       }
@@ -292,7 +302,7 @@ export class SubscriptionPlanService {
         .insert(subscriptionPlans)
         .values(dataToUpsert)
         .returning();
-      
+
       return created[0];
     } catch (error) {
       console.error('Error upserting subscription plan:', error);
@@ -315,14 +325,14 @@ export class SubscriptionPlanService {
   private formatDisplayPrice(price: string): string {
     const match = price.match(/(\w+)\s+([\d.]+)/);
     if (!match) return price;
-    
+
     const [, currency, amount] = match;
     const value = parseFloat(amount);
-    
+
     if (currency.toUpperCase() === 'INR') {
       return `₹${value.toLocaleString('en-IN')}`;
     }
-    
+
     return `${currency} ${value.toFixed(2)}`;
   }
 }

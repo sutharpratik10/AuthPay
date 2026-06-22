@@ -164,8 +164,6 @@ export class EmailQueueService {
     const { userId, userAgent, ipAddress } = job;
     
     try {
-      console.log(`[EmailQueue] Sending security alert for user ${userId}`);
-
       // Import users table
       const { users } = await import('@/server/db/schema');
       const { eq } = await import('drizzle-orm');
@@ -192,13 +190,16 @@ export class EmailQueueService {
         return;
       }
 
-      // Check if security alerts are enabled
+      // Check if security alerts are enabled FIRST before doing any work
       const securityAlertsEnabled = user.userPreferences?.securityAlerts !== false;
       
       if (!securityAlertsEnabled) {
-        console.log(`[EmailQueue] Security alerts disabled for user: ${user.email}`);
+        console.log(`[EmailQueue] Security alerts disabled for user: ${user.email} - skipping email`);
         return;
       }
+
+      // Only log "Sending" after confirming alerts are enabled
+      console.log(`[EmailQueue] Sending security alert email to ${user.email}`);
 
       // Get location and browser information
       const locationPromise = ipAddress 

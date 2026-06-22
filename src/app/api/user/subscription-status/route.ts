@@ -25,11 +25,14 @@ import { db } from '@/server/db';
 import { userSubscriptions, subscriptionPlans } from '@/server/db/schema';
 import { eq, desc, lt, and, ne } from 'drizzle-orm';
 import { getExpiryStatus } from '@/lib/utils/subscription-utils';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
  * GET /api/user/subscription-status - Get current user's subscription status
+ * Rate Limited: 100 requests per minute (read-only)
  */
-export const GET = withApiHandler(
+export const GET = rateLimiters.readOnly(
+  withApiHandler(
   async (request: NextRequest, { user }) => {
     const logger = createPerformanceLogger(request);
     const userId = user!.id;
@@ -41,8 +44,9 @@ export const GET = withApiHandler(
         startDate: userSubscriptions.startDate,
         expiryDate: userSubscriptions.expiryDate,
         statusId: userSubscriptions.statusId,
-        razorpaySubscriptionId: userSubscriptions.razorpaySubscriptionId,
-        razorpayCustomerId: userSubscriptions.razorpayCustomerId,
+        providerSubscriptionId: userSubscriptions.providerSubscriptionId,
+        providerCustomerId: userSubscriptions.providerCustomerId,
+        paymentGatewayProvider: userSubscriptions.paymentGatewayProvider,
         planName: subscriptionPlans.name,
         planDescription: subscriptionPlans.description,
         planPrice: subscriptionPlans.price,
@@ -58,8 +62,7 @@ export const GET = withApiHandler(
     const sub = rows[0];
 
     // No subscription found
-    if (!sub || (!sub.planId && !sub.razorpaySubscriptionId)) {
-      logger.log('No subscription found');
+    if (!sub || (!sub.planId && !sub.providerSubscriptionId)) {
       logger.end(userId);
       return successResponse({ 
         hasSubscription: false, 
@@ -101,7 +104,6 @@ export const GET = withApiHandler(
       console.error('Background update expired subscriptions failed:', err)
     );
 
-    logger.log('Subscription retrieved');
     logger.end(userId);
 
     return successResponse({
@@ -116,19 +118,23 @@ export const GET = withApiHandler(
       expiryDate: sub.expiryDate,
       isActive,
       status: statusName,
-      razorpaySubscriptionId: sub.razorpaySubscriptionId ?? null,
-      razorpayCustomerId: sub.razorpayCustomerId ?? null,
+      paymentGatewayProvider: sub.paymentGatewayProvider ?? null,
+      providerSubscriptionId: sub.providerSubscriptionId ?? null,
+      providerCustomerId: sub.providerCustomerId ?? null,
       message: expiryStatus.message,
       daysRemaining: expiryStatus.daysRemaining
     });
   },
   { requireAuth: true }
+  )
 );
 
 /**
  * POST /api/user/subscription-status - Update expired subscriptions
+ * Rate Limited: 60 requests per minute
  */
-export const POST = withApiHandler(
+export const POST = rateLimiters.api(
+  withApiHandler(
   async (request: NextRequest, { user }) => {
     const logger = createPerformanceLogger(request);
     const userId = user!.id;
@@ -142,6 +148,7 @@ export const POST = withApiHandler(
     });
   },
   { requireAuth: true }
+  )
 );
 
 /**

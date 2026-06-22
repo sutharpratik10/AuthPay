@@ -5,30 +5,24 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
 import { ROUTE_POLICIES } from "@/lib/rbac/routing-utils"
-import { useEffect, useState } from "react"
+import { useMemo } from "react"
+import { useUserValidation } from "@/contexts/UserValidationContext"
 
 export function AuthLinks() {
-  const { isAuthenticated, logout, loading, user } = useAuth()
+  const { isAuthenticated, logout, loading } = useAuth()
   const router = useRouter()
-  const [dashboardPath, setDashboardPath] = useState(ROUTE_POLICIES.USER_DASHBOARD.path)
+  const { isAdmin, isLoading: isUserLoading } = useUserValidation()
 
-  useEffect(() => {
-    async function fetchDashboard() {
-      if (user?.id) {
-        try {
-          // Call API to get dashboard URL based on user's policies
-          const response = await fetch('/api/rbac/user/dashboard');
-          const data = await response.json();
-          if (data.dashboardUrl) {
-            setDashboardPath(data.dashboardUrl);
-          }
-        } catch (error) {
-          console.error('Error fetching dashboard URL:', error);
-        }
-      }
+  // Use /protected as fallback while loading - it will redirect server-side
+  // Once loaded, use the specific dashboard path for better UX
+  const dashboardPath = useMemo(() => {
+    if (!isUserLoading && isAuthenticated) {
+      return isAdmin 
+        ? ROUTE_POLICIES.ADMIN_DASHBOARD.path 
+        : ROUTE_POLICIES.USER_DASHBOARD.path
     }
-    fetchDashboard();
-  }, [user]);
+    return '/protected'
+  }, [isAdmin, isUserLoading, isAuthenticated])
 
   const handleLogout = () => {
     logout()

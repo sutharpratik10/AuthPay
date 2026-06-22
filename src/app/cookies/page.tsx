@@ -5,7 +5,7 @@ import { Shield, Cookie, Settings, CheckCircle, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { APP_CONFIG } from '@/lib/utils/constants';
-import {Button} from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 
 interface CookieSettings {
   essential: boolean;
@@ -107,7 +107,7 @@ export default function CookiePolicyPage() {
 
   const handleCookieToggle = (type: keyof CookieSettings) => {
     if (type === 'essential') return; // Essential cookies cannot be disabled
-    
+
     setCookieSettings(prev => {
       const newSettings = {
         ...prev,
@@ -125,15 +125,15 @@ export default function CookiePolicyPage() {
         timestamp: new Date().toISOString(),
         version: '1.0'
       };
-      
+
       localStorage.setItem('cookieConsent', JSON.stringify(consentData));
       applyCookieSettings(settings);
-      
+
       // Dispatch custom event for other components to listen to
-      window.dispatchEvent(new CustomEvent('cookieConsentUpdated', { 
-        detail: consentData 
+      window.dispatchEvent(new CustomEvent('cookieConsentUpdated', {
+        detail: consentData
       }));
-      
+
       setHasChanges(false);
       return true;
     } catch (error) {
@@ -149,9 +149,9 @@ export default function CookiePolicyPage() {
       marketing: true,
       preferences: true
     };
-    
+
     setCookieSettings(newSettings);
-    
+
     if (saveCookiePreferences(newSettings)) {
       router.push('/');
     }
@@ -170,9 +170,9 @@ export default function CookiePolicyPage() {
       marketing: false,
       preferences: false
     };
-    
+
     setCookieSettings(newSettings);
-    
+
     if (saveCookiePreferences(newSettings)) {
       router.push('/');
     }
@@ -236,7 +236,7 @@ export default function CookiePolicyPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Cookie Policy</h1>
-              <p className="text-gray-600 dark:text-gray-400">Manage your cookie preferences for AuthPay</p>
+              <p className="text-gray-600 dark:text-gray-400">Manage your cookie preferences for {APP_CONFIG.APP_NAME}</p>
             </div>
           </div>
         </div>
@@ -245,18 +245,18 @@ export default function CookiePolicyPage() {
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Introduction */}
         <section className="mb-12">
-            <div className="bg-blue-50 dark:bg-neutral-800 p-6 rounded-xl border border-blue-200 dark:border-neutral-800">
-                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-4">
-                About Our Cookie Usage
-                </h2>
-                <p className="text-gray-600 dark:text-gray-300 mb-4">
-                    {APP_CONFIG.APP_NAME} uses cookies and similar technologies to enhance your experience, provide personalized content, 
-                and analyze our traffic. This policy explains what cookies are, how we use them, and how you can control them.
-                </p>
-                <p className="text-gray-600 dark:text-gray-300">
-                By using our website, you consent to our use of cookies in accordance with this policy and your preferences below.
-                </p>
-            </div>
+          <div className="bg-blue-50 dark:bg-neutral-800 p-6 rounded-xl border border-blue-200 dark:border-neutral-800">
+            <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-4">
+              About Our Cookie Usage
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              {APP_CONFIG.APP_NAME} uses cookies and similar technologies to enhance your experience, provide personalized content,
+              and analyze our traffic. This policy explains what cookies are, how we use them, and how you can control them.
+            </p>
+            <p className="text-gray-600 dark:text-gray-300">
+              By using our website, you consent to our use of cookies in accordance with this policy and your preferences below.
+            </p>
+          </div>
         </section>
 
         {/* What are Cookies */}
@@ -264,7 +264,7 @@ export default function CookiePolicyPage() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">What Are Cookies?</h2>
           <div className="prose dark:prose-invert max-w-none">
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-              Cookies are small text files that are stored on your device when you visit a website. They are widely used 
+              Cookies are small text files that are stored on your device when you visit a website. They are widely used
               to make websites work more efficiently and to provide information to website owners.
             </p>
             <p className="text-gray-600 dark:text-gray-300">
@@ -303,16 +303,14 @@ export default function CookiePolicyPage() {
                       onClick={() => handleCookieToggle(cookie.id as keyof typeof cookieSettings)}
                       disabled={cookie.required}
                       title={cookie.required ? 'Required cookies cannot be disabled' : `Toggle ${cookie.title}`}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        cookie.enabled 
-                          ? 'bg-blue-600' 
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${cookie.enabled
+                          ? 'bg-blue-600'
                           : 'bg-gray-300 dark:bg-gray-600'
-                      } ${cookie.required ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        } ${cookie.required ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          cookie.enabled ? 'translate-x-6' : 'translate-x-1'
-                        }`}
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${cookie.enabled ? 'translate-x-6' : 'translate-x-1'
+                          }`}
                       />
                     </button>
                   </div>
@@ -338,7 +336,7 @@ export default function CookiePolicyPage() {
                 <li>• Enable two-factor authentication</li>
               </ul>
             </div>
-            
+
             <div className="bg-neutral-50 dark:bg-neutral-800 p-6 rounded-xl">
               <div className="flex items-center gap-3 mb-4">
                 <Settings className="w-6 h-6 text-purple-600 dark:text-purple-400" />
@@ -382,7 +380,7 @@ export default function CookiePolicyPage() {
               If you have any questions about our cookie policy or how we handle your data, please contact us:
             </p>
             <div className="space-y-2 text-sm text-gray-600 dark:text-gray-200">
-              <p><strong>Email:</strong> privacy@authpay.dev</p>
+              <p><strong>Email:</strong> privacy@authpay.app</p>
               <p><strong>Last Updated:</strong> September 20, 2025</p>
             </div>
           </div>
@@ -397,7 +395,7 @@ export default function CookiePolicyPage() {
               </p>
             </div>
           )}
-          
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               onClick={handleAcceptAll}
@@ -406,7 +404,7 @@ export default function CookiePolicyPage() {
               <CheckCircle className="w-5 h-5" />
               Accept All Cookies
             </Button>
-            
+
             <Button
               onClick={handleAcceptSelected}
               className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
@@ -414,7 +412,7 @@ export default function CookiePolicyPage() {
               <Settings className="w-5 h-5" />
               Save & Continue
             </Button>
-            
+
             <Button
               onClick={handleRejectAll}
               className="px-8 py-3 border  text-gray-700 border-gray-300 dark:border-gray-700 dark:text-gray-300 dark:bg-red-500 hover:bg-red-600 dark:hover:bg-red-600 font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
@@ -423,22 +421,21 @@ export default function CookiePolicyPage() {
               Reject All
             </Button>
           </div>
-          
+
           <div className="text-center mt-4">
-            <Link 
+            <Link
               href="/"
               className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
             >
               Return to Home
             </Link>
           </div>
-          
+
           {/* Cookie Status Indicator */}
           <div className="text-center mt-2">
             <div className="inline-flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-              <div className={`w-2 h-2 rounded-full ${
-                hasChanges ? 'bg-yellow-500' : 'bg-green-500'
-              }`}></div>
+              <div className={`w-2 h-2 rounded-full ${hasChanges ? 'bg-yellow-500' : 'bg-green-500'
+                }`}></div>
               {hasChanges ? 'Changes pending' : 'Settings saved'}
             </div>
           </div>

@@ -36,11 +36,11 @@ export const {
           const { eq } = await import("drizzle-orm");
 
           // Check if user already exists
-          let existingUser = null;
+          let existingUser: any = null;
           try {
             existingUser = await db.query.users.findFirst({
               where: eq(users.email, user.email!),
-            });
+            }) as any;
           } catch (dbErr) {
             console.error("Database error during OAuth user lookup:", dbErr);
             // Return a user-friendly error to Auth.js
@@ -176,6 +176,10 @@ export const {
 
       return true;
     },    async session({ session, token }: { session: Session; token: JWT }) {
+      if (token.error === "SessionExpired") {
+        return {} as Session;
+      }
+
       if (token.sub && session.user) {
         session.user.id = token.sub;
       }
@@ -208,6 +212,84 @@ export const {
       if (user) {
         token.isEmailVerified = user.isEmailVerified;
         token.role = user.role;
+
+        // --- Login Tracking & Security Alerts ---
+        try {
+          const { headers } = await import("next/headers");
+          const headersList = await headers();
+          const ipAddress = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "127.0.0.1";
+          const userAgent = headersList.get("user-agent");
+          
+          const { parseUserAgent } = await import("@/lib/utils/device");
+          const { getLocationFromIP } = await import("@/lib/utils/location");
+          
+          const deviceData = parseUserAgent(userAgent);
+          
+          const { cookies } = await import("next/headers");
+          const cookieStore = await cookies();
+          const gpsLocation = cookieStore.get("client-location")?.value;
+          
+          let location = "Unknown Location";
+          if (gpsLocation) {
+            location = decodeURIComponent(gpsLocation);
+          } else {
+            location = await getLocationFromIP(ipAddress);
+          }
+          
+          const { loginHistory, userPreferences, users } = await import("@/server/db/schema");
+          const { eq, and } = await import("drizzle-orm");
+          
+          // Check if device is new
+          const pastLogin = await db.query.loginHistory.findFirst({
+            where: (history) => and(
+              eq(history.userId, token.sub as string),
+              eq(history.device, deviceData.device),
+              eq(history.browser, deviceData.browser),
+              eq(history.os, deviceData.os)
+            )
+          });
+          const isNewDevice = !pastLogin;
+
+          // Save to database
+          await db.insert(loginHistory).values({
+            userId: token.sub as string,
+            ipAddress,
+            location,
+            device: deviceData.device,
+            os: deviceData.os,
+            browser: deviceData.browser,
+            userAgent,
+          });
+          
+          // Check user preferences for security alerts
+          const prefs = await db.query.userPreferences.findFirst({
+            where: eq(userPreferences.userId, token.sub as string),
+            columns: { securityAlerts: true }
+          });
+          
+          const userRecord = await db.query.users.findFirst({
+            where: eq(users.id, token.sub as string),
+            columns: { email: true, name: true }
+          });
+          
+          const shouldAlert = prefs?.securityAlerts || isNewDevice;
+          
+          if (shouldAlert && userRecord?.email) {
+            const { emailService } = await import("@/server/services/email");
+            // Async send email so we don't block login
+            emailService.sendSecurityAlertEmail(
+              userRecord.email,
+              userRecord.name || "User",
+              new Date(),
+              location,
+              ipAddress,
+              `${deviceData.device} - ${deviceData.os} - ${deviceData.browser}`
+            ).catch(console.error);
+          }
+        } catch (err) {
+          console.error("Error tracking login:", err);
+        }
+        // --- End Login Tracking ---
       } else {
         // Only query database if we don't have the verification status or it's been a while
         const shouldRefresh = !token.isEmailVerified || 
@@ -219,10 +301,19 @@ export const {
           try {
             const userRecord = await db.query.users.findFirst({
               where: (users, { eq }) => eq(users.id, token.sub as string),
-              columns: { isEmailVerified: true, name: true },
+              columns: { isEmailVerified: true, name: true, passwordChangedAt: true },
             });
 
             if (userRecord) {
+              // Session Invalidation: Check if password was changed after token was issued
+              if (userRecord.passwordChangedAt && token.iat) {
+                const passwordChangeTime = new Date(userRecord.passwordChangedAt).getTime();
+                if (token.iat * 1000 < passwordChangeTime) {
+                  console.log(`[SECURITY] Invalidating session for user ${token.sub} due to password change`);
+                  return { ...token, error: "SessionExpired" };
+                }
+              }
+
               token.isEmailVerified = userRecord.isEmailVerified ?? false;
               token.name = userRecord.name;
               

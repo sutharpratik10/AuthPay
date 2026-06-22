@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { withPolicy, API_POLICIES } from '@/lib/api/permissions';
 import { db } from '@/server/db';
 import { roles } from '@/server/db/schema';
 import { eq, or, ilike, count, and } from 'drizzle-orm';
@@ -25,7 +25,7 @@ async function getRoles(req: NextRequest) {
     const offset = (page - 1) * limit;
 
     // Build where condition for search
-    const whereConditions = [];
+    const whereConditions: any[] = [];
     
     if (search.trim()) {
       whereConditions.push(
@@ -62,10 +62,10 @@ async function getRoles(req: NextRequest) {
         .from(roles)
         .leftJoin(userRoles, eq(roles.id, userRoles.roleId))
         .groupBy(roles.id)
-      ).map(r => [r.roleId, Number(r.count)])
+      ).map((r: any) => [r.roleId, Number(r.count)])
     );
 
-    const rolesWithCount = rolesList.map(role => ({ ...role, userCount: userCounts[role.id] || 0 }));
+    const rolesWithCount = rolesList.map((role: any) => ({ ...role, userCount: userCounts[role.id] || 0 }));
 
     // Get total count for pagination
     const totalCountResult = await db
@@ -167,6 +167,6 @@ async function createRole(req: NextRequest) {
   }
 }
 
-// Export route handlers with permission checking
-export const GET = withPermission(getRoles, API_PERMISSIONS.USER_VIEW);
-export const POST = withPermission(createRole, API_PERMISSIONS.USER_CREATE);
+// Export route handlers with policy checking
+export const GET = withPolicy(getRoles, API_POLICIES.ROLE_MANAGE);
+export const POST = withPolicy(createRole, API_POLICIES.ROLE_MANAGE);

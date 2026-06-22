@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   title: APP_CONFIG.APP_NAME,
   description: APP_CONFIG.APP_DESCRIPTION,
 };
-
+ 
 export default function RootLayout({
   children,
 }: Readonly<{

@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+Future Implementation plans/App based 2FA.md
+Future Implementation plans/passkey.md
+Future Implementation plans/plans.md

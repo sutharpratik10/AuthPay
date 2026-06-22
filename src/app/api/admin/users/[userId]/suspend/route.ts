@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { withPolicy, API_POLICIES } from '@/lib/api/permissions';
 import { db } from '@/server/db';
 import { users } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -38,5 +38,5 @@ async function updateSuspension(req: NextRequest) {
   }
 }
 
-// Export with admin-only permissions
-export const PUT = withPermission(updateSuspension, API_PERMISSIONS.USER_EDIT);
+// Export with admin-only policy
+export const PUT = withPolicy(updateSuspension, API_POLICIES.USER_MANAGE);

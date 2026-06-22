@@ -25,25 +25,38 @@ export class RBACService {
    */
   static async hasPolicy(userId: string, policy: string): Promise<boolean> {
     try {
+      console.log(`[RBACService] hasPolicy check for user ${userId}, policy: ${policy}`);
+      
       // Check if user is admin first (admins have all access)
       const isAdminUser = await this.isAdmin(userId);
-      if (isAdminUser) return true;
+      console.log(`[RBACService] isAdmin check result:`, isAdminUser);
+      
+      if (isAdminUser) {
+        console.log(`[RBACService] User is admin, granting access to ${policy}`);
+        return true;
+      }
 
       // Check cache first
       const cached = this.getCachedPermissions(userId);
       if (cached) {
-        return cached.has(policy);
+        const hasInCache = cached.has(policy);
+        console.log(`[RBACService] Cache hit for user ${userId}, has ${policy}:`, hasInCache);
+        return hasInCache;
       }
 
       // Fetch from database
+      console.log(`[RBACService] No cache, fetching policies from database for user ${userId}`);
       const userPermissions = await this.getUserPolicies(userId);
+      console.log(`[RBACService] User ${userId} policies:`, userPermissions);
       
       // Cache the result
       this.cachePermissions(userId, userPermissions);
       
-      return userPermissions.includes(policy);
+      const hasPermission = userPermissions.includes(policy);
+      console.log(`[RBACService] User ${userId} has policy ${policy}:`, hasPermission);
+      return hasPermission;
     } catch (error) {
-      console.error("Error checking policy:", error);
+      console.error("[RBACService] Error checking policy:", error);
       return false;
     }
   }
@@ -111,7 +124,7 @@ export class RBACService {
         .where(inArray(rolePermissions.roleId, roleIds));
 
       // Return unique permissions
-      return [...new Set(rolePerms.map(p => p.name))];
+      return [...new Set(rolePerms.map((p: any) => p.name))] as string[];
     } catch (error) {
       console.error("Error getting user policies:", error);
       return [];

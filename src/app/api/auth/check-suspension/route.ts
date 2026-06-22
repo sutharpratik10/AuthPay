@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function POST(request: NextRequest) {
+/**
+ * POST /api/auth/check-suspension - Check if user is suspended
+ * Rate Limited: 30 requests per minute (validation endpoint)
+ */
+export const POST = rateLimiters.validation(async (request: NextRequest) => {
   try {
     const { email } = await request.json();
     
@@ -39,4 +44,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -14,7 +14,7 @@ export function createSSLConfig(): SSLConfig {
   const sslMode = url.searchParams.get("sslmode") || process.env.DB_SSLMODE || "prefer";
   
   // Function to create SSL config with optional CA certificate
-  const buildSSLConfig = (rejectUnauthorized: boolean = true): ConnectionOptions | boolean => {
+  const buildSSLConfig = (rejectUnauthorized: boolean = true): ConnectionOptions => {
     const certPath = process.env.DB_CERT_PATH || process.env.db_cert_path;
     
     if (process.env.DB_USE_CA === "true" && certPath) {
@@ -30,7 +30,8 @@ export function createSSLConfig(): SSLConfig {
       }
     }
     
-    return rejectUnauthorized;
+    // Always return an object, not a boolean
+    return { rejectUnauthorized };
   };
 
   // Handle different SSL modes according to PostgreSQL standards

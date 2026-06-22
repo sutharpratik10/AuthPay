@@ -13,6 +13,7 @@ import { getPaymentProvider } from '@/lib/payments/gateway';
 import '@/lib/payments/providers/razorpay';
 import Razorpay from 'razorpay';
 import { emailService } from "@/server/services/email";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 interface PaymentInfo {
   provider: string;
@@ -24,7 +25,10 @@ interface PaymentInfo {
   [key: string]: unknown;
 }
 
-export async function POST(req: NextRequest) {
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response> => {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -36,7 +40,7 @@ export async function POST(req: NextRequest) {
     const userId = session.user.id;
 
     // Validate plan
-    let plan = null;
+    let plan: any = null;
     // Accept local UUID plan ids or Razorpay plan ids that are prefixed with `rz-...`
     if (typeof planId === 'string' && planId.startsWith('rz-')) {
       // lookup by razorpaySubscriptionPlanId
@@ -67,13 +71,13 @@ export async function POST(req: NextRequest) {
       const provider = getPaymentProvider(providerName);
 
       if (providerName === 'razorpay') {
-  const p = payment as PaymentInfo;
-  const razorpayPaymentId = p.razorpayPaymentId;
-  const razorpayOrderId = p.razorpayOrderId;
-  const razorpaySignature = p.razorpaySignature;
-  // assign to outer vars
-  razorpaySubscriptionId = p.razorpaySubscriptionId;
-  razorpayCustomerId = p.razorpayCustomerId;
+        const p = payment as PaymentInfo;
+        const razorpayPaymentId = p.razorpayPaymentId;
+        const razorpayOrderId = p.razorpayOrderId;
+        const razorpaySignature = p.razorpaySignature;
+        // assign to outer vars
+        razorpaySubscriptionId = p.razorpaySubscriptionId;
+        razorpayCustomerId = p.razorpayCustomerId;
         if (!razorpayPaymentId || !razorpaySignature || (!razorpayOrderId && !razorpaySubscriptionId)) {
           return NextResponse.json({ error: 'Incomplete Razorpay payment details' }, { status: 400 });
         }
@@ -116,7 +120,7 @@ export async function POST(req: NextRequest) {
             rawResponse: null,
             receivedAt: new Date(),
           });
-  } else if (razorpaySubscriptionId) {
+        } else if (razorpaySubscriptionId) {
           // Subscription flow: create a minimal payment_orders row so paymentTransactions can reference it
           const parsedAmount = (() => {
             try {
@@ -164,15 +168,15 @@ export async function POST(req: NextRequest) {
           where: eq(users.id, userId),
           columns: { email: true, name: true },
         });
-          if (userDetails?.email) {
-            await emailService.sendSubscriptionPurchaseEmail(
-              userDetails.email,
-              userDetails.name || "",
-              plan?.name ?? 'Razorpay plan',
-              Number(plan?.price ?? 0),
-              new Date()
-            );
-          }
+        if (userDetails?.email) {
+          await emailService.sendSubscriptionPurchaseEmail(
+            userDetails.email,
+            userDetails.name || "",
+            plan?.name ?? 'Razorpay plan',
+            Number(plan?.price ?? 0),
+            new Date()
+          );
+        }
       } else {
         return NextResponse.json({ error: `Unsupported payment provider: ${providerName}` }, { status: 400 });
       }
@@ -185,11 +189,11 @@ export async function POST(req: NextRequest) {
     });
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-  // Compute dates + status/renewal refs
-  const startDate = new Date();
-  // default billingCycle if plan is missing
-  const billingCycle: 'monthly' | 'yearly' = (plan?.billingCycle as 'monthly' | 'yearly') ?? 'monthly';
-  const expiryDate = calculateSubscriptionExpiryDate(startDate, billingCycle);
+    // Compute dates + status/renewal refs
+    const startDate = new Date();
+    // default billingCycle if plan is missing
+    const billingCycle: 'monthly' | 'yearly' = (plan?.billingCycle as 'monthly' | 'yearly') ?? 'monthly';
+    const expiryDate = calculateSubscriptionExpiryDate(startDate, billingCycle);
     const status = await db.query.subscriptionStatuses.findFirst({ where: eq(subscriptionStatuses.name, 'active'), columns: { id: true } });
     const renewalType = await db.query.subscriptionRenewalTypes.findFirst({ where: eq(subscriptionRenewalTypes.name, 'auto'), columns: { id: true } });
     if (!status?.id) return NextResponse.json({ error: 'Subscription status "active" not found' }, { status: 500 });
@@ -231,8 +235,9 @@ export async function POST(req: NextRequest) {
       expiryDate: rpExpiryAt ?? expiryDate.toISOString(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      razorpaySubscriptionId: razorpaySubscriptionId ?? null,
-      razorpayCustomerId: rpCustomerId ?? razorpayCustomerId ?? null,
+      providerSubscriptionId: razorpaySubscriptionId ?? null,
+      providerCustomerId: rpCustomerId ?? razorpayCustomerId ?? null,
+      paymentGatewayProvider: 'razorpay',
     });
 
     return NextResponse.json({
@@ -251,4 +256,4 @@ export async function POST(req: NextRequest) {
     console.error('Error purchasing subscription:', error);
     return NextResponse.json({ error: 'Failed to purchase subscription' }, { status: 500 });
   }
-}
+});

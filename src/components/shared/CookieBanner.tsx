@@ -5,6 +5,7 @@ import { Cookie, Settings, CheckCircle, X, Shield, Eye, Users, Zap } from 'lucid
 import Link from 'next/link';
 import { useCookieConsent } from '@/hooks/use-cookie-consent';
 import { Button } from '@/components/ui/button';
+import { APP_CONFIG } from '@/lib/utils/constants';
 
 interface CookieSettings {
   essential: boolean;
@@ -35,7 +36,7 @@ export default function CookieBanner() {
 
   const handleCookieToggle = (type: keyof CookieSettings) => {
     if (type === 'essential') return; // Essential cookies cannot be disabled
-    
+
     setCookieSettings(prev => ({
       ...prev,
       [type]: !prev[type]
@@ -104,11 +105,11 @@ export default function CookieBanner() {
     return (
       <>
         {/* Backdrop */}
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
           onClick={() => setShowDetails(false)}
         />
-        
+
         {/* Cookie Settings Modal */}
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow max-w-1/2 w-full max-h-[90vh] overflow-hidden border border-gray-200 dark:border-gray-800">
@@ -120,7 +121,7 @@ export default function CookieBanner() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">Cookie Preferences</h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Manage how we use cookies on AuthPay</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Manage how we use cookies on {APP_CONFIG.APP_NAME}</p>
                 </div>
               </div>
               <Button
@@ -164,16 +165,14 @@ export default function CookieBanner() {
                           onClick={() => handleCookieToggle(cookie.id)}
                           disabled={cookie.required}
                           title={cookie.required ? 'Required cookies cannot be disabled' : `Toggle ${cookie.title}`}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            cookie.enabled 
-                              ? 'bg-blue-600' 
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${cookie.enabled
+                              ? 'bg-blue-600'
                               : 'bg-gray-300 dark:bg-gray-600'
-                          } ${cookie.required ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                            } ${cookie.required ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              cookie.enabled ? 'translate-x-6' : 'translate-x-1'
-                            }`}
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${cookie.enabled ? 'translate-x-6' : 'translate-x-1'
+                              }`}
                           />
                         </button>
                       </div>
@@ -185,10 +184,10 @@ export default function CookieBanner() {
               {/* Information */}
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  <strong>Your Privacy Matters:</strong> You can change these settings at any time. 
+                  <strong>Your Privacy Matters:</strong> You can change these settings at any time.
                   For more information, see our{' '}
-                  <Link 
-                    href="/cookies" 
+                  <Link
+                    href="/cookies"
                     className="underline hover:no-underline inline-flex items-center gap-1 text-black hover:text-gray-800 dark:text-white dark:hover:text-gray-200"
                     target="_blank" rel="noopener noreferrer"
                   >
@@ -198,8 +197,8 @@ export default function CookieBanner() {
                     </svg>
                   </Link>
                   {' '}and{' '}
-                  <Link 
-                    href="/privacy" 
+                  <Link
+                    href="/privacy"
                     className="underline hover:no-underline inline-flex items-center gap-1 text-black hover:text-gray-800 dark:text-white dark:hover:text-gray-200"
                     target="_blank" rel="noopener noreferrer"
                   >
@@ -221,7 +220,7 @@ export default function CookieBanner() {
                 <CheckCircle className="w-4 h-4" />
                 Accept All
               </Button>
-              
+
               <Button
                 onClick={handleAcceptSelected}
                 className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-500 flex items-center justify-center gap-2"
@@ -229,7 +228,7 @@ export default function CookieBanner() {
                 <Settings className="w-4 h-4" />
                 Save Preferences
               </Button>
-              
+
               <Button
                 onClick={handleRejectAll}
                 className="flex-1 px-4 py-3 border bg-red-400 hover:bg-red-500 dark:bg-red-500 dark:hover:bg-red-600 dark:text-white font-medium rounded-lg transition-colors duration-500 flex items-center justify-center gap-2"
@@ -259,10 +258,10 @@ export default function CookieBanner() {
                 We use cookies to enhance your experience
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                This site uses cookies for authentication, analytics, and personalization. 
+                This site uses cookies for authentication, analytics, and personalization.
                 You can customize your preferences or learn more in our{' '}
-                <Link 
-                  href="/privacy" 
+                <Link
+                  href="/privacy"
                   className="text-blue-600 dark:text-blue-400 hover:underline font-medium inline-flex items-center gap-1"
                   target="_blank" rel="noopener noreferrer"
                 >
@@ -285,7 +284,7 @@ export default function CookieBanner() {
               <CheckCircle className="w-4 h-4" />
               Accept All
             </Button>
-            
+
             <Button
               onClick={() => setShowDetails(true)}
               className="px-4 py-2 border border-gray-300 bg-yellow-200 hover:bg-yellow-300 text-neutral-900 font-medium rounded-lg transition-colors duration-500 flex items-center justify-center gap-2 text-sm"
@@ -293,7 +292,7 @@ export default function CookieBanner() {
               <Settings className="w-4 h-4" />
               Customize
             </Button>
-            
+
             <Button
               onClick={handleRejectAll}
               className="px-4 py-2 bg-red-400 hover:bg-red-500 dark:bg-red-500 dark:hover:bg-red-600 text-white font-medium rounded-lg transition-colors duration-500 flex items-center justify-center gap-2 text-sm"

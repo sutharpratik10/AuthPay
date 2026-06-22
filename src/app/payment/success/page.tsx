@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import Loading from '@/components/Loading';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle } from 'lucide-react';
@@ -14,6 +14,7 @@ function PaymentSuccessContent() {
   const [loading, setLoading] = useState(true);
   const [dashboardPath, setDashboardPath] = useState(ROUTE_POLICIES.USER_DASHBOARD.path);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -35,19 +36,30 @@ function PaymentSuccessContent() {
   }, [user]);
 
   useEffect(() => {
-    // Since we're now using internal subscription assignment,
-    // show success message and redirect to subscription management
-    const timer = setTimeout(() => {
-      setLoading(false);
-      toast({
-        title: "Subscription Activated",
-        description: "Your subscription has been successfully activated!",
-        variant: "success"
-      });
-    }, 1000);
+    const provider = searchParams?.get('provider');
+    const sessionId = searchParams?.get('session_id');
 
-    return () => clearTimeout(timer);
-  }, [router, toast]);
+    async function verifyAndActivate() {
+      try {
+        // For Stripe, call verify endpoint which also activates the subscription
+        if (provider === 'stripe' && sessionId) {
+          await fetch(`/api/payments/stripe-verify?session_id=${encodeURIComponent(sessionId)}`);
+        }
+      } catch {
+        // Verification failed — subscription may still be activated by webhook
+        console.warn('Stripe verification call failed, webhook will handle activation');
+      } finally {
+        setLoading(false);
+        toast({
+          title: "Subscription Activated",
+          description: "Your subscription has been successfully activated!",
+          variant: "success"
+        });
+      }
+    }
+
+    verifyAndActivate();
+  }, [router, toast, searchParams]);
 
   const handleGoToSubscription = () => {
     router.push('/protected/user/manage-subscription');
@@ -77,14 +89,13 @@ function PaymentSuccessContent() {
               Your subscription has been successfully activated. You now have access to all premium features.
             </p>
           </div>
-
           <div className="space-y-3">
             <Button onClick={handleGoToSubscription} className="w-full">
               Manage Subscription
             </Button>
-            <Button 
-              onClick={handleGoToDashboard} 
-              variant="outline" 
+            <Button
+              onClick={handleGoToDashboard}
+              variant="outline"
               className="w-full"
             >
               Go to Dashboard

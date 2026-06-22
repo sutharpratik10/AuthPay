@@ -33,6 +33,16 @@ export const ROUTE_POLICIES = {
     policy: 'user:manage',
     fallback: '/protected/user/dashboard'
   },
+  ADMIN_TRANSACTIONS: {
+    path: '/protected/admin/transactions',
+    policy: 'admin:access',
+    fallback: '/protected/user/dashboard'
+  },
+  ADMIN_PAYMENT_GATEWAY: {
+    path: '/protected/admin/paymentgateway',
+    policy: 'admin:access',
+    fallback: '/protected/user/dashboard'
+  },
   
   // User routes
   USER_DASHBOARD: {

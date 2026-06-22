@@ -8,18 +8,26 @@ import { requireAdmin } from "@/lib/rbac";
 import { db } from "@/server/db";
 import { permissions } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function PUT(
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const PUT = rateLimiters.api(async (
   req: NextRequest,
-  { params }: { params: Promise<{ policyId: string }> }
-) {
+  ...args: unknown[]
+): Promise<Response> => {
+  const context = args[0] as { params: Promise<{ policyId: string }> };
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
-    return authCheck.response;
+    return authCheck.response || NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    const { policyId } = await params;
+    const { policyId } = await context.params;
     const body = await req.json();
     const { name, description, category, displayName, resource, action } = body;
 
@@ -68,19 +76,23 @@ export async function PUT(
       { status: 500 }
     );
   }
-}
+});
 
-export async function DELETE(
+export const DELETE = rateLimiters.api(async (
   req: NextRequest,
-  { params }: { params: Promise<{ policyId: string }> }
-) {
+  ...args: unknown[]
+): Promise<Response> => {
+  const context = args[0] as { params: Promise<{ policyId: string }> };
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
-    return authCheck.response;
+    return authCheck.response || NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    const { policyId } = await params;
+    const { policyId } = await context.params;
 
     // Check if policy exists
     const existingPolicy = await db.query.permissions.findFirst({
@@ -116,4 +128,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+});

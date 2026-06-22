@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { subscriptionPlanService } from '@/server/services/subscription-plans';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 /**
  * GET /api/subscription-plans - Get all active subscription plans (public)
+ * Rate Limited: 100 requests per minute
  */
-export async function GET() {
+export const GET = rateLimiters.readOnly(async () => {
   try {
     const plans = await subscriptionPlanService.getActiveSubscriptionPlans();
 
@@ -26,4 +28,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});

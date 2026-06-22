@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api/permissions';
+import { withPolicy, API_POLICIES } from '@/lib/api/permissions';
 import { db } from '@/server/db';
 import { roles } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -188,6 +188,6 @@ async function deleteRole(req: NextRequest) {
   }
 }
 
-// Export with admin-only permissions
-export const PUT = withPermission(updateRole, API_PERMISSIONS.USER_EDIT);
-export const DELETE = withPermission(deleteRole, API_PERMISSIONS.USER_DELETE);
+// Export with admin-only policy
+export const PUT = withPolicy(updateRole, API_POLICIES.ROLE_MANAGE);
+export const DELETE = withPolicy(deleteRole, API_POLICIES.ROLE_MANAGE);

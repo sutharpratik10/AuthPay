@@ -1,14 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/lib"
 import { useSession, signOut } from "next-auth/react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { User, Mail, Key, Trash2, Upload, Eye, EyeOff, X, Shield, CheckCircle, Loader2, XCircle } from "lucide-react"
+import { User, Mail, Key, Trash2, Upload, Eye, EyeOff, X, Shield, CheckCircle, Loader2, XCircle, Smartphone } from "lucide-react"
 import { DeleteAccountModal } from "@/components/user/DeleteAccountModal"
+import { TOTPSetupWizard } from "@/components/auth/TOTPSetupWizard"
+import { RegenerateRecoveryCodesModal } from "@/components/auth/RegenerateRecoveryCodesModal"
 import { calculatePasswordStrength, getPasswordStrengthWidth, type PasswordStrength } from "@/lib/auth/password-strength"
 
 type PasswordStep = 'form' | 'otp' | 'success'
@@ -31,7 +33,7 @@ export default function AccountPage() {
   const { update } = useSession()
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
-  
+
   // Privacy & Security preferences state
   const [preferences, setPreferences] = useState<UserPreferences>({
     emailNotifications: true,
@@ -66,8 +68,18 @@ export default function AccountPage() {
     currentPassword: string;
     newPassword: string;
   } | null>(null)
+  // Prevent duplicate OTP submissions
+  const lastSubmittedOtp = useRef<string>("")
   // Delete account states
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  // TOTP setup wizard
+  const [showTOTPSetup, setShowTOTPSetup] = useState(false)
+  const [app2faEnabled, setApp2faEnabled] = useState(false)
+  const [email2faEnabled, setEmail2faEnabled] = useState(false)
+  const [recoveryCodesRemaining, setRecoveryCodesRemaining] = useState<number | null>(null)
+  const [disablePassword, setDisablePassword] = useState('')
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false)
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false)
   // Track if user has password (for OAuth users)
   const [hasPassword, setHasPassword] = useState<boolean | null>(null)
 
@@ -84,6 +96,29 @@ export default function AccountPage() {
     status: 'idle' | 'checking' | 'valid' | 'invalid'
     message?: string
   }>({ status: 'idle' })
+
+  // Login History state
+  const [loginHistory, setLoginHistory] = useState<any[]>([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
+
+  // Load login history
+  useEffect(() => {
+    const loadLoginHistory = async () => {
+      try {
+        const response = await fetch('/api/user/login-history')
+        if (response.ok) {
+          const data = await response.json()
+          setLoginHistory(data)
+        }
+      } catch (error) {
+        console.error('Failed to load login history:', error)
+      } finally {
+        setIsLoadingHistory(false)
+      }
+    }
+
+    loadLoginHistory()
+  }, [])
 
   // OTP Timer effect
   useEffect(() => {
@@ -158,7 +193,7 @@ export default function AccountPage() {
     }
 
     const currentPassword = passwordForm.currentPassword
-    
+
     // Reset if password is empty or too short
     if (!currentPassword || currentPassword.length < 3) {
       setCurrentPasswordValidation({ status: 'idle' })
@@ -168,7 +203,7 @@ export default function AccountPage() {
     // Debounce the validation - reduced to 500ms for faster feedback
     const timeoutId = setTimeout(async () => {
       setCurrentPasswordValidation({ status: 'checking' })
-      
+
       try {
         // Use lightweight validation endpoint (no OTP sending)
         const response = await fetch('/api/auth/validate-current-password', {
@@ -178,19 +213,19 @@ export default function AccountPage() {
         })
 
         if (response.ok) {
-          setCurrentPasswordValidation({ 
-            status: 'valid', 
-            message: 'Password verified' 
+          setCurrentPasswordValidation({
+            status: 'valid',
+            message: 'Password verified'
           })
         } else {
-          setCurrentPasswordValidation({ 
-            status: 'invalid', 
-            message: 'Incorrect password' 
+          setCurrentPasswordValidation({
+            status: 'invalid',
+            message: 'Incorrect password'
           })
         }
       } catch (error) {
         console.error('Password validation error:', error)
-        setCurrentPasswordValidation({ 
+        setCurrentPasswordValidation({
           status: 'idle'
         })
       }
@@ -211,7 +246,7 @@ export default function AccountPage() {
       setMessage({ type: 'error', text: 'Passwords do not match!' })
       return
     }
-    
+
     if (passwordForm.newPassword.length < 8) {
       setMessage({ type: 'error', text: 'Password must be at least 8 characters long!' })
       return
@@ -222,10 +257,10 @@ export default function AccountPage() {
       setMessage({ type: 'error', text: 'Password is too weak. Please create a stronger password.' })
       return
     }
-    
+
     setIsLoading(true)
     setMessage(null)
-    
+
     try {
       const response = await fetch('/api/user/set-password', {
         method: 'POST',
@@ -236,28 +271,28 @@ export default function AccountPage() {
           password: passwordForm.newPassword
         }),
       })
-      
+
       const result = await response.json()
-      
+
       if (!response.ok) {
-        setMessage({ 
-          type: 'error', 
-          text: result.error || 'Failed to set password. Please try again.' 
+        setMessage({
+          type: 'error',
+          text: result.error || 'Failed to set password. Please try again.'
         })
         return
       }
-      
+
       // Success - update hasPassword state and show success message
       setHasPassword(true)
       setMessage({ type: 'success', text: 'Password set successfully!' })
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
       setShowChangePassword(false)
-      
+
     } catch (error) {
       console.error('Set password error:', error)
-      setMessage({ 
-        type: 'error', 
-        text: error instanceof Error ? error.message : 'Failed to set password. Please try again.' 
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to set password. Please try again.'
       })
     } finally {
       setIsLoading(false)
@@ -266,7 +301,7 @@ export default function AccountPage() {
 
   const handlePasswordChange = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    
+
     console.log('=== [Password Change] FUNCTION CALLED ===')
     console.log('[Password Change] Event:', event)
     console.log('[Password Change] Starting password change process...')
@@ -279,27 +314,27 @@ export default function AccountPage() {
       newPasswordLength: passwordForm.newPassword.length,
       passwordsMatch: passwordForm.newPassword === passwordForm.confirmPassword
     })
-    
+
     try {
       // For OAuth users without password, handle setting password
       if (hasPassword === false) {
         console.log('[Password Change] Handling set password for OAuth user')
         return handleSetPassword()
       }
-      
+
       // Validation for users with existing password
       if (!passwordForm.currentPassword) {
         console.log('[Password Change] Validation failed: Current password required')
         setMessage({ type: 'error', text: 'Current password is required!' })
         return
       }
-      
+
       if (passwordForm.newPassword !== passwordForm.confirmPassword) {
         console.log('[Password Change] Validation failed: Passwords do not match')
         setMessage({ type: 'error', text: 'New passwords do not match!' })
         return
       }
-      
+
       if (passwordForm.newPassword.length < 8) {
         console.log('[Password Change] Validation failed: Password too short')
         setMessage({ type: 'error', text: 'Password must be at least 8 characters long!' })
@@ -312,17 +347,17 @@ export default function AccountPage() {
         setMessage({ type: 'error', text: 'Password is too weak. Please create a stronger password.' })
         return
       }
-      
+
       if (passwordForm.currentPassword === passwordForm.newPassword) {
         console.log('[Password Change] Validation failed: Same as current password')
         setMessage({ type: 'error', text: 'New password must be different from current password!' })
         return
       }
-      
+
       console.log('[Password Change] All validations passed, calling API...')
       setIsLoading(true)
       setMessage(null)
-      
+
       // First, verify current password and send OTP
       console.log('[Password Change] Calling /api/auth/verify-password')
       const response = await fetch('/api/auth/verify-password', {
@@ -334,20 +369,20 @@ export default function AccountPage() {
           currentPassword: passwordForm.currentPassword
         }),
       })
-      
+
       console.log('[Password Change] API response status:', response.status)
       const result = await response.json()
       console.log('[Password Change] API response data:', result)
-      
+
       if (!response.ok) {
         console.log('[Password Change] API returned error:', result.error)
-        setMessage({ 
-          type: 'error', 
-          text: result.error || 'Current password verification failed. Please check your password and try again.' 
+        setMessage({
+          type: 'error',
+          text: result.error || 'Current password verification failed. Please check your password and try again.'
         })
         return
       }
-      
+
       console.log('[Password Change] API call successful, moving to OTP step')
       // Store password data temporarily and move to OTP step
       setTempPasswordData({
@@ -358,12 +393,12 @@ export default function AccountPage() {
       setOtpTimer(60) // 60 seconds timer
       setMessage({ type: 'success', text: 'OTP sent to your email address!' })
       console.log('[Password Change] Password change step completed successfully')
-      
+
     } catch (error) {
       console.error('[Password Change] Error during password change:', error)
-      setMessage({ 
-        type: 'error', 
-        text: error instanceof Error ? error.message : 'Failed to process password change. Please try again.' 
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to process password change. Please try again.'
       })
     } finally {
       setIsLoading(false)
@@ -372,21 +407,28 @@ export default function AccountPage() {
 
   const handleOtpVerification = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    
+
     if (!tempPasswordData) {
       setMessage({ type: 'error', text: 'Password data not found. Please start over.' })
       setPasswordStep('form')
       return
     }
-    
+
     if (otp.length !== 6) {
       setMessage({ type: 'error', text: 'Please enter a valid 6-digit OTP.' })
       return
     }
-    
+
+    // Prevent duplicate submission of the same OTP
+    if (lastSubmittedOtp.current === otp) {
+      setMessage({ type: 'error', text: 'This OTP has already been submitted. Please request a new OTP if needed.' })
+      return
+    }
+
     setIsLoading(true)
     setMessage(null)
-    
+    lastSubmittedOtp.current = otp
+
     try {
       // Verify OTP and change password
       const response = await fetch('/api/auth/change-password', {
@@ -399,38 +441,38 @@ export default function AccountPage() {
           otp: otp
         }),
       })
-      
+
       const result = await response.json()
-      
+
       if (!response.ok) {
-        setMessage({ 
-          type: 'error', 
-          text: result.error || 'Failed to change password. Please try again.' 
+        setMessage({
+          type: 'error',
+          text: result.error || 'Failed to change password. Please try again.'
         })
         return
       }
-      
+
       // Success - move to success step
       setPasswordStep('success')
       setMessage({ type: 'success', text: 'Password changed successfully!' })
-      
+
       // Reset form data
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
       setOtp('')
       setTempPasswordData(null)
-      
+
       // Auto-close after 3 seconds
       setTimeout(() => {
         setShowChangePassword(false)
         setPasswordStep('form')
         setMessage(null)
       }, 3000)
-      
+
     } catch (error) {
       console.error('OTP verification error:', error)
-      setMessage({ 
-        type: 'error', 
-        text: error instanceof Error ? error.message : 'Invalid OTP or failed to change password. Please try again.' 
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Invalid OTP or failed to change password. Please try again.'
       })
     } finally {
       setIsLoading(false)
@@ -443,10 +485,10 @@ export default function AccountPage() {
       setPasswordStep('form')
       return
     }
-    
+
     setIsLoading(true)
     setMessage(null)
-    
+
     try {
       const response = await fetch('/api/auth/verify-password', {
         method: 'POST',
@@ -457,26 +499,27 @@ export default function AccountPage() {
           currentPassword: tempPasswordData.currentPassword
         }),
       })
-      
+
       const result = await response.json()
-      
+
       if (!response.ok) {
-        setMessage({ 
-          type: 'error', 
-          text: result.error || 'Failed to resend OTP. Please try again.' 
+        setMessage({
+          type: 'error',
+          text: result.error || 'Failed to resend OTP. Please try again.'
         })
         return
       }
-      
+
       setOtpTimer(60) // Reset timer
       setOtp('') // Clear OTP input
+      lastSubmittedOtp.current = '' // Reset submitted OTP tracker to allow new submission
       setMessage({ type: 'success', text: 'New OTP sent to your email address!' })
-      
+
     } catch (error) {
       console.error('Resend OTP error:', error)
-      setMessage({ 
-        type: 'error', 
-        text: error instanceof Error ? error.message : 'Failed to resend OTP. Please try again.' 
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to resend OTP. Please try again.'
       })
     } finally {
       setIsLoading(false)
@@ -488,6 +531,7 @@ export default function AccountPage() {
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
     setPasswordStep('form')
     setMessage(null)
+    lastSubmittedOtp.current = '' // Reset submitted OTP tracker
   }
 
   const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {
@@ -585,15 +629,15 @@ export default function AccountPage() {
       const result = await response.json()
 
       if (!response.ok) {
-        setMessage({ 
-          type: 'error', 
-          text: result.error || 'Failed to update profile. Please try again.' 
+        setMessage({
+          type: 'error',
+          text: result.error || 'Failed to update profile. Please try again.'
         })
         return
       }
-      
+
       setMessage({ type: 'success', text: 'Profile updated successfully!' })
-      
+
       // Trigger session refresh to update user data in the UI
       try {
         await update({
@@ -603,12 +647,12 @@ export default function AccountPage() {
         console.warn('Failed to update session:', updateError)
         // Still show success since the database was updated
       }
-      
+
     } catch (error) {
       console.error('Profile update error:', error)
-      setMessage({ 
-        type: 'error', 
-        text: 'Failed to update profile. Please try again.' 
+      setMessage({
+        type: 'error',
+        text: 'Failed to update profile. Please try again.'
       })
     } finally {
       setIsLoading(false)
@@ -647,26 +691,26 @@ export default function AccountPage() {
       const result = await response.json()
 
       if (!response.ok) {
-        setMessage({ 
-          type: 'error', 
-          text: result.error || 'Failed to delete account. Please try again.' 
+        setMessage({
+          type: 'error',
+          text: result.error || 'Failed to delete account. Please try again.'
         })
         return
       }
 
       // Show success message briefly before logout
       setMessage({ type: 'success', text: 'Account deleted successfully. Logging out...' })
-      
+
       // Wait a moment to show the message, then sign out
       setTimeout(async () => {
         await signOut({ callbackUrl: '/' })
       }, 2000)
-      
+
     } catch (error) {
       console.error('Account deletion error:', error)
-      setMessage({ 
-        type: 'error', 
-        text: 'Failed to delete account. Please try again.' 
+      setMessage({
+        type: 'error',
+        text: 'Failed to delete account. Please try again.'
       })
     } finally {
       setIsLoading(false)
@@ -691,11 +735,12 @@ export default function AccountPage() {
 
       if (response.ok) {
         updatePreference('twoFactorAuth', enabled)
-        setMessage({ 
-          type: 'success', 
-          text: enabled 
-            ? 'Two-Factor Authentication enabled successfully!' 
-            : 'Two-Factor Authentication disabled successfully!' 
+        setEmail2faEnabled(enabled)
+        setMessage({
+          type: 'success',
+          text: enabled
+            ? 'Email-based Two-Factor Authentication enabled successfully!'
+            : 'Email Two-Factor Authentication disabled successfully!'
         })
       } else {
         const errorData = await response.json()
@@ -704,6 +749,74 @@ export default function AccountPage() {
     } catch (error) {
       console.error('Error updating 2FA settings:', error)
       setMessage({ type: 'error', text: 'Failed to update 2FA settings. Please try again.' })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Fetch TOTP status on mount
+  useEffect(() => {
+    const fetchTOTPStatus = async () => {
+      try {
+        const response = await fetch('/api/auth/check-2fa-status')
+        if (response.ok) {
+          const data = await response.json()
+          setApp2faEnabled(data.totpEnabled)
+          setEmail2faEnabled(data.email2faEnabled)
+          if (data.totpEnabled) {
+            setRecoveryCodesRemaining(data.recoveryCodesRemaining ?? null)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching TOTP status:', error)
+      }
+    }
+    fetchTOTPStatus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferences.twoFactorAuth])
+
+  const handleTOTPSetupSuccess = () => {
+    setApp2faEnabled(true)
+    setRecoveryCodesRemaining(10)
+    setMessage({ type: 'success', text: 'Authenticator app has been set up successfully!' })
+  }
+
+  const handleRegenerateSuccess = () => {
+    setRecoveryCodesRemaining(10)
+    setMessage({ type: 'success', text: 'Recovery codes regenerated successfully!' })
+  }
+
+  const handleDisableTOTP = async () => {
+    if (!disablePassword) {
+      setMessage({ type: 'error', text: 'Please enter your password to disable 2FA.' })
+      return
+    }
+
+    setIsLoading(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch('/api/auth/totp/disable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: disablePassword }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setApp2faEnabled(false)
+        setRecoveryCodesRemaining(null)
+        setShowDisableConfirm(false)
+        setDisablePassword('')
+        setMessage({ type: 'success', text: 'Authenticator App Two-Factor Authentication has been disabled.' })
+      } else {
+        const errorMsg = data.error || data.data?.error || 'Failed to disable 2FA.'
+        setMessage({ type: 'error', text: errorMsg })
+      }
+    } catch (error) {
+      console.error('Error disabling TOTP:', error)
+      setMessage({ type: 'error', text: 'Failed to disable 2FA. Please try again.' })
     } finally {
       setIsLoading(false)
     }
@@ -720,11 +833,10 @@ export default function AccountPage() {
 
         {/* Success/Error Message */}
         {message && (
-          <div className={`p-4 rounded-md ${
-            message.type === 'success' 
-              ? 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-900 dark:text-green-200' 
-              : 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-900 dark:text-red-200'
-          }`}>
+          <div className={`p-4 rounded-md ${message.type === 'success'
+            ? 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-900 dark:text-green-200'
+            : 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-900 dark:text-red-200'
+            }`}>
             {message.text}
           </div>
         )}
@@ -753,20 +865,20 @@ export default function AccountPage() {
                 </p>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="name" className="text-sm font-medium">Full Name</label>
-                <Input 
+                <Input
                   id="name"
                   name="name"
-                  defaultValue={user?.name || ""} 
+                  defaultValue={user?.name || ""}
                   placeholder="Enter your full name"
                   className="mt-1"
                   required
                 />
               </div>
-              
+
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label htmlFor="email" className="text-sm font-medium">Email Address</label>
@@ -782,10 +894,10 @@ export default function AccountPage() {
                           <Mail className="w-3 h-3 mr-1" />
                           Pending Verification
                         </div>
-                        <Button 
+                        <Button
                           type="button"
-                          variant="outline" 
-                          size="sm" 
+                          variant="outline"
+                          size="sm"
                           onClick={handleResendVerification}
                           disabled={isLoading}
                         >
@@ -795,10 +907,10 @@ export default function AccountPage() {
                     )}
                   </div>
                 </div>
-                <Input 
+                <Input
                   id="email"
                   name="email"
-                  defaultValue={user?.email || ""} 
+                  defaultValue={user?.email || ""}
                   disabled
                   className="mt-1"
                 />
@@ -807,13 +919,13 @@ export default function AccountPage() {
                 </p>
               </div>
             </div>
-            
+
             <Button type="submit" disabled={isLoading}>
               {isLoading ? 'Saving...' : 'Save Changes'}
             </Button>
           </form>
         </div>
-        
+
         {/* Security Settings */}
         <div className="border rounded-lg p-6 bg-card">
           <h2 className="flex items-center text-lg font-semibold mb-4">
@@ -826,15 +938,15 @@ export default function AccountPage() {
                 <div>
                   <h3 className="font-medium">Password</h3>
                   <p className="text-sm text-muted-foreground">
-                    {hasPassword === false 
-                      ? "No password set (OAuth login)" 
+                    {hasPassword === false
+                      ? "No password set (OAuth login)"
                       : "Last changed: Not available"
                     }
                   </p>
                 </div>
                 {!showChangePassword && (
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => setShowChangePassword(true)}
                   >
                     {hasPassword === false ? "Set Password" : "Change Password"}
@@ -860,7 +972,7 @@ export default function AccountPage() {
                           <X className="w-4 h-4" />
                         </Button>
                       </div>
-                      
+
                       {/* Current Password field - only show for users who have a password */}
                       {hasPassword !== false && (
                         <div>
@@ -880,13 +992,12 @@ export default function AccountPage() {
                                 }
                               }}
                               placeholder="Enter your current password"
-                              className={`pr-20 ${
-                                currentPasswordValidation.status === 'valid' ? 'border-green-500 focus:border-green-500' :
+                              className={`pr-20 ${currentPasswordValidation.status === 'valid' ? 'border-green-500 focus:border-green-500' :
                                 currentPasswordValidation.status === 'invalid' ? 'border-red-500 focus:border-red-500' : ''
-                              }`}
+                                }`}
                               required
                             />
-                            
+
                             {/* Validation indicator */}
                             <div className="absolute right-12 top-1/2 -translate-y-1/2">
                               {currentPasswordValidation.status === 'checking' && (
@@ -899,7 +1010,7 @@ export default function AccountPage() {
                                 <XCircle className="w-4 h-4 text-red-500" />
                               )}
                             </div>
-                            
+
                             {/* Password visibility toggle */}
                             <Button
                               type="button"
@@ -911,12 +1022,11 @@ export default function AccountPage() {
                               {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </Button>
                           </div>
-                          
+
                           {/* Validation message */}
                           {currentPasswordValidation.message && (
-                            <p className={`text-xs mt-1 ${
-                              currentPasswordValidation.status === 'valid' ? 'text-green-600' : 'text-red-600'
-                            }`}>
+                            <p className={`text-xs mt-1 ${currentPasswordValidation.status === 'valid' ? 'text-green-600' : 'text-red-600'
+                              }`}>
                               {currentPasswordValidation.status === 'valid' ? '✓ ' : '✗ '}
                               {currentPasswordValidation.message}
                             </p>
@@ -959,22 +1069,21 @@ export default function AccountPage() {
                               <span className="text-xs text-gray-600 dark:text-gray-400">
                                 Password strength:
                               </span>
-                              <span className={`text-xs font-medium ${
-                                passwordStrength.score <= 1 ? 'text-red-600' :
+                              <span className={`text-xs font-medium ${passwordStrength.score <= 1 ? 'text-red-600' :
                                 passwordStrength.score <= 2 ? 'text-orange-600' :
-                                passwordStrength.score <= 3 ? 'text-yellow-600' :
-                                'text-green-600'
-                              }`}>
+                                  passwordStrength.score <= 3 ? 'text-yellow-600' :
+                                    'text-green-600'
+                                }`}>
                                 {passwordStrength.label}
                               </span>
                             </div>
-                            
+
                             <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
+                              <div
                                 className={`h-2 rounded-full transition-all duration-300 ${passwordStrength.color} ${getPasswordStrengthWidth(passwordStrength.score)}`}
                               />
                             </div>
-                            
+
                             {passwordStrength.suggestions.length > 0 && (
                               <div className="text-xs text-gray-600 dark:text-gray-400">
                                 <p className="font-medium mb-1">To improve your password:</p>
@@ -987,6 +1096,17 @@ export default function AccountPage() {
                             )}
                           </div>
                         )}
+
+                        {/* Warning if new password is same as current password */}
+                        {hasPassword !== false && passwordForm.currentPassword && passwordForm.newPassword &&
+                          passwordForm.currentPassword === passwordForm.newPassword && (
+                            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                              <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                                <XCircle className="w-3 h-3" />
+                                New password must be different from current password
+                              </p>
+                            </div>
+                          )}
                       </div>
 
                       <div>
@@ -1000,13 +1120,12 @@ export default function AccountPage() {
                             value={passwordForm.confirmPassword}
                             onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
                             placeholder="Confirm your new password"
-                            className={`${
-                              passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword
-                                ? 'border-red-500 focus:border-red-500'
-                                : passwordForm.confirmPassword && passwordForm.newPassword === passwordForm.confirmPassword
+                            className={`${passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword
+                              ? 'border-red-500 focus:border-red-500'
+                              : passwordForm.confirmPassword && passwordForm.newPassword === passwordForm.confirmPassword
                                 ? 'border-green-500 focus:border-green-500'
                                 : ''
-                            }`}
+                              }`}
                             required
                           />
                           <Button
@@ -1019,14 +1138,13 @@ export default function AccountPage() {
                             {showPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </Button>
                         </div>
-                        
+
                         {/* Password Match Indicator */}
                         {passwordForm.confirmPassword && (
-                          <p className={`text-xs mt-1 ${
-                            passwordForm.newPassword === passwordForm.confirmPassword
-                              ? 'text-green-600'
-                              : 'text-red-600'
-                          }`}>
+                          <p className={`text-xs mt-1 ${passwordForm.newPassword === passwordForm.confirmPassword
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                            }`}>
                             {passwordForm.newPassword === passwordForm.confirmPassword
                               ? '✓ Passwords match'
                               : '✗ Passwords do not match'
@@ -1036,16 +1154,17 @@ export default function AccountPage() {
                       </div>
 
                       <div className="flex space-x-2 pt-2">
-                        <Button 
-                          type="submit" 
+                        <Button
+                          type="submit"
                           disabled={
-                            isLoading || 
-                            !passwordForm.newPassword || 
+                            isLoading ||
+                            !passwordForm.newPassword ||
                             !passwordForm.confirmPassword ||
                             passwordForm.newPassword !== passwordForm.confirmPassword ||
                             passwordForm.newPassword.length < 8 ||
                             passwordStrength.score < 2 ||
-                            (hasPassword !== false && !passwordForm.currentPassword)
+                            (hasPassword !== false && !passwordForm.currentPassword) ||
+                            (hasPassword !== false && passwordForm.currentPassword === passwordForm.newPassword)
                           }
                           onClick={() => {
                             console.log('=== BUTTON CLICKED ===')
@@ -1058,8 +1177,8 @@ export default function AccountPage() {
                               passwordStrengthScore: passwordStrength.score,
                               hasPassword,
                               hasCurrentPassword: !!passwordForm.currentPassword,
-                              shouldBeDisabled: isLoading || 
-                                !passwordForm.newPassword || 
+                              shouldBeDisabled: isLoading ||
+                                !passwordForm.newPassword ||
                                 !passwordForm.confirmPassword ||
                                 passwordForm.newPassword !== passwordForm.confirmPassword ||
                                 passwordForm.newPassword.length < 8 ||
@@ -1070,9 +1189,9 @@ export default function AccountPage() {
                         >
                           {isLoading ? 'Processing...' : (hasPassword === false ? 'Set Password' : 'Send OTP')}
                         </Button>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
+                        <Button
+                          type="button"
+                          variant="outline"
                           onClick={cancelPasswordChange}
                         >
                           Cancel
@@ -1103,7 +1222,7 @@ export default function AccountPage() {
                           We&apos;ve sent a 6-digit verification code to your email address.
                           Please enter it below to complete the password change.
                         </p>
-                        
+
                         <div>
                           <label htmlFor="otp" className="text-sm font-medium">
                             Verification Code
@@ -1143,9 +1262,9 @@ export default function AccountPage() {
                         <Button type="submit" disabled={isLoading || otp.length !== 6}>
                           {isLoading ? 'Verifying...' : 'Verify & Change Password'}
                         </Button>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
+                        <Button
+                          type="button"
+                          variant="outline"
                           onClick={() => setPasswordStep('form')}
                         >
                           Back
@@ -1202,7 +1321,7 @@ export default function AccountPage() {
                 disabled={isLoading}
               />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium">Profile Visibility</label>
               <Switch
@@ -1212,28 +1331,159 @@ export default function AccountPage() {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium">Two-Factor Authentication</label>
-                <p className="text-xs text-muted-foreground">
-                  Require a verification code when signing in
-                </p>
+            {/* Enhanced 2FA Section */}
+            <div className="space-y-4 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-blue-600" />
+                <label className="text-sm font-semibold">Two-Factor Authentication</label>
               </div>
-              <Switch
-                checked={preferences.twoFactorAuth || false}
-                onCheckedChange={handle2FAToggle}
-                disabled={isLoading}
-              />
+
+              {/* Current Status */}
+              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Current Method</p>
+                    <p className="text-xs text-muted-foreground">
+                      {app2faEnabled && email2faEnabled && 'Authenticator App + Email Code'}
+                      {app2faEnabled && !email2faEnabled && 'Authenticator App (TOTP)'}
+                      {!app2faEnabled && email2faEnabled && 'Email verification code'}
+                      {!app2faEnabled && !email2faEnabled && 'Not enabled'}
+                    </p>
+                  </div>
+                  <div className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${app2faEnabled || email2faEnabled
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                    : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                    }`}>
+                    {app2faEnabled || email2faEnabled ? 'Enabled' : 'Disabled'}
+                  </div>
+                </div>
+
+                {/* Recovery codes info (only for TOTP) */}
+                {app2faEnabled && recoveryCodesRemaining !== null && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Recovery codes remaining</span>
+                    <span className={`font-medium ${recoveryCodesRemaining <= 2 ? 'text-red-600' : 'text-green-600'
+                      }`}>
+                      {recoveryCodesRemaining} of 10
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-2">
+                {/* Email 2FA toggle */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm">Email Verification Code</p>
+                    <p className="text-xs text-muted-foreground">
+                      Receive a code via email when signing in
+                    </p>
+                  </div>
+                  <Switch
+                    checked={email2faEnabled}
+                    onCheckedChange={handle2FAToggle}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                {/* Setup Authenticator App button */}
+                {!app2faEnabled && (
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center gap-2"
+                    onClick={() => setShowTOTPSetup(true)}
+                    disabled={isLoading}
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    Set Up Authenticator App
+                  </Button>
+                )}
+
+                {/* Regenerate Recovery Codes button */}
+                {app2faEnabled && (
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center gap-2"
+                    onClick={() => setShowRegenerateConfirm(true)}
+                    disabled={isLoading || showDisableConfirm}
+                  >
+                    <Key className="w-4 h-4" />
+                    Regenerate Recovery Codes
+                  </Button>
+                )}
+
+                {/* Disable TOTP button */}
+                {app2faEnabled && !showDisableConfirm && (
+                  <Button
+                    variant="outline"
+                    className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    onClick={() => setShowDisableConfirm(true)}
+                    disabled={isLoading}
+                  >
+                    Disable Two-Factor Authentication
+                  </Button>
+                )}
+
+                {/* Disable confirmation */}
+                {showDisableConfirm && (
+                  <div className="border border-red-200 dark:border-red-800 rounded-lg p-4 space-y-3">
+                    <p className="text-sm text-red-600 dark:text-red-400 font-medium">
+                      Enter your password to disable 2FA
+                    </p>
+                    <Input
+                      type="password"
+                      value={disablePassword}
+                      onChange={(e) => setDisablePassword(e.target.value)}
+                      placeholder="Enter your password"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setShowDisableConfirm(false)
+                          setDisablePassword('')
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDisableTOTP}
+                        disabled={isLoading || !disablePassword}
+                      >
+                        {isLoading ? 'Disabling...' : 'Confirm Disable'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
+            {/* TOTP Setup Wizard Dialog */}
+            <TOTPSetupWizard
+              isOpen={showTOTPSetup}
+              onClose={() => setShowTOTPSetup(false)}
+              onSuccess={handleTOTPSetupSuccess}
+            />
+
+            {/* Regenerate Recovery Codes Dialog */}
+            <RegenerateRecoveryCodesModal
+              isOpen={showRegenerateConfirm}
+              onClose={() => setShowRegenerateConfirm(false)}
+              onSuccess={handleRegenerateSuccess}
+            />
+
             <div className="flex space-x-2 pt-4">
-              <Button 
-                onClick={handleSavePrivacySettings} 
+              <Button
+                onClick={handleSavePrivacySettings}
                 disabled={isLoading}
               >
                 {isLoading ? 'Saving...' : 'Save Privacy Settings'}
               </Button>
-              
+
               <Button
                 variant="outline"
                 onClick={handleDataExport}
@@ -1245,19 +1495,52 @@ export default function AccountPage() {
           </div>
         </div>
 
+        {/* Login History */}
+        <div className="border rounded-lg p-6 bg-card">
+          <h2 className="flex items-center text-lg font-semibold mb-4">
+            <Smartphone className="w-5 h-5 mr-2" />
+            Recent Logins
+          </h2>
+          <div className="space-y-4">
+            {isLoadingHistory ? (
+              <div className="flex justify-center p-4">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : loginHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No login history available.</p>
+            ) : (
+              <div className="divide-y border rounded-md">
+                {loginHistory.map((login) => (
+                  <div key={login.id} className="p-4 flex flex-col md:flex-row justify-between md:items-center gap-4 hover:bg-muted/30 transition-colors">
+                    <div>
+                      <p className="font-medium text-sm">{login.device} ({login.os})</p>
+                      <p className="text-xs text-muted-foreground">{login.browser}</p>
+                    </div>
+                    <div className="text-left md:text-right">
+                      <p className="text-sm">{login.location}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(login.loginAt).toLocaleString()} • {login.ipAddress}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Danger Zone */}
         <div className="border border-red-200 rounded-lg p-6 bg-red-50 dark:bg-red-950 dark:border-red-800">
           <h2 className="flex items-center text-lg font-semibold mb-4 text-red-600 dark:text-red-400">
             <Trash2 className="w-5 h-5 mr-2" />
-            Danger Zone
+            Delete Account
           </h2>
           <div className="space-y-4">
             <div>
-              <h3 className="font-medium text-red-600 dark:text-red-400">Delete Account</h3>
-              <p className="text-sm text-red-500 dark:text-red-300 mb-2">
+              <p className="text-sm text-red-500 dark:text-red-100 mb-2">
                 Once you delete your account, there is no going back. Please be certain.
               </p>
-              <Button 
+              <Button
                 variant="destructive"
                 onClick={() => setShowDeleteModal(true)}
                 disabled={isLoading}

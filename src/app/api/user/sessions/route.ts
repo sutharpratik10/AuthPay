@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withSessionValidation } from '@/lib/auth/session-validation';
 import { SessionService } from '@/server/services/session';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 // Example: Get user's active sessions
-export async function GET(request: NextRequest) {
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const GET = rateLimiters.api(async (request: NextRequest) => {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
@@ -39,10 +43,10 @@ export async function GET(request: NextRequest) {
       requireActiveUser: true,
     }
   );
-}
+});
 
 // Example: Invalidate a specific session
-export async function DELETE(request: NextRequest) {
+export const DELETE = rateLimiters.api(async (request: NextRequest) => {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
@@ -82,10 +86,10 @@ export async function DELETE(request: NextRequest) {
       }
     }
   );
-}
+});
 
 // Example: Invalidate all other sessions (logout from other devices)
-export async function POST(request: NextRequest) {
+export const POST = rateLimiters.api(async (request: NextRequest) => {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
@@ -127,4 +131,4 @@ export async function POST(request: NextRequest) {
       }
     }
   );
-}
+});

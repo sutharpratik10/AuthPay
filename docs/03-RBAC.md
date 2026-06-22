@@ -14,7 +14,7 @@
 
 ## Overview
 
-AuthPay implements a sophisticated **policy-based RBAC system** that provides fine-grained access control throughout the application. Unlike traditional role-based systems, our approach uses policies (permissions) to define what users can do, making the system more flexible and maintainable.
+Authpay implements a sophisticated **policy-based RBAC system** that provides fine-grained access control throughout the application. Unlike traditional role-based systems, our approach uses policies (permissions) to define what users can do, making the system more flexible and maintainable.
 
 ### Why Policy-Based?
 
@@ -56,36 +56,36 @@ if (await hasPolicy(userId, 'content:create')) {
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                    User Authentication                    │
+│                    User Authentication                   │
 └────────────────────────┬─────────────────────────────────┘
                          │
                          │ Load Roles & Policies
                          ▼
 ┌──────────────────────────────────────────────────────────┐
 │                     RBACService                          │
-│  ┌────────────────────────────────────────────────────┐ │
-│  │  getUserPolicies(userId)                           │ │
-│  │    ↓                                               │ │
-│  │  1. Check cache (5min TTL)                         │ │
-│  │  2. Query user_roles → roles                       │ │
-│  │  3. Query role_permissions → policies              │ │
-│  │  4. Admin check (bypass all)                       │ │
-│  │  5. Return aggregated policies                     │ │
-│  └────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │  getUserPolicies(userId)                           │  │
+│  │    ↓                                               │  │
+│  │  1. Check cache (5min TTL)                         │  │
+│  │  2. Query user_roles → roles                       │  │
+│  │  3. Query role_permissions → policies              │  │
+│  │  4. Admin check (bypass all)                       │  │
+│  │  5. Return aggregated policies                     │  │
+│  └────────────────────────────────────────────────────┘  │
 └────────────────────────┬─────────────────────────────────┘
                          │
                          │ Policies cached in session
                          ▼
 ┌──────────────────────────────────────────────────────────┐
-│                   Request Processing                      │
+│                   Request Processing                     │
 │                                                          │
-│  Middleware → Check Route Policy                        │
+│  Middleware → Check Route Policy                         │
 │       ↓                                                  │
-│  API Route → requirePolicy()                            │
+│  API Route → requirePolicy()                             │
 │       ↓                                                  │
-│  hasPolicy(userId, 'resource:action')                   │
+│  hasPolicy(userId, 'resource:action')                    │
 │       ↓                                                  │
-│  ✅ Allow / ❌ Deny                                      │
+│  ✅ Allow / ❌ Deny                                     │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -94,11 +94,11 @@ if (await hasPolicy(userId, 'content:create')) {
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | **RBACService** | `src/lib/rbac/rbac-service.ts` | Core permission logic |
-| **Policy Middleware** | `src/lib/rbac/policy-middleware.ts` | API route protection |
+| **Policy Middleware** | `src/lib/api/permissions.ts` | API route protection (`withPolicy`) |
 | **Routing Utils** | `src/lib/rbac/routing-utils.ts` | Dynamic dashboard routing |
 | **Policies Constants** | `src/lib/rbac/index.ts` | Policy definitions |
 | **Route Middleware** | `middleware.ts` | Route-level protection |
-| **Admin APIs** | `src/app/api/rbac/` | RBAC management endpoints |
+| **Admin APIs** | `src/app/api/admin/` | RBAC management endpoints |
 
 ## Core Concepts
 

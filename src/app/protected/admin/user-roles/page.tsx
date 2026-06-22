@@ -1,7 +1,7 @@
 
 import { redirect } from 'next/navigation';
 import { auth } from '@/config/auth';
-import { PermissionService } from '@/server/services/permissions';
+import { getAuthorizedRoute, ROUTE_POLICIES } from '@/lib/rbac/routing-utils';
 import AdminUserRolesPage from '@/components/admin/AdminUserRolesPage';
 import { Metadata } from 'next';
 
@@ -11,16 +11,18 @@ export const metadata: Metadata = {
 };
 
 export default async function UserRolesPage() {
+  // ProtectedRoute handles all authentication
+  // Use policy-based authorization check here
   const session = await auth();
+  const userId = session?.user?.id as string;
   
-  if (!session?.user?.id) {
-    redirect('/auth/login');
+  // Check if user has access to this route using policy
+  const { allowed, redirectTo } = await getAuthorizedRoute(userId, ROUTE_POLICIES.ADMIN_USER_ROLES.path);
+  
+  if (!allowed && redirectTo) {
+    redirect(redirectTo);
   }
-  // Check if user is admin
-  const isAdmin = await PermissionService.isAdmin(session.user.id);
-  if (!isAdmin) {
-    redirect('/protected/user/dashboard');
-  }
+  
   return (
     <div className="container mx-auto py-6">
       <div className="mb-6">

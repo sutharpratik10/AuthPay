@@ -1,7 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
+import useSWR from 'swr';
+import { swrConfigFrequent } from '@/lib/swr-config';
 
 interface SubscriptionStatus {
   hasSubscription: boolean;
@@ -11,7 +13,8 @@ interface SubscriptionStatus {
   billingCycle?: string;
   expiryDate?: string;
   isActive?: boolean;
-  razorpaySubscriptionId?: string;
+  paymentGatewayProvider?: string | null;
+  providerSubscriptionId?: string;
 }
 
 interface SubscriptionContextType {
@@ -23,7 +26,7 @@ interface SubscriptionContextType {
 const SubscriptionContext = createContext<SubscriptionContextType>({
   subscriptionStatus: null,
   isLoading: true,
-  refreshSubscription: async () => {},
+  refreshSubscription: async () => { },
 });
 
 export function useSubscription() {
@@ -32,56 +35,37 @@ export function useSubscription() {
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
-  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasFetched, setHasFetched] = useState(false);
+  const userId = session?.user?.id;
 
-  const fetchSubscriptionStatus = useCallback(async () => {
-    if (!session?.user?.id) {
-      setSubscriptionStatus(null);
-      setIsLoading(false);
-      return;
+  // Memoize the SWR key to prevent unnecessary re-fetches
+  const swrKey = useMemo(() => {
+    return status === 'authenticated' && userId ? '/api/user/subscription-status' : null;
+  }, [status, userId]);
+
+  // Use SWR for automatic caching and revalidation
+  // Explicitly pass the fetcher to ensure consistency
+  const { data, isLoading, mutate } = useSWR(
+    swrKey,
+    {
+      ...swrConfigFrequent,
+      // Ensure fetcher is explicitly defined
+      fetcher: swrConfigFrequent.fetcher,
     }
+  );
 
-    try {
-      setIsLoading(true);
-      const response = await fetch('/api/user/subscription-status');
-      const data = await response.json();
-      
-      if (data.success) {
-        setSubscriptionStatus(data.data);
-      } else {
-        setSubscriptionStatus({ hasSubscription: false });
-      }
-    } catch (error) {
-      console.error('Error fetching subscription status:', error);
-      setSubscriptionStatus({ hasSubscription: false });
-    } finally {
-      setIsLoading(false);
-      setHasFetched(true);
-    }
-  }, [session?.user?.id]);
+  const subscriptionStatus: SubscriptionStatus | null = data?.success
+    ? data.data
+    : { hasSubscription: false };
 
-  // Fetch subscription status once when authenticated
-  useEffect(() => {
-    if (status === 'authenticated' && !hasFetched) {
-      fetchSubscriptionStatus();
-    } else if (status === 'unauthenticated') {
-      setSubscriptionStatus(null);
-      setIsLoading(false);
-      setHasFetched(false);
-    }
-  }, [status, hasFetched, fetchSubscriptionStatus]);
-
-  const refreshSubscription = useCallback(async () => {
-    await fetchSubscriptionStatus();
-  }, [fetchSubscriptionStatus]);
+  const refreshSubscription = async () => {
+    await mutate();
+  };
 
   return (
     <SubscriptionContext.Provider
       value={{
-        subscriptionStatus,
-        isLoading,
+        subscriptionStatus: status === 'authenticated' ? subscriptionStatus : null,
+        isLoading: status === 'loading' || isLoading,
         refreshSubscription,
       }}
     >

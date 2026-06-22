@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AuthService } from '@/server/services/auth';
 import { auth, signOut } from '@/config/auth';
 import { BaseRouteHandler, IRouteHandler } from './BaseRouteHandler';
+import { RegisterSchema, VerifyEmailSchema, ResendVerificationSchema, ForgotPasswordSchema, ResetPasswordSchema } from '@/lib/validations/auth';
 
 /**
  * Abstract authentication route handler
@@ -31,30 +32,45 @@ class RegistrationRouteHandler extends AuthRouteHandler {
   async handle(req: NextRequest): Promise<NextResponse> {
     try {
       const body = await req.json();
-      const { email, password, name } = body;      
-      // Validate input
-      const validation = this.validateAuthInput(email, password);
-      if (!validation.isValid) {
-        return this.createErrorResponse(validation.error || 'Invalid input', 400);
+      const parsed = RegisterSchema.safeParse(body);
+      if (!parsed.success) {
+        return this.createErrorResponse(parsed.error.issues[0].message, 400);
       }
-
-      // Validate password complexity
-      if (password.length < 8) {
-        return this.createErrorResponse('Password must be at least 8 characters', 400);
-      }
+      const { email, password, name } = parsed.data;      
 
       // Register user
-      const result = await AuthService.registerUser(email, password, name);
+      const result = await AuthService.registerUser(email, password, name || undefined);
 
       if (!result.success) {
         const errorMsg = result.error || 'Registration failed. Please try again or contact support.';
         return this.createErrorResponse(errorMsg, 400);
       }
 
-      return this.createSuccessResponse({
+      // Create a secure verification token (valid for 1 hour)
+      const verificationToken = Buffer.from(
+        JSON.stringify({
+          email: result.user?.email,
+          userId: result.user?.id,
+          exp: Date.now() + 60 * 60 * 1000 // 1 hour expiry
+        })
+      ).toString('base64');
+
+      // Create response with verification token in secure cookie
+      const response = this.createSuccessResponse({
         message: 'User registered successfully. Please verify your email.',
         user: result.user
       });
+
+      // Set secure HTTP-only cookie with verification token
+      response.cookies.set('verification-token', verificationToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 // 1 hour
+      });
+
+      return response;
     } catch (error) {
       return this.handleError(error, 'Registration error');
     }
@@ -79,7 +95,11 @@ class VerifyEmailRouteHandler extends BaseRouteHandler {
       } else if (req.method === 'POST') {
         // New OTP-based verification
         const body = await req.json();
-        code = body.code;
+        const parsed = VerifyEmailSchema.safeParse(body);
+        if (!parsed.success) {
+          return this.createErrorResponse(parsed.error.issues[0].message, 400);
+        }
+        code = parsed.data.code;
         console.log(`[VERIFY] POST request, code from body: ${code}`, body);
       } else {
         console.log(`[VERIFY] Unsupported method: ${req.method}`);
@@ -100,10 +120,16 @@ class VerifyEmailRouteHandler extends BaseRouteHandler {
         return this.createErrorResponse(result.error || 'Email verification failed', 400);
       }
 
-      return this.createSuccessResponse({
+      // Create response and clear verification token cookie (security cleanup)
+      const response = this.createSuccessResponse({
         message: 'Email verified successfully',
         user: result.user
       });
+
+      // Clear the verification token cookie after successful verification
+      response.cookies.delete('verification-token');
+
+      return response;
     } catch (error) {
       console.error(`[VERIFY] Error:`, error);
       return this.handleError(error, 'Verification error');
@@ -118,15 +144,35 @@ class ResendVerificationEmailRouteHandler extends BaseRouteHandler {
   async handle(req: NextRequest): Promise<NextResponse> {
     try {
       const body = await req.json();
-      const { email } = body;
+      let { email } = body;
 
+      // If email is not in body, try to get it from verification token
       if (!email) {
-        return this.createErrorResponse('Email is required', 400);
+        const verificationToken = req.cookies.get('verification-token')?.value;
+        
+        if (verificationToken) {
+          try {
+            const tokenData = JSON.parse(
+              Buffer.from(verificationToken, 'base64').toString('utf-8')
+            );
+            email = tokenData.email;
+          } catch (decodeError) {
+            console.error('Error decoding verification token:', decodeError);
+          }
+        }
       }
 
-      if (!this.validateEmail(email)) {
-        return this.createErrorResponse('Invalid email format', 400);
-      }      const result = await AuthService.resendVerificationEmail(email);
+      if (!email) {
+        return this.createErrorResponse('Email is required or verification session expired', 400);
+      }
+
+      const parsed = ResendVerificationSchema.safeParse({ email });
+      if (!parsed.success) {
+        return this.createErrorResponse(parsed.error.issues[0].message, 400);
+      }
+      email = parsed.data.email;
+
+      const result = await AuthService.resendVerificationEmail(email);
 
       if (!result.success) {
         return this.createErrorResponse(result.error || 'Failed to resend verification email', 400);
@@ -148,15 +194,11 @@ class InitiatePasswordResetRouteHandler extends BaseRouteHandler {
   async handle(req: NextRequest): Promise<NextResponse> {
     try {
       const body = await req.json();
-      const { email } = body;
-
-      if (!email) {
-        return this.createErrorResponse('Email is required', 400);
+      const parsed = ForgotPasswordSchema.safeParse(body);
+      if (!parsed.success) {
+        return this.createErrorResponse(parsed.error.issues[0].message, 400);
       }
-
-      if (!this.validateEmail(email)) {
-        return this.createErrorResponse('Invalid email format', 400);
-      }
+      const { email } = parsed.data;
 
       const result = await AuthService.initiatePasswordReset(email);
 
@@ -181,15 +223,11 @@ class PasswordResetRouteHandler extends BaseRouteHandler {
   async handle(req: NextRequest): Promise<NextResponse> {
     try {
       const body = await req.json();
-      const { code, newPassword } = body;
-
-      if (!code || !newPassword) {
-        return this.createErrorResponse('Code and new password are required', 400);
+      const parsed = ResetPasswordSchema.safeParse(body);
+      if (!parsed.success) {
+        return this.createErrorResponse(parsed.error.issues[0].message, 400);
       }
-
-      if (newPassword.length < 8) {
-        return this.createErrorResponse('Password must be at least 8 characters', 400);
-      }      const result = await AuthService.resetPassword(code, newPassword);
+      const { code, newPassword } = parsed.data;      const result = await AuthService.resetPassword(code, newPassword);
 
       if (!result.success) {
         return this.createErrorResponse(

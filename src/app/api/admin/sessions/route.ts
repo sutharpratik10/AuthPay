@@ -2,18 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withSessionValidation } from '@/lib/auth/session-validation';
 import { SessionService } from '@/server/services/session';
 import { RBACService } from '@/lib/rbac/rbac-service';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-// Get session statistics (admin only)
-export async function GET(request: NextRequest) {
+// Get session statistics (admin only - uses policy-based check)
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const GET = rateLimiters.api(async (request: NextRequest) => {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
       try {
-        // Check if user is admin using RBAC service
-        const isAdmin = await RBACService.isAdmin(sessionData.userId!);
-        if (!isAdmin) {
+        // Use policy-based RBAC check
+        const hasAccess = await RBACService.hasPolicy(sessionData.userId!, 'admin:access');
+        if (!hasAccess) {
           return NextResponse.json(
-            { success: false, error: 'Insufficient permissions' },
+            { success: false, error: 'Insufficient permissions - admin:access policy required' },
             { status: 403 }
           );
         }
@@ -38,19 +42,19 @@ export async function GET(request: NextRequest) {
       requireActiveUser: true,
     }
   );
-}
+});
 
-// Manual session cleanup (admin only)
-export async function POST(request: NextRequest) {
+// Manual session cleanup (admin only - uses policy-based check)
+export const POST = rateLimiters.api(async (request: NextRequest) => {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
       try {
-        // Check if user is admin using RBAC service
-        const isAdmin = await RBACService.isAdmin(sessionData.userId!);
-        if (!isAdmin) {
+        // Use policy-based RBAC check
+        const hasAccess = await RBACService.hasPolicy(sessionData.userId!, 'admin:access');
+        if (!hasAccess) {
           return NextResponse.json(
-            { success: false, error: 'Insufficient permissions' },
+            { success: false, error: 'Insufficient permissions - admin:access policy required' },
             { status: 403 }
           );
         }
@@ -92,4 +96,4 @@ export async function POST(request: NextRequest) {
       }
     }
   );
-}
+});

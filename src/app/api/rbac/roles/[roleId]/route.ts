@@ -8,18 +8,26 @@ import { requireAdmin } from "@/lib/rbac";
 import { db } from "@/server/db";
 import { roles } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function PUT(
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const PUT = rateLimiters.api(async (
   req: NextRequest,
-  { params }: { params: Promise<{ roleId: string }> }
-) {
+  ...args: unknown[]
+): Promise<Response> => {
+  const context = args[0] as { params: Promise<{ roleId: string }> };
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
-    return authCheck.response;
+    return authCheck.response || NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    const { roleId } = await params;
+    const { roleId } = await context.params;
     const body = await req.json();
     const { name, description, isDefault } = body;
 
@@ -65,23 +73,27 @@ export async function PUT(
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * API: Delete a role
  * DELETE /api/rbac/roles/[roleId]
  */
-export async function DELETE(
+export const DELETE = rateLimiters.api(async (
   req: NextRequest,
-  { params }: { params: Promise<{ roleId: string }> }
-) {
+  ...args: unknown[]
+): Promise<Response> => {
+  const context = args[0] as { params: Promise<{ roleId: string }> };
   const authCheck = await requireAdmin(req);
   if (!authCheck.authorized) {
-    return authCheck.response;
+    return authCheck.response || NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    const { roleId } = await params;
+    const { roleId } = await context.params;
 
     // Check if role exists
     const existingRole = await db.query.roles.findFirst({
@@ -117,4 +129,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+});
