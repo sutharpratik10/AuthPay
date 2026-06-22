@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { db } from '@/db';
-import { users, sessions, otpCodes, userPreferences } from '@/db/schema';
+import { auth } from '@/config/auth';
+import { db } from '@/server/db';
+import { users, sessions, otpCodes, userPreferences } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { emailService } from '@/services/email';
+import { emailService } from '@/server/services/email';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function DELETE(req: NextRequest) {
+/**
+ * Rate Limited: 3 requests per hour (VERY STRICT - sensitive operation)
+ */
+export const DELETE = rateLimiters.sensitive(async (req: NextRequest): Promise<Response> => {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -82,4 +86,4 @@ export async function DELETE(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { roles, users } from '@/db/schema';
+import { withPolicy, API_POLICIES } from '@/lib/api/permissions';
+import { db } from '@/server/db';
+import { roles, users } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 /**
@@ -88,7 +88,7 @@ async function deleteUser(req: NextRequest) {
     const userId = pathSegments[pathSegments.length - 1]; // Get userId from path
 
     // Get the current admin user from session to prevent self-deletion
-    const { auth } = await import('@/auth');
+    const { auth } = await import('@/config/auth');
     const session = await auth();
     
     if (!session?.user?.id) {
@@ -137,7 +137,7 @@ async function deleteUser(req: NextRequest) {
   }
 }
 
-// Export with admin-only permissions
-export const PUT = withPermission(updateUser, API_PERMISSIONS.USER_EDIT);
+// Export with admin-only policy
+export const PUT = withPolicy(updateUser, API_POLICIES.USER_MANAGE);
 
-export const DELETE = withPermission(deleteUser, API_PERMISSIONS.USER_DELETE);
+export const DELETE = withPolicy(deleteUser, API_POLICIES.USER_MANAGE);

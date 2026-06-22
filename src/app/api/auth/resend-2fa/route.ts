@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db';
-import { users, otpCodes } from '@/db/schema';
+import { db } from '@/server/db';
+import { users, otpCodes } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { emailService } from '@/services/email';
+import { emailService } from '@/server/services/email';
 import jwt from 'jsonwebtoken';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 interface TempTokenPayload {
   email: string;
@@ -11,7 +12,10 @@ interface TempTokenPayload {
   type: string;
 }
 
-export async function POST(req: NextRequest) {
+/**
+ * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
+ */
+export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response> => {
   try {
     const body = await req.json();
     const { email, tempToken } = body;
@@ -93,4 +97,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

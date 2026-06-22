@@ -1,13 +1,14 @@
 // app/api/payments/razorpay-create-order/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
-import { auth } from "@/auth";
-import { db } from "@/db";
-import { paymentOrders, paymentTransactions, users, subscriptionPlans } from "@/db/schema";
+import { auth } from "@/config/auth";
+import { db } from "@/server/db";
+import { paymentOrders, paymentTransactions, users, subscriptionPlans } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { getPaymentProvider } from "@/lib/payments/gateway";
 import type { CreateOrderResult } from "@/lib/payments/gateway";
 import "@/lib/payments/providers/razorpay";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,10 @@ interface CreateOrderBody {
   planId?: string | null;  // UUID of plan
 }
 
-export async function POST(req: NextRequest) {
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response> => {
   try {
     const body = (await req.json()) as Partial<CreateOrderBody>;
     const rawAmount = Number(body?.amount);
@@ -127,4 +131,4 @@ export async function POST(req: NextRequest) {
     console.error("Razorpay order creation error:", error);
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
-}
+});

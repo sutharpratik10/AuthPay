@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { auth } from '@/auth';
+import { auth } from '@/config/auth';
 import { BaseRouteHandler } from './BaseRouteHandler';
 
 /**
@@ -21,7 +21,7 @@ export abstract class UserRouteHandler extends BaseRouteHandler {
     // Check if a specific permission is required
     if (requiredPermission) {
       try {
-        const { PermissionService } = await import('@/services/permissions');
+        const { PermissionService } = await import('@/server/services/permissions');
         const hasPermission = await PermissionService.hasPermission(userId, requiredPermission);
         if (!hasPermission) {
           return {

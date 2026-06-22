@@ -17,7 +17,7 @@ export function useOAuthSessionTracking() {
     try {
       // Detect OAuth provider from URL or session
       const currentUrl = window.location.href;
-      let provider = null;
+      let provider: string | null = null;
       
       // Common OAuth providers
       const providers = ['google', 'github', 'facebook', 'azure-ad', 'apple'];
@@ -28,12 +28,15 @@ export function useOAuthSessionTracking() {
         }
       }
 
-      console.log('Tracking OAuth session:', {
-        provider,
-        userId: session?.user?.id,
-        email: session?.user?.email,
-        url: currentUrl
-      });
+      // Only log in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Tracking OAuth session:', {
+          provider,
+          userId: session?.user?.id,
+          email: session?.user?.email,
+          url: currentUrl
+        });
+      }
 
       const response = await fetch('/api/auth/track-session', {
         method: 'POST',
@@ -48,12 +51,18 @@ export function useOAuthSessionTracking() {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('OAuth session tracking result:', result);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('OAuth session tracking result:', result);
+        }
       } else {
-        console.warn('Failed to track OAuth session:', response.status);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Failed to track OAuth session:', response.status);
+        }
       }
     } catch (error) {
-      console.error('Error tracking OAuth session:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error tracking OAuth session:', error);
+      }
     }
   }, [session?.user?.id, session?.user?.email]);
 
@@ -64,13 +73,26 @@ export function useOAuthSessionTracking() {
       session?.user?.id && 
       !hasTrackedRef.current
     ) {
-      // Check if this is an OAuth callback
-      const error = searchParams?.get('error');
+      // Check if this is an OAuth callback by looking for provider in URL
+      const currentUrl = window.location.href;
+      const providers = ['google', 'github', 'facebook', 'azure-ad', 'apple'];
+      const isOAuth = providers.some(p => 
+        currentUrl.includes(p) || currentUrl.includes(p.replace('-', ''))
+      );
       
-      // If there's no error and we have a session, this might be an OAuth login
-      if (!error) {
-        trackOAuthSession();
-        hasTrackedRef.current = true;
+      // Only track if this is actually an OAuth login
+      if (isOAuth) {
+        const error = searchParams?.get('error');
+        
+        // If there's no error and we have a session, track it
+        if (!error) {
+          // Add a small delay to allow the main login session to be created first
+          // This prevents race condition with credentials login
+          setTimeout(() => {
+            trackOAuthSession();
+          }, 100);
+          hasTrackedRef.current = true;
+        }
       }
     }
   }, [status, session, searchParams, trackOAuthSession]);

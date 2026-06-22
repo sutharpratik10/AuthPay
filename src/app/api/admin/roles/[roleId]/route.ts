@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { roles, users } from '@/db/schema';
+import { withPolicy, API_POLICIES } from '@/lib/api/permissions';
+import { db } from '@/server/db';
+import { roles } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { auth } from '@/auth';
+import { auth } from '@/config/auth';
 
 /**
  * PUT /api/admin/roles/[roleId] - Update role (Admin only)
@@ -160,8 +160,9 @@ async function deleteRole(req: NextRequest) {
       );
     }
 
-    // Check if role is assigned to any users (global)
-    const assignedUsers = await db.select().from(users).where(eq(users.roleId, roleId));
+    // Check if role is assigned to any users via user_roles table
+    const { userRoles } = await import('@/server/db/schema');
+    const assignedUsers = await db.select().from(userRoles).where(eq(userRoles.roleId, roleId));
 
     if (assignedUsers.length > 0) {
       return NextResponse.json(
@@ -187,6 +188,6 @@ async function deleteRole(req: NextRequest) {
   }
 }
 
-// Export with admin-only permissions
-export const PUT = withPermission(updateRole, API_PERMISSIONS.USER_EDIT);
-export const DELETE = withPermission(deleteRole, API_PERMISSIONS.USER_DELETE);
+// Export with admin-only policy
+export const PUT = withPolicy(updateRole, API_POLICIES.ROLE_MANAGE);
+export const DELETE = withPolicy(deleteRole, API_POLICIES.ROLE_MANAGE);

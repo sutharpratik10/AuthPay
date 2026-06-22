@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from "@/auth";
-import { db } from "@/db";
-import { users, sessions } from "@/db/schema";
+import { auth } from "@/config/auth";
+import { db } from "@/server/db";
+import { users, sessions } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function POST(request: NextRequest) {
+/**
+ * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
+ */
+export const POST = rateLimiters.auth(async (request: NextRequest) => {
   try {
     const session = await auth();
     
@@ -83,4 +87,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

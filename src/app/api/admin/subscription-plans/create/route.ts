@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { subscriptionPlans } from '@/db/schema';
+import { withPolicy, API_POLICIES } from '@/lib/api/permissions';
+import { db } from '@/server/db';
+import { subscriptionPlans } from '@/server/db/schema';
 
 async function createSubscriptionPlan(req: NextRequest) {
   try {
@@ -83,5 +83,5 @@ async function createSubscriptionPlan(req: NextRequest) {
   }
 }
 
-// Export the route handler wrapped with admin permission checking
-export const POST = withPermission(createSubscriptionPlan, API_PERMISSIONS.SUBSCRIPTION_MANAGE);
+// Export the route handler wrapped with admin policy checking
+export const POST = withPolicy(createSubscriptionPlan, API_POLICIES.SUBSCRIPTION_MANAGE);

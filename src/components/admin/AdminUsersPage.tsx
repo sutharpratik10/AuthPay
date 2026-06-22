@@ -5,7 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow,
+  TableHeadSortable,
+  TableColumnSearch,
+  TablePagination
+} from '@/components/ui/table';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -13,13 +23,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Search, Plus, Edit, Trash2, Shield, User, Mail, Calendar, Activity, AlertTriangle, Clock } from 'lucide-react';
-import { getExpiryStatus } from '@/lib/subscription-utils';
+import { getExpiryStatus } from '@/lib/utils/subscription-utils';
 
 interface User {
   id: string;
   email: string;
   name: string | null;
-  role: 'admin' | 'user';
+  role: string; // Primary role for backward compatibility
+  roles?: string[]; // All user roles
   isEmailVerified: boolean;
   isActive: boolean;
   isSuspended: boolean;
@@ -65,9 +76,30 @@ export default function AdminUsersPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isRoleEditDialogOpen, setIsRoleEditDialogOpen] = useState(false);
+  const [selectedUserForRoles, setSelectedUserForRoles] = useState<User | null>(null);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const { toast } = useToast();
+
+  // Sorting state
+  type SortColumn = 'name' | 'email' | 'role' | 'status' | 'subscription' | 'billingCycle' | 'expiryDate' | 'lastLogin' | 'created' | null;
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
+
+  // Column filters
+  const [columnFilters, setColumnFilters] = useState({
+    name: '',
+    email: '',
+    role: '',
+    status: '',
+    subscription: '',
+    billingCycle: '',
+    expiryDate: '',
+    lastLogin: '',
+    created: '',
+  });
 
   // Form state for create/edit
   const [formData, setFormData] = useState({
@@ -129,6 +161,7 @@ export default function AdminUsersPage() {
         toast({
           title: 'Success',
           description: data.message,
+          variant: 'success',
         });
         fetchUsers(); // Refresh the users list to show updated subscription info
       } else {
@@ -162,6 +195,7 @@ export default function AdminUsersPage() {
         toast({
           title: 'Success',
           description: data.message,
+          variant: 'success',
         });
         fetchUsers(); // Refresh the users list to show updated subscription info
       } else {
@@ -218,10 +252,20 @@ export default function AdminUsersPage() {
   // Create user
   const createUser = async () => {
     try {
+      // Transform formData to match API expectations
+      const payload = {
+        email: formData.email,
+        name: formData.name,
+        password: formData.password,
+        roleName: formData.role, // API expects 'roleName' instead of 'role'
+        isActive: formData.isActive,
+        isEmailVerified: formData.isEmailVerified,
+      };
+
       const response = await fetch('/api/admin/users/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -230,6 +274,7 @@ export default function AdminUsersPage() {
         toast({
           title: 'Success',
           description: 'User created successfully',
+          variant: 'success',
         });
         setIsCreateDialogOpen(false);
         resetForm();
@@ -251,13 +296,13 @@ export default function AdminUsersPage() {
     }
   };
 
-  // Update user role
-  const updateUserRole = async (userId: string, newRole: string) => {
+  // Update user roles (supports multiple roles)
+  const updateUserRoles = async (userId: string, selectedRoles: string[]) => {
     try {
       const response = await fetch('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, role: newRole }),
+        body: JSON.stringify({ userId, roleNames: selectedRoles }),
       });
 
       const data = await response.json();
@@ -265,21 +310,22 @@ export default function AdminUsersPage() {
       if (data.success) {
         toast({
           title: 'Success',
-          description: `User role updated to ${newRole}`,
+          description: `User roles updated to: ${selectedRoles.join(', ')}`,
+          variant: 'success',
         });
         fetchUsers();
       } else {
         toast({
           title: 'Error',
-          description: data.error || 'Failed to update user role',
+          description: data.error || 'Failed to update user roles',
           variant: 'destructive',
         });
       }
     } catch (error) {
-      console.error('Error updating user role:', error);
+      console.error('Error updating user roles:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update user role',
+        description: 'Failed to update user roles',
         variant: 'destructive',
       });
     }
@@ -320,6 +366,7 @@ export default function AdminUsersPage() {
         toast({
           title: 'Success',
           description: 'User updated successfully',
+          variant: 'success',
         });
         setIsEditDialogOpen(false);
         resetForm();
@@ -367,6 +414,7 @@ export default function AdminUsersPage() {
         toast({
           title: 'Success',
           description: 'User deleted successfully',
+          variant: 'success',
         });
         setIsDeleteDialogOpen(false);
         setSelectedUser(null);
@@ -406,6 +454,127 @@ export default function AdminUsersPage() {
     setCurrentPage(1);
     fetchUsers(1, value);
   };
+
+  // Handle sorting
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortColumn(null);
+        setSortDirection(null);
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Handle column filter
+  const handleColumnFilter = (column: string, value: string) => {
+    setColumnFilters((prev) => ({ ...prev, [column]: value }));
+  };
+
+  // Filter and sort users
+  const filteredAndSortedUsers = React.useMemo(() => {
+    let filtered = [...users];
+
+    // Apply column filters
+    Object.entries(columnFilters).forEach(([column, filterValue]) => {
+      if (filterValue) {
+        filtered = filtered.filter((user) => {
+          let value = '';
+          switch (column) {
+            case 'name':
+              value = user.name || 'No name';
+              break;
+            case 'email':
+              value = user.email;
+              break;
+            case 'role':
+              value = user.roles?.join(', ') || user.role;
+              break;
+            case 'status':
+              value = user.isActive ? 'Active' : 'Inactive';
+              break;
+            case 'subscription':
+              value = user.subscriptionName || 'No Subscription';
+              break;
+            case 'billingCycle':
+              value = user.subscriptionBillingCycle || '-';
+              break;
+            case 'expiryDate':
+              value = user.subscriptionExpiryDate ? formatDate(user.subscriptionExpiryDate) : 'No Expiry';
+              break;
+            case 'lastLogin':
+              value = user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Never';
+              break;
+            case 'created':
+              value = formatDate(user.createdAt);
+              break;
+          }
+          return value.toLowerCase().includes(filterValue.toLowerCase());
+        });
+      }
+    });
+
+    // Apply sorting
+    if (sortColumn && sortDirection) {
+      filtered.sort((a, b) => {
+        let aValue: string | number = '';
+        let bValue: string | number = '';
+
+        switch (sortColumn) {
+          case 'name':
+            aValue = a.name || 'No name';
+            bValue = b.name || 'No name';
+            break;
+          case 'email':
+            aValue = a.email;
+            bValue = b.email;
+            break;
+          case 'role':
+            aValue = a.roles?.join(', ') || a.role;
+            bValue = b.roles?.join(', ') || b.role;
+            break;
+          case 'status':
+            aValue = a.isActive ? 'Active' : 'Inactive';
+            bValue = b.isActive ? 'Active' : 'Inactive';
+            break;
+          case 'subscription':
+            aValue = a.subscriptionName || 'No Subscription';
+            bValue = b.subscriptionName || 'No Subscription';
+            break;
+          case 'billingCycle':
+            aValue = a.subscriptionBillingCycle || '';
+            bValue = b.subscriptionBillingCycle || '';
+            break;
+          case 'expiryDate':
+            aValue = a.subscriptionExpiryDate || '';
+            bValue = b.subscriptionExpiryDate || '';
+            break;
+          case 'lastLogin':
+            aValue = a.lastLoginAt || '';
+            bValue = b.lastLoginAt || '';
+            break;
+          case 'created':
+            aValue = a.createdAt;
+            bValue = b.createdAt;
+            break;
+        }
+
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+
+        return sortDirection === 'asc'
+          ? String(aValue).localeCompare(String(bValue))
+          : String(bValue).localeCompare(String(aValue));
+      });
+    }
+
+    return filtered;
+  }, [users, columnFilters, sortColumn, sortDirection]);
 
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -471,11 +640,6 @@ export default function AdminUsersPage() {
       minute: '2-digit',
     });
   };
-
-  // Deduplicate users by id before rendering
-  const uniqueUsers = users.filter((user, index, self) =>
-    index === self.findIndex(u => u.id === user.id)
-  );
 
   return (
     <div className="space-y-6">
@@ -572,22 +736,133 @@ export default function AdminUsersPage() {
             <>
               <Table>
                 <TableHeader>
+                  {/* Sortable headers */}
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Subscription</TableHead>
-                    <TableHead>Billing Cycle</TableHead>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'name' ? sortDirection : null}
+                      onSort={() => handleSort('name')}
+                    >
+                      User
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'role' ? sortDirection : null}
+                      onSort={() => handleSort('role')}
+                    >
+                      Role
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'status' ? sortDirection : null}
+                      onSort={() => handleSort('status')}
+                    >
+                      Status
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'subscription' ? sortDirection : null}
+                      onSort={() => handleSort('subscription')}
+                    >
+                      Subscription
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'billingCycle' ? sortDirection : null}
+                      onSort={() => handleSort('billingCycle')}
+                    >
+                      Billing Cycle
+                    </TableHeadSortable>
                     <TableHead>Start Date</TableHead>
-                    <TableHead>Expiry Date</TableHead>
-                    <TableHead>Last Login</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'expiryDate' ? sortDirection : null}
+                      onSort={() => handleSort('expiryDate')}
+                    >
+                      Expiry Date
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'lastLogin' ? sortDirection : null}
+                      onSort={() => handleSort('lastLogin')}
+                    >
+                      Last Login
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'created' ? sortDirection : null}
+                      onSort={() => handleSort('created')}
+                    >
+                      Created
+                    </TableHeadSortable>
                     <TableHead>Role Edit</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
+
+                  {/* Search row */}
+                  <TableRow>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search user..."
+                        onSearch={(value) => handleColumnFilter('name', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search role..."
+                        onSearch={(value) => handleColumnFilter('role', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search status..."
+                        onSearch={(value) => handleColumnFilter('status', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search subscription..."
+                        onSearch={(value) => handleColumnFilter('subscription', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search cycle..."
+                        onSearch={(value) => handleColumnFilter('billingCycle', value)}
+                      />
+                    </TableHead>
+                    <TableHead></TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search expiry..."
+                        onSearch={(value) => handleColumnFilter('expiryDate', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search login..."
+                        onSearch={(value) => handleColumnFilter('lastLogin', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search date..."
+                        onSearch={(value) => handleColumnFilter('created', value)}
+                      />
+                    </TableHead>
+                    <TableHead></TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
                 </TableHeader>                
                 <TableBody>
-                  {uniqueUsers.map((user) => (
+                  {filteredAndSortedUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                        No users found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredAndSortedUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell>
                         <div className="flex items-center space-x-3">
@@ -606,14 +881,29 @@ export default function AdminUsersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                          {user.role === 'admin' ? (
-                            <Shield className="h-3 w-3 mr-1" />
+                        <div className="flex flex-wrap gap-1">
+                          {user.roles && user.roles.length > 0 ? (
+                            user.roles.map((roleName) => (
+                              <Badge 
+                                key={roleName} 
+                                variant={roleName === 'admin' ? 'default' : 'secondary'}
+                                className="text-xs"
+                              >
+                                {roleName === 'admin' ? (
+                                  <Shield className="h-3 w-3 mr-1" />
+                                ) : (
+                                  <User className="h-3 w-3 mr-1" />
+                                )}
+                                {roleName}
+                              </Badge>
+                            ))
                           ) : (
-                            <User className="h-3 w-3 mr-1" />
+                            <Badge variant="secondary">
+                              <User className="h-3 w-3 mr-1" />
+                              {user.role}
+                            </Badge>
                           )}
-                          {user.role}
-                        </Badge>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col space-y-1">
@@ -712,16 +1002,19 @@ export default function AdminUsersPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Select
-                            value={user.role ?? ''}
-                            onValueChange={(value) => updateUserRole(user.id, value as string)}
-                            options={roleOptions}
-                            className="w-24"
-                            placeholder="Select role"
-                            disabled={user.id === currentUserId}
-                          />
-                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={user.id === currentUserId}
+                          onClick={() => {
+                            setSelectedUserForRoles(user);
+                            setSelectedRoles(user.roles || [user.role]);
+                            setIsRoleEditDialogOpen(true);
+                          }}
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Edit Roles
+                        </Button>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end space-x-2 items-center">
@@ -760,6 +1053,7 @@ export default function AdminUsersPage() {
                                   toast({
                                     title: 'Success',
                                     description: `User ${checked ? 'suspended' : 'unsuspended'} successfully`,
+                                    variant: 'success',
                                   });
                                 } catch {
                                   toast({
@@ -809,39 +1103,20 @@ export default function AdminUsersPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ))
+                  )}
                 </TableBody>
               </Table>
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex justify-center mt-6">
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      disabled={currentPage === 1}
-                      onClick={() => handlePageChange(currentPage - 1)}
-                    >
-                      Previous
-                    </Button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                      <Button
-                        key={page}
-                        variant={currentPage === page ? 'default' : 'outline'}
-                        onClick={() => handlePageChange(page)}
-                      >
-                        {page}
-                      </Button>
-                    ))}
-                    <Button
-                      variant="outline"
-                      disabled={currentPage === totalPages}
-                      onClick={() => handlePageChange(currentPage + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+                <TablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={10}
+                  totalItems={users.length}
+                  onPageChange={handlePageChange}
+                />
               )}
             </>
           )}
@@ -923,6 +1198,70 @@ export default function AdminUsersPage() {
             </Button>
             <Button onClick={updateUser}>
               Update User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Roles Dialog */}
+      <Dialog open={isRoleEditDialogOpen} onOpenChange={setIsRoleEditDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800">
+          <DialogHeader>
+            <DialogTitle>Edit User Roles</DialogTitle>
+            <DialogDescription>
+              Select roles for {selectedUserForRoles?.name || selectedUserForRoles?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-3">
+              {roleOptions.map((roleOption) => (
+                <div key={roleOption.value} className="flex items-center space-x-3">
+                  <Checkbox
+                    id={`role-${roleOption.value}`}
+                    checked={selectedRoles.includes(roleOption.value)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedRoles([...selectedRoles, roleOption.value]);
+                      } else {
+                        setSelectedRoles(selectedRoles.filter(r => r !== roleOption.value));
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor={`role-${roleOption.value}`}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center"
+                  >
+                    {roleOption.value === 'admin' ? (
+                      <Shield className="h-4 w-4 mr-2" />
+                    ) : (
+                      <User className="h-4 w-4 mr-2" />
+                    )}
+                    {roleOption.label}
+                  </label>
+                </div>
+              ))}
+            </div>
+            {selectedRoles.length === 0 && (
+              <div className="mt-3 p-2 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-sm rounded flex items-center">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Please select at least one role
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRoleEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (selectedUserForRoles && selectedRoles.length > 0) {
+                  await updateUserRoles(selectedUserForRoles.id, selectedRoles);
+                  setIsRoleEditDialogOpen(false);
+                }
+              }}
+              disabled={selectedRoles.length === 0}
+            >
+              Save Roles
             </Button>
           </DialogFooter>
         </DialogContent>

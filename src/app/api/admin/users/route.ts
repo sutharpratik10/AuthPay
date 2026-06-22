@@ -1,20 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, API_PERMISSIONS, requireAdmin } from '@/lib/api-permissions';
-import { db } from '@/db';
-import { users, subscriptionPlans, roles, userSubscriptions } from '@/db/schema';
+import { NextRequest } from 'next/server';
+import { withPolicy, API_POLICIES, requireAdmin } from '@/lib/api/permissions';
+import { 
+  withApiHandler, 
+  successResponse, 
+  errorResponse,
+  parseRequestBody,
+  getPaginationParams,
+  getSearchParam
+} from '@/lib/api/helpers';
+import { db } from '@/server/db';
+import { users, subscriptionPlans, roles, userSubscriptions, userRoles } from '@/server/db/schema';
 import { eq, or, ilike, count } from 'drizzle-orm';
 
 /**
  * GET /api/admin/users - List all users (Admin only)
+ * Uses centralized API helpers for auth, pagination, and response handling
  */
-async function getUsers(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const search = searchParams.get('search') || '';
-
-    const offset = (page - 1) * limit;
+const getUsers = withApiHandler(
+  async (req: NextRequest) => {
+    const { page, limit, offset } = getPaginationParams(req);
+    const search = getSearchParam(req);
 
     // Build where condition for search
     const whereCondition = search.trim() 
@@ -23,31 +28,64 @@ async function getUsers(req: NextRequest) {
           ilike(users.email, `%${search}%`)
         )
       : undefined;
+
     // Get users with pagination and search
-    const userList = await db.select({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      roleId: users.roleId,
-      role: roles.name, // alias as role for frontend
-      isEmailVerified: users.isEmailVerified,
-      isActive: users.isActive,
-      isSuspended: users.isSuspended,
-      lastLoginAt: users.lastLoginAt,
-      createdAt: users.createdAt,
-      // Subscription info (joined)
-      subscriptionName: subscriptionPlans.name,
-      subscriptionBillingCycle: subscriptionPlans.billingCycle,
-      subscriptionStartDate: userSubscriptions.startDate,
-      subscriptionExpiryDate: userSubscriptions.expiryDate,
-    })
-    .from(users)
-    .leftJoin(userSubscriptions, eq(users.id, userSubscriptions.userId))
-    .leftJoin(subscriptionPlans, eq(userSubscriptions.planId, subscriptionPlans.id))
-    .leftJoin(roles, eq(users.roleId, roles.id))
-    .where(whereCondition)
-    .limit(limit)
-    .offset(offset);
+    const userList = await db.query.users.findMany({
+      where: whereCondition,
+      limit,
+      offset,
+      columns: {
+        id: true,
+        email: true,
+        name: true,
+        isEmailVerified: true,
+        isActive: true,
+        isSuspended: true,
+        lastLoginAt: true,
+        createdAt: true
+      }
+    });
+
+    // Get roles for each user separately to avoid relation ambiguity
+    const usersWithData = await Promise.all(userList.map(async (user) => {
+      // Get user roles
+      const userRolesList = await db.query.userRoles.findMany({
+        where: eq(userRoles.userId, user.id),
+        with: {
+          role: {
+            columns: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      });
+
+      // Get subscription using raw query to avoid relation issues
+      const subscriptionResult = await db
+        .select({
+          planName: subscriptionPlans.name,
+          billingCycle: subscriptionPlans.billingCycle,
+          startDate: userSubscriptions.startDate,
+          expiryDate: userSubscriptions.expiryDate
+        })
+        .from(userSubscriptions)
+        .leftJoin(subscriptionPlans, eq(userSubscriptions.planId, subscriptionPlans.id))
+        .where(eq(userSubscriptions.userId, user.id))
+        .limit(1);
+
+      const subscription = subscriptionResult[0];
+
+      return {
+        ...user,
+        roles: userRolesList.map(ur => ur.role.name),
+        role: userRolesList[0]?.role.name || 'user', // For backward compatibility
+        subscriptionName: subscription?.planName || null,
+        subscriptionBillingCycle: subscription?.billingCycle || null,
+        subscriptionStartDate: subscription?.startDate || null,
+        subscriptionExpiryDate: subscription?.expiryDate || null
+      };
+    }));
 
     // Get total count for pagination
     const totalCountResult = await db.select({ count: count() })
@@ -56,113 +94,100 @@ async function getUsers(req: NextRequest) {
     
     const totalCount = totalCountResult[0]?.count || 0;
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        users: userList,
-        pagination: {
-          page,
-          limit,
-          total: totalCount,
-          pages: Math.ceil(totalCount / limit),
-        }
+    return successResponse({
+      users: usersWithData,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        pages: Math.ceil(totalCount / limit),
       }
     });
-
-  } catch (error) {
-    console.error('Get users error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch users' },
-      { status: 500 }
-    );
-  }
-}
+  },
+  { requireAdmin: true }
+);
 
 /**
- * PATCH /api/admin/users/[userId] - Update user role (Admin only)
+ * PATCH /api/admin/users - Update user roles (Admin only)
+ * Supports both single role (roleName) and multiple roles (roleNames)
+ * Uses centralized API helpers for auth and response handling
  */
-async function updateUserRole(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { userId, role } = body;
+const updateUserRole = withApiHandler(
+  async (req: NextRequest) => {
+    const { data: body, error: parseError } = await parseRequestBody<{
+      userId: string;
+      roleName?: string;
+      roleNames?: string[];
+    }>(req);
+    if (parseError) return parseError;
+
+    const { userId, roleName, roleNames } = body!;
+
+    // Support both single role and multiple roles
+    const rolesToAssign = roleNames || (roleName ? [roleName] : []);
 
     // Validate input
-    if (!userId || !role) {
-      return NextResponse.json(
-        { error: 'User ID and role are required' },
-        { status: 400 }
-      );
-    }
-
-    if (!['admin', 'user'].includes(role)) {
-      return NextResponse.json(
-        { error: 'Invalid role. Must be "admin" or "user"' },
-        { status: 400 }
-      );
+    if (!userId || !rolesToAssign || rolesToAssign.length === 0) {
+      return errorResponse('User ID and at least one role are required', 400);
     }
 
     // Check if user exists
     const existingUser = await db.query.users.findFirst({
       where: eq(users.id, userId),
-      columns: { id: true, email: true, roleId: true }
+      columns: { id: true, email: true }
     });
 
     if (!existingUser) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return errorResponse('User not found', 404);
     }
 
     // Get admin user ID for the service call
     const adminCheck = await requireAdmin();
     if (!adminCheck.isAdmin || !adminCheck.userId) {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
+      return errorResponse('Admin access required', 403);
     }
 
-    // Find the roleId for the requested role name
-    const roleRecord = await db.query.roles.findFirst({ where: eq(roles.name, role) });
-    if (!roleRecord) {
-      return NextResponse.json(
-        { error: 'Role not found in roles table' },
-        { status: 400 }
-      );
+    // Find all roles by name
+    const roleRecords = await db.query.roles.findMany({ 
+      where: or(...rolesToAssign.map((name: string) => eq(roles.name, name)))
+    });
+    
+    if (roleRecords.length !== rolesToAssign.length) {
+      const foundRoles = roleRecords.map(r => r.name);
+      const missingRoles = rolesToAssign.filter((r: string) => !foundRoles.includes(r));
+      return errorResponse(`Role(s) not found: ${missingRoles.join(', ')}`, 400);
     }
 
-    // Update user role using the permission service
-    const success = await import('@/services/permissions').then(({ PermissionService }) => 
-      PermissionService.setUserRole(adminCheck.userId!, userId, roleRecord.id)
-    );
-
-    if (!success) {
-      return NextResponse.json(
-        { error: 'Failed to update user role' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: `User role updated to ${role}`,
-      data: {
-        userId,
-        oldRole: existingUser.roleId || existingUser.roleId,
-        newRole: roleRecord.id
-      }
+    // Get user's current roles
+    const currentRoles = await db.query.userRoles.findMany({
+      where: eq(userRoles.userId, userId),
+      with: { role: { columns: { name: true } } }
     });
 
-  } catch (error) {
-    console.error('Update user role error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update user role' },
-      { status: 500 }
-    );
-  }
-}
+    // Remove all existing roles
+    await db.delete(userRoles).where(eq(userRoles.userId, userId));
 
-// Export route handlers with permission checking
-export const GET = withPermission(getUsers, API_PERMISSIONS.USER_VIEW);
-export const PATCH = withPermission(updateUserRole, API_PERMISSIONS.USER_EDIT);
+    // Assign new roles via user_roles table
+    await db.insert(userRoles).values(
+      roleRecords.map(roleRecord => ({
+        userId,
+        roleId: roleRecord.id,
+        assignedBy: adminCheck.userId,
+      }))
+    );
+
+    return successResponse(
+      {
+        userId,
+        oldRoles: currentRoles.map(r => r.role.name),
+        newRoles: rolesToAssign
+      },
+      `User roles updated to: ${rolesToAssign.join(', ')}`
+    );
+  },
+  { requireAdmin: true }
+);
+
+// Export route handlers with policy checking
+export const GET = withPolicy(getUsers, API_POLICIES.USER_MANAGE);
+export const PATCH = withPolicy(updateUserRole, API_POLICIES.USER_MANAGE);

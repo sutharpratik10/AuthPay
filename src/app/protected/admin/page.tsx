@@ -1,19 +1,19 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
-import { PermissionService } from '@/services/permissions';
+import { auth } from '@/config/auth';
+import { getAuthorizedRoute, ROUTE_POLICIES } from '@/lib/rbac/routing-utils';
 import AdminUsersPage from '@/components/admin/AdminUsersPage';
 
 export default async function AdminPage() {
+  // ProtectedRoute handles all authentication
+  // Use policy-based authorization check here
   const session = await auth();
+  const userId = session?.user?.id as string;
   
-  if (!session?.user?.id) {
-    redirect('/auth/login');
-  }
-  // Check if user is admin
-  const isAdmin = await PermissionService.isAdmin(session.user.id);
+  // Check if user has access to admin dashboard using policy
+  const { allowed, redirectTo } = await getAuthorizedRoute(userId, ROUTE_POLICIES.ADMIN_DASHBOARD.path);
   
-  if (!isAdmin) {
-    redirect('/protected/user/dashboard');
+  if (!allowed && redirectTo) {
+    redirect(redirectTo);
   }
 
   return (

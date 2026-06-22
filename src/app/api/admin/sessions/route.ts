@@ -1,43 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withSessionValidation } from '@/lib/session-validation';
-import { SessionService } from '@/services/session';
-import { db } from '@/db';
-import { users, roles } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { withSessionValidation } from '@/lib/auth/session-validation';
+import { SessionService } from '@/server/services/session';
+import { RBACService } from '@/lib/rbac/rbac-service';
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-// Helper function to check if user is admin
-async function isUserAdmin(userId: string): Promise<boolean> {
-  try {
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, userId),
-      columns: { roleId: true }
-    });
-    
-    if (!user?.roleId) return false;
-    
-    const role = await db.query.roles.findFirst({
-      where: eq(roles.id, user.roleId),
-      columns: { name: true }
-    });
-    
-    return role?.name === 'admin';
-  } catch (error) {
-    console.error('Error checking admin status:', error);
-    return false;
-  }
-}
-
-// Get session statistics (admin only)
-export async function GET(request: NextRequest) {
+// Get session statistics (admin only - uses policy-based check)
+/**
+ * Rate Limited: 60 requests per minute
+ */
+export const GET = rateLimiters.api(async (request: NextRequest) => {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
       try {
-        // Check if user is admin
-        const isAdmin = await isUserAdmin(sessionData.userId!);
-        if (!isAdmin) {
+        // Use policy-based RBAC check
+        const hasAccess = await RBACService.hasPolicy(sessionData.userId!, 'admin:access');
+        if (!hasAccess) {
           return NextResponse.json(
-            { success: false, error: 'Insufficient permissions' },
+            { success: false, error: 'Insufficient permissions - admin:access policy required' },
             { status: 403 }
           );
         }
@@ -62,19 +42,19 @@ export async function GET(request: NextRequest) {
       requireActiveUser: true,
     }
   );
-}
+});
 
-// Manual session cleanup (admin only)
-export async function POST(request: NextRequest) {
+// Manual session cleanup (admin only - uses policy-based check)
+export const POST = rateLimiters.api(async (request: NextRequest) => {
   return withSessionValidation(
     request,
     async (req, sessionData) => {
       try {
-        // Check if user is admin
-        const isAdmin = await isUserAdmin(sessionData.userId!);
-        if (!isAdmin) {
+        // Use policy-based RBAC check
+        const hasAccess = await RBACService.hasPolicy(sessionData.userId!, 'admin:access');
+        if (!hasAccess) {
           return NextResponse.json(
-            { success: false, error: 'Insufficient permissions' },
+            { success: false, error: 'Insufficient permissions - admin:access policy required' },
             { status: 403 }
           );
         }
@@ -116,4 +96,4 @@ export async function POST(request: NextRequest) {
       }
     }
   );
-}
+});

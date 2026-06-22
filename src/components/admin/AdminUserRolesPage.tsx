@@ -5,7 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow,
+  TableHeadSortable,
+  TableColumnSearch,
+  TablePagination
+} from '@/components/ui/table';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -48,6 +58,22 @@ export default function AdminUserRolesPage() {
     newRole: 'admin' | 'user';
   } | null>(null);
   const { toast } = useToast();
+
+  // Sorting state
+  type SortColumn = 'name' | 'email' | 'role' | 'status' | 'emailStatus' | 'lastLogin' | 'created' | null;
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
+
+  // Column filters
+  const [columnFilters, setColumnFilters] = useState({
+    name: '',
+    email: '',
+    role: '',
+    status: '',
+    emailStatus: '',
+    lastLogin: '',
+    created: '',
+  });
 
   // Role options for Select components
   const roleOptions = [
@@ -119,6 +145,7 @@ export default function AdminUserRolesPage() {
         toast({
           title: 'Success',
           description: `User role updated to ${pendingRoleChange.newRole}`,
+          variant: 'success',
         });
         fetchUsers();
       } else {
@@ -148,6 +175,113 @@ export default function AdminUserRolesPage() {
     setCurrentPage(1);
     fetchUsers(1, value);
   };
+
+  // Handle sorting
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortColumn(null);
+        setSortDirection(null);
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Handle column filter
+  const handleColumnFilter = (column: string, value: string) => {
+    setColumnFilters((prev) => ({ ...prev, [column]: value }));
+  };
+
+  // Filter and sort users
+  const filteredAndSortedUsers = React.useMemo(() => {
+    let filtered = [...users];
+
+    // Apply column filters
+    Object.entries(columnFilters).forEach(([column, filterValue]) => {
+      if (filterValue) {
+        filtered = filtered.filter((user) => {
+          let value = '';
+          switch (column) {
+            case 'name':
+              value = user.name || 'No name';
+              break;
+            case 'email':
+              value = user.email;
+              break;
+            case 'role':
+              value = user.role;
+              break;
+            case 'status':
+              value = user.isActive ? 'Active' : 'Inactive';
+              break;
+            case 'emailStatus':
+              value = user.isEmailVerified ? 'Verified' : 'Unverified';
+              break;
+            case 'lastLogin':
+              value = user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Never';
+              break;
+            case 'created':
+              value = formatDate(user.createdAt);
+              break;
+          }
+          return value.toLowerCase().includes(filterValue.toLowerCase());
+        });
+      }
+    });
+
+    // Apply sorting
+    if (sortColumn && sortDirection) {
+      filtered.sort((a, b) => {
+        let aValue: string | number = '';
+        let bValue: string | number = '';
+
+        switch (sortColumn) {
+          case 'name':
+            aValue = a.name || 'No name';
+            bValue = b.name || 'No name';
+            break;
+          case 'email':
+            aValue = a.email;
+            bValue = b.email;
+            break;
+          case 'role':
+            aValue = a.role;
+            bValue = b.role;
+            break;
+          case 'status':
+            aValue = a.isActive ? 'Active' : 'Inactive';
+            bValue = b.isActive ? 'Active' : 'Inactive';
+            break;
+          case 'emailStatus':
+            aValue = a.isEmailVerified ? 'Verified' : 'Unverified';
+            bValue = b.isEmailVerified ? 'Verified' : 'Unverified';
+            break;
+          case 'lastLogin':
+            aValue = a.lastLoginAt || '';
+            bValue = b.lastLoginAt || '';
+            break;
+          case 'created':
+            aValue = a.createdAt;
+            bValue = b.createdAt;
+            break;
+        }
+
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+
+        return sortDirection === 'asc'
+          ? String(aValue).localeCompare(String(bValue))
+          : String(bValue).localeCompare(String(aValue));
+      });
+    }
+
+    return filtered;
+  }, [users, columnFilters, sortColumn, sortDirection]);
 
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -288,19 +422,104 @@ export default function AdminUserRolesPage() {
             <>
               <Table>
                 <TableHeader>
+                  {/* Header row with sorting */}
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Current Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Email Status</TableHead>
-                    <TableHead>Last Login</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'name' ? sortDirection : null}
+                      onSort={() => handleSort('name')}
+                    >
+                      User
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'role' ? sortDirection : null}
+                      onSort={() => handleSort('role')}
+                    >
+                      Current Role
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'status' ? sortDirection : null}
+                      onSort={() => handleSort('status')}
+                    >
+                      Status
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'emailStatus' ? sortDirection : null}
+                      onSort={() => handleSort('emailStatus')}
+                    >
+                      Email Status
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'lastLogin' ? sortDirection : null}
+                      onSort={() => handleSort('lastLogin')}
+                    >
+                      Last Login
+                    </TableHeadSortable>
+                    <TableHeadSortable
+                      sortable
+                      sortDirection={sortColumn === 'created' ? sortDirection : null}
+                      onSort={() => handleSort('created')}
+                    >
+                      Created
+                    </TableHeadSortable>
                     <TableHead className="text-right">Change Role</TableHead>
+                  </TableRow>
+
+                  {/* Search row */}
+                  <TableRow>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search user..."
+                        onSearch={(value) => handleColumnFilter('name', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search role..."
+                        onSearch={(value) => handleColumnFilter('role', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search status..."
+                        onSearch={(value) => handleColumnFilter('status', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search email..."
+                        onSearch={(value) => handleColumnFilter('emailStatus', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search login..."
+                        onSearch={(value) => handleColumnFilter('lastLogin', value)}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <TableColumnSearch
+                        placeholder="Search date..."
+                        onSearch={(value) => handleColumnFilter('created', value)}
+                      />
+                    </TableHead>
+                    <TableHead className="text-right"></TableHead>
                   </TableRow>
                 </TableHeader>
                 
                 <TableBody>
-                  {users.map((user) => (
+                  {filteredAndSortedUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        No users found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredAndSortedUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell>
                         <div className="flex items-center space-x-3">
@@ -374,39 +593,20 @@ export default function AdminUserRolesPage() {
                         />
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ))
+                  )}
                 </TableBody>
               </Table>
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex justify-center mt-6">
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      disabled={currentPage === 1}
-                      onClick={() => handlePageChange(currentPage - 1)}
-                    >
-                      Previous
-                    </Button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                      <Button
-                        key={page}
-                        variant={currentPage === page ? 'default' : 'outline'}
-                        onClick={() => handlePageChange(page)}
-                      >
-                        {page}
-                      </Button>
-                    ))}
-                    <Button
-                      variant="outline"
-                      disabled={currentPage === totalPages}
-                      onClick={() => handlePageChange(currentPage + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+                <TablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={10}
+                  totalItems={users.length}
+                  onPageChange={handlePageChange}
+                />
               )}
             </>
           )}

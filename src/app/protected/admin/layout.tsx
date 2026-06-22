@@ -1,16 +1,21 @@
 import { redirect } from 'next/navigation';
-
-import { auth } from '@/auth';
-import { PermissionService } from '@/services/permissions';
+import { auth } from '@/config/auth';
+import { isAdminUser, ROUTE_POLICIES } from '@/lib/rbac/routing-utils';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
+  
   if (!session?.user?.id) {
-    redirect('/auth/login');
+    redirect(ROUTE_POLICIES.AUTH_LOGIN.path);
   }
-  const isAdmin = await PermissionService.isAdmin(session.user.id);
-  if (!isAdmin) {
-    redirect('/protected/user/dashboard');
+
+  // Check if user has admin access using policy
+  const hasAdminAccess = await isAdminUser(session.user.id);
+  
+  if (!hasAdminAccess) {
+    // No admin access - redirect to user dashboard
+    redirect(ROUTE_POLICIES.USER_DASHBOARD.path);
   }
+
   return <>{children}</>;
 }

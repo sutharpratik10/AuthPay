@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from "@/db";
-import { sessions } from "@/db/schema";
+import { db } from "@/server/db";
+import { sessions } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function POST(request: NextRequest) {
+/**
+ * Rate Limited: 3 requests per hour (VERY STRICT - sensitive operation)
+ */
+export const POST = rateLimiters.sensitive(async (request: NextRequest) => {
   try {
     const { userId } = await request.json();
     
@@ -50,4 +54,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Shield, Lock, Eye, Users, Mail, Phone } from 'lucide-react';
 import Link from 'next/link';
-import { APP_CONFIG } from '@/lib/constants';
+import { APP_CONFIG } from '@/lib/utils/constants';
 
 export default function PrivacyPolicyPage() {
   return (
@@ -31,8 +31,8 @@ export default function PrivacyPolicyPage() {
               Our Commitment to Your Privacy
             </h2>
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-              At {APP_CONFIG.APP_NAME}, we are committed to protecting your privacy and ensuring the security of your personal information. 
-              This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our 
+              At {APP_CONFIG.APP_NAME}, we are committed to protecting your privacy and ensuring the security of your personal information.
+              This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our
               authentication and payment services.
             </p>
             <p className="text-gray-600 dark:text-gray-300">
@@ -44,7 +44,7 @@ export default function PrivacyPolicyPage() {
         {/* Information We Collect */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Information We Collect</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
               <div className="flex items-center gap-3 mb-4">
@@ -59,7 +59,7 @@ export default function PrivacyPolicyPage() {
                 <li>• Payment information (encrypted)</li>
               </ul>
             </div>
-            
+
             <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
               <div className="flex items-center gap-3 mb-4">
                 <Eye className="w-6 h-6 text-purple-600 dark:text-purple-400" />
@@ -79,7 +79,7 @@ export default function PrivacyPolicyPage() {
         {/* How We Use Information */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">How We Use Your Information</h2>
-          
+
           <div className="space-y-6">
             <div className="bg-blue-50 dark:bg-blue-950/20 p-6 rounded-xl border border-blue-200 dark:border-blue-800">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
@@ -87,7 +87,7 @@ export default function PrivacyPolicyPage() {
                 Authentication & Security
               </h3>
               <p className="text-gray-600 dark:text-gray-300 mb-3">
-                We use your information to provide secure authentication services, verify your identity, 
+                We use your information to provide secure authentication services, verify your identity,
                 and protect your account from unauthorized access.
               </p>
               <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
@@ -97,7 +97,7 @@ export default function PrivacyPolicyPage() {
                 <li>• Monitor for security threats</li>
               </ul>
             </div>
-            
+
             <div className="bg-purple-50 dark:bg-purple-950/20 p-6 rounded-xl border border-purple-200 dark:border-purple-800">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                 <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
@@ -119,7 +119,7 @@ export default function PrivacyPolicyPage() {
         {/* Data Protection */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">How We Protect Your Data</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-6 bg-gray-50 dark:bg-neutral-800 rounded-xl">
               <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
@@ -130,7 +130,7 @@ export default function PrivacyPolicyPage() {
                 All data is encrypted in transit and at rest using industry-standard AES-256 encryption.
               </p>
             </div>
-            
+
             <div className="text-center p-6 bg-gray-50 dark:bg-neutral-800 rounded-xl">
               <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <Shield className="w-8 h-8 text-blue-600 dark:text-blue-400" />
@@ -140,7 +140,7 @@ export default function PrivacyPolicyPage() {
                 Strict access controls ensure only authorized personnel can access your data.
               </p>
             </div>
-            
+
             <div className="text-center p-6 bg-gray-50 dark:bg-neutral-800 rounded-xl">
               <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <Eye className="w-8 h-8 text-purple-600 dark:text-purple-400" />
@@ -156,13 +156,13 @@ export default function PrivacyPolicyPage() {
         {/* Data Sharing */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Data Sharing and Disclosure</h2>
-          
+
           <div className="bg-red-50 dark:bg-red-950/20 p-6 rounded-xl border border-red-200 dark:border-red-800">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-3">We DO NOT sell your personal data</h3>
             <p className="text-gray-600 dark:text-gray-300 mb-4">
               {APP_CONFIG.APP_NAME} will never sell, rent, or trade your personal information to third parties for marketing purposes.
             </p>
-            
+
             <h4 className="font-medium text-gray-900 dark:text-white mb-2">We may share data only in these limited circumstances:</h4>
             <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
               <li>• <strong>Service Providers:</strong> Trusted partners who help us operate our services (payment processors, cloud providers)</li>
@@ -176,7 +176,7 @@ export default function PrivacyPolicyPage() {
         {/* Your Rights */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Your Privacy Rights</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Access & Control</h3>
@@ -188,7 +188,7 @@ export default function PrivacyPolicyPage() {
                 <li>• Opt-out of communications</li>
               </ul>
             </div>
-            
+
             <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">GDPR Rights (EU Users)</h3>
               <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-100">
@@ -205,7 +205,7 @@ export default function PrivacyPolicyPage() {
         {/* Data Retention */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Data Retention</h2>
-          
+
           <div className="bg-yellow-50 dark:bg-yellow-950/20 p-6 rounded-xl border border-yellow-200 dark:border-yellow-800">
             <p className="text-gray-600 dark:text-gray-300 mb-4">
               We retain your personal data only as long as necessary for the purposes outlined in this privacy policy:
@@ -223,10 +223,10 @@ export default function PrivacyPolicyPage() {
         {/* Cookies */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Cookies and Tracking</h2>
-          
+
           <div className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-              We use cookies and similar technologies to enhance your experience. For detailed information about our cookie usage, 
+              We use cookies and similar technologies to enhance your experience. For detailed information about our cookie usage,
               please see our dedicated <Link href="/cookies" className="text-blue-600 dark:text-blue-400 hover:underline">Cookie Policy</Link>.
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -238,27 +238,27 @@ export default function PrivacyPolicyPage() {
         {/* Contact Information */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Contact Us</h2>
-          
+
           <div className="bg-gray-50 dark:bg-gray-900 p-6 rounded-xl">
             <p className="text-gray-600 dark:text-gray-300 mb-6">
               If you have any questions about this Privacy Policy or our data practices, please contact us:
             </p>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="flex items-start gap-3">
                 <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-1" />
                 <div>
                   <h4 className="font-medium text-gray-900 dark:text-white mb-1">Email</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">privacy@authpay.dev</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">privacy@authpay.app</p>
                   <p className="text-xs text-gray-500 dark:text-gray-500">Data Protection Officer</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <Phone className="w-5 h-5 text-green-600 dark:text-green-400 mt-1" />
                 <div>
                   <h4 className="font-medium text-gray-900 dark:text-white mb-1">Support</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">support@authpay.dev</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">support@authpay.app</p>
                   <p className="text-xs text-gray-500 dark:text-gray-500">For general inquiries</p>
                 </div>
               </div>
@@ -269,10 +269,10 @@ export default function PrivacyPolicyPage() {
         {/* Updates */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Policy Updates</h2>
-          
+
           <div className="bg-blue-50 dark:bg-blue-950/20 p-6 rounded-xl border border-blue-200 dark:border-blue-800">
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-              We may update this Privacy Policy from time to time to reflect changes in our practices or legal requirements. 
+              We may update this Privacy Policy from time to time to reflect changes in our practices or legal requirements.
               We will notify you of any material changes by:
             </p>
             <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -288,7 +288,7 @@ export default function PrivacyPolicyPage() {
 
         {/* Return Home */}
         <div className="text-center">
-          <Link 
+          <Link
             href="/"
             className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
           >

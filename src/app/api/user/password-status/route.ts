@@ -1,10 +1,15 @@
-import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
-import { db } from '@/db'
-import { users } from '@/db/schema'
+import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/config/auth'
+import { db } from '@/server/db'
+import { users } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
+import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export async function GET() {
+/**
+ * Rate Limited: 60 requests per minute
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const GET = rateLimiters.api(async (_req: NextRequest) => {
   try {
     const session = await auth()
     
@@ -42,4 +47,4 @@ export async function GET() {
       { status: 500 }
     )
   }
-}
+});
