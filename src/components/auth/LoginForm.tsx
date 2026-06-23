@@ -55,7 +55,8 @@ export default function LoginForm() {
           try {
             const { latitude, longitude } = position.coords;
             // Use free reverse geocoding API (BigDataCloud is client-side friendly)
-            const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
+            const apiKey = process.env.NEXT_PUBLIC_BIGDATACLOUD_API_KEY || "";
+            const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en&key=${apiKey}`);
             const data = await res.json();
 
             let locationName = "Unknown Location";
@@ -74,7 +75,7 @@ export default function LoginForm() {
               document.cookie = `client-location=${encodeURIComponent(locationName)}; path=/; max-age=3600; SameSite=Lax`;
             }
           } catch (err) {
-            console.error("Failed to reverse geocode GPS location", err);
+            console.warn("Could not reverse geocode GPS location - ignoring.");
           }
         },
         (error) => {

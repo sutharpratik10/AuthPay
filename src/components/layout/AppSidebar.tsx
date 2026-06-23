@@ -23,7 +23,7 @@ import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils/helpers";
 import { useEffect, useState, useMemo } from "react";
 import { useSubscription } from "@/contexts/SubscriptionContext";
-import { useUserData } from "@/hooks/use-user-data";
+import { usePermissions } from "@/components/rbac/PermissionContext";
 
 
 interface NavItem {
@@ -36,20 +36,20 @@ interface NavItem {
 export function AppSidebar() {
   const pathname = usePathname();
   const { subscriptionStatus } = useSubscription();
-  const { isAdmin, isLoading: isUserLoading } = useUserData();
+  const { isLoading: isPermissionsLoading, isAdmin, hasPolicy } = usePermissions();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
   // Note: User validation and sign-out is handled globally by UserValidationProvider
 
   // Debug logging for admin status
-  console.log('[AppSidebar] Render - isAdmin:', isAdmin, 'isUserLoading:', isUserLoading, 'typeof isAdmin:', typeof isAdmin);
+  console.log('[AppSidebar] Render - isAdmin:', isAdmin, 'isPermissionsLoading:', isPermissionsLoading);
 
   const navigation: NavItem[] = useMemo(() => {
     const nav: NavItem[] = [
       {
         name: 'Dashboard',
         // Only use admin dashboard if isAdmin is true AND data has loaded
-        href: (isAdmin === true && !isUserLoading)
+        href: (isAdmin === true && !isPermissionsLoading)
           ? '/protected/admin/dashboard'
           : '/protected/user/dashboard',
         icon: (
@@ -79,7 +79,7 @@ export function AppSidebar() {
     }
 
     return nav;
-  }, [isAdmin, isUserLoading, subscriptionStatus?.hasSubscription]);
+  }, [isAdmin, isPermissionsLoading, subscriptionStatus?.hasSubscription]);
 
   const adminNavigation: NavItem[] = useMemo(() => [
     {
@@ -161,9 +161,7 @@ export function AppSidebar() {
         </svg>
       ),
     },
-  ], []);
-
-
+  ], [hasPolicy]);
 
   // Combine regular navigation with admin navigation if user is admin
   // Only show admin navigation if:
@@ -171,15 +169,23 @@ export function AppSidebar() {
   // 2. isAdmin is explicitly true (not undefined, null, or false)
   const finalNavigation = useMemo<NavItem[]>(() => {
     // Don't show admin nav while loading - wait for data
-    if (isUserLoading) {
+    if (isPermissionsLoading) {
       console.log('[Sidebar] User data still loading, hiding admin nav');
       return navigation;
     }
     const shouldShowAdminNav = isAdmin === true;
     console.log('[Sidebar] User loaded. isAdmin:', isAdmin, 'shouldShowAdminNav:', shouldShowAdminNav);
-    console.log('[Sidebar] Navigation items:', shouldShowAdminNav ? navigation.length + adminNavigation.length : navigation.length);
-    return shouldShowAdminNav ? [...navigation, ...adminNavigation] : navigation;
-  }, [isAdmin, isUserLoading, navigation, adminNavigation]);
+    
+    // Filter admin navigation based on policies if needed
+    // Currently, if they are isAdmin, we show all these items, but we can filter:
+    const filteredAdminNav = adminNavigation.filter(item => {
+      if (item.name === 'Manage Users' && !hasPolicy('user:manage')) return false;
+      if (item.name === 'Manage Roles' && !hasPolicy('role:manage')) return false;
+      return true;
+    });
+
+    return shouldShowAdminNav ? [...navigation, ...filteredAdminNav] : navigation;
+  }, [isAdmin, isPermissionsLoading, navigation, adminNavigation, hasPolicy]);
 
   // Track which parent menu items are open (for submenus)
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});

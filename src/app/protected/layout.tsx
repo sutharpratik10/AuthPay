@@ -1,4 +1,5 @@
 "use client"
+import { PermissionProvider } from "@/components/rbac/PermissionContext";
 import { ProtectedRoute } from "@/routes/protectedRoutes";
 import { 
   SidebarProvider, 
@@ -47,10 +48,12 @@ export default function ProtectedLayout({
 }) {
   return (
     <ProtectedRoute>
-      <SidebarProvider>
-        <SidebarLayout>{children}</SidebarLayout>
-        <Toaster />
-      </SidebarProvider>
+      <PermissionProvider>
+        <SidebarProvider>
+          <SidebarLayout>{children}</SidebarLayout>
+          <Toaster />
+        </SidebarProvider>
+      </PermissionProvider>
     </ProtectedRoute>
   );
 }

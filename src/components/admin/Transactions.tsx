@@ -1200,7 +1200,7 @@ export default function Transactions() {
                         </div>
                         <div className={cn(
                           'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium capitalize text-white',
-                          paymentDetails.status === 'failed' ? 'bg-red-500' : paymentDetails.status === 'captured' ? 'bg-emerald-500' : 'bg-gray-500'
+                          paymentDetails.status === 'failed' ? 'bg-red-500' : paymentDetails.status === 'captured' ? 'bg-emerald-500' : 'bg-neutral-500'
                         )}>
                           {paymentDetails.status || '--'}
                         </div>

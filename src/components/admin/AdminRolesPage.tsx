@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -22,7 +23,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Plus, Edit, Trash2, Shield, Users, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Shield, Users, CheckCircle, AlertTriangle, Key } from 'lucide-react';
+import { PermissionMatrix } from './PermissionMatrix';
 
 interface Role {
   id: string;
@@ -33,6 +35,9 @@ interface Role {
   createdAt?: string;
   updatedAt?: string;
   userCount?: number;
+  priority?: number;
+  isSuperAdmin?: boolean;
+  permissions?: { id: string; name: string }[];
 }
 
 interface RoleResponse {
@@ -109,6 +114,8 @@ export default function AdminRolesPage() {
     name: '',
     description: '',
     isDefault: false,
+    priority: 0,
+    permissionIds: [] as string[],
   });
 
   // Fetch roles with pagination and search
@@ -309,6 +316,8 @@ export default function AdminRolesPage() {
       name: '',
       description: '',
       isDefault: false,
+      priority: 0,
+      permissionIds: [],
     });
   };
 
@@ -412,7 +421,9 @@ export default function AdminRolesPage() {
     setFormData({
       name: role.name,
       description: role.description || '',
-  isDefault: !!role.isDefault,
+      isDefault: !!role.isDefault,
+      priority: role.priority || 0,
+      permissionIds: role.permissions?.map(p => p.id) || [],
     });
     setIsEditDialogOpen(true);
   };
@@ -440,7 +451,7 @@ export default function AdminRolesPage() {
           {/* Header with search and create button */}
           <div className="flex justify-between items-center">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
               <Input
                 placeholder="Search roles by name or description..."
                 value={searchTerm}
@@ -448,48 +459,84 @@ export default function AdminRolesPage() {
                 className="pl-10"
               />
             </div>
-            
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={() => resetForm()}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Role
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800">
-                <DialogHeader>
-                  <DialogTitle>Create New Role</DialogTitle>
+            <div className="flex items-center space-x-3">
+              <Button variant="outline" asChild>
+                <Link href="/protected/admin/permissions">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Permissions & Audit
+                </Link>
+              </Button>
+              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => resetForm()}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Role
+                  </Button>
+                </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 shadow-xl rounded-xl">
+                <DialogHeader className="pb-4 border-b border-neutral-100 dark:border-neutral-800/60">
+                  <DialogTitle className="text-xl">Create New Role</DialogTitle>
                   <DialogDescription>
                     Create a new role with specific permissions for your organization.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Role Name</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="Enter role name"
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-6">
+                  <div className="space-y-5">
+                    <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100 flex items-center">
+                      <Shield className="w-4 h-4 mr-2 text-primary" />
+                      Role Details
+                    </h3>
+                    <div className="grid gap-2">
+                      <Label htmlFor="name">Role Name</Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="Enter role name"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        id="description"
+                        value={formData.description}
+                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Enter role description"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="priority">Priority Level</Label>
+                      <Input
+                        id="priority"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={formData.priority}
+                        onChange={(e) => setFormData(prev => ({ ...prev, priority: parseInt(e.target.value) || 0 }))}
+                        placeholder="0-100 (Higher is more powerful)"
+                      />
+                      <p className="text-xs text-muted-foreground">Used to prevent users from modifying roles with equal or higher priority.</p>
+                    </div>
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Switch
+                        id="is-default"
+                        checked={formData.isDefault}
+                        onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isDefault: checked }))}
+                      />
+                      <Label htmlFor="is-default">Default role for new users</Label>
+                    </div>
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Enter role description"
-                      rows={3}
+                  
+                  <div className="space-y-5">
+                    <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100 flex items-center">
+                      <Key className="w-4 h-4 mr-2 text-primary" />
+                      Permissions
+                    </h3>
+                    <PermissionMatrix 
+                      selectedPermissionIds={formData.permissionIds}
+                      onChange={(ids) => setFormData(prev => ({ ...prev, permissionIds: ids }))}
                     />
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="is-default"
-                      checked={formData.isDefault}
-                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isDefault: checked }))}
-                    />
-                    <Label htmlFor="is-default">Default role for new users</Label>
                   </div>
                 </div>
                 <DialogFooter>
@@ -503,8 +550,9 @@ export default function AdminRolesPage() {
               </DialogContent>
             </Dialog>
           </div>
+        </div>
 
-          {/* Roles table */}
+        {/* Roles table */}
           <Card>
             <CardHeader>
               <CardTitle>Roles</CardTitle>
@@ -609,8 +657,8 @@ export default function AdminRolesPage() {
                           <TableCell>
                             <div className="flex items-center space-x-3">
                               <div className="flex-shrink-0">
-                                <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                                  <Shield className="h-4 w-4 text-gray-500" />
+                                <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                                  <Shield className="h-4 w-4 text-neutral-500" />
                                 </div>
                               </div>
                               <div>
@@ -636,7 +684,7 @@ export default function AdminRolesPage() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-1">
-                              <Users className="h-4 w-4 text-gray-400" />
+                              <Users className="h-4 w-4 text-neutral-400" />
                               <span>{role.userCount}</span>
                             </div>
                           </TableCell>
@@ -688,40 +736,78 @@ export default function AdminRolesPage() {
         </>
       {/* Edit Role Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800">
-          <DialogHeader>
-            <DialogTitle>Edit Role</DialogTitle>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 shadow-xl rounded-xl">
+          <DialogHeader className="pb-4 border-b border-neutral-100 dark:border-neutral-800/60">
+            <DialogTitle className="text-xl">Edit Role</DialogTitle>
             <DialogDescription>
               Update the role information and permissions.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-name">Role Name</Label>
-              <Input
-                id="edit-name"
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter role name"
-              />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-6">
+            <div className="space-y-5">
+              <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100 flex items-center">
+                <Shield className="w-4 h-4 mr-2 text-primary" />
+                Role Details
+              </h3>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-name">Role Name</Label>
+                <Input
+                  id="edit-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter role name"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Enter role description"
+                  rows={3}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-priority">Priority Level</Label>
+                <Input
+                  id="edit-priority"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={formData.priority}
+                  onChange={(e) => setFormData(prev => ({ ...prev, priority: parseInt(e.target.value) || 0 }))}
+                  placeholder="0-100 (Higher is more powerful)"
+                  disabled={selectedRole?.isSystemManaged}
+                />
+                <p className="text-xs text-muted-foreground">Used to prevent users from modifying roles with equal or higher priority.</p>
+              </div>
+              <div className="flex items-center space-x-2 pt-2">
+                <Switch
+                  id="edit-is-default"
+                  checked={formData.isDefault}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isDefault: checked }))}
+                  disabled={selectedRole?.isSystemManaged}
+                />
+                <Label htmlFor="edit-is-default">Default role for new users</Label>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Enter role description"
-                rows={3}
+            
+            <div className="space-y-5">
+              <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100 flex items-center">
+                <Key className="w-4 h-4 mr-2 text-primary" />
+                Permissions
+              </h3>
+              <PermissionMatrix 
+                selectedPermissionIds={formData.permissionIds}
+                onChange={(ids) => setFormData(prev => ({ ...prev, permissionIds: ids }))}
+                disabled={selectedRole?.isSuperAdmin}
               />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="edit-is-default"
-                checked={formData.isDefault}
-                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isDefault: checked }))}
-              />
-              <Label htmlFor="edit-is-default">Default role for new users</Label>
+              {selectedRole?.isSuperAdmin && (
+                <p className="text-sm text-amber-600 mt-2">
+                  Super Admin role permissions cannot be modified.
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -737,7 +823,7 @@ export default function AdminRolesPage() {
 
       {/* Delete Role Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-neutral-800">
           <DialogHeader>
             <DialogTitle>Delete Role</DialogTitle>
             <DialogDescription>
@@ -745,14 +831,14 @@ export default function AdminRolesPage() {
             </DialogDescription>
           </DialogHeader>
           {selectedRole && (
-            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+            <div className="p-4 bg-neutral-50 dark:bg-neutral-900 rounded-lg">
               <div className="flex items-center space-x-3">
-                <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                  <Shield className="h-4 w-4 text-gray-500" />
+                <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                  <Shield className="h-4 w-4 text-neutral-500" />
                 </div>
                 <div className="flex-1">
                   <div className="font-medium">{selectedRole.name}</div>
-                  <div className="text-sm text-gray-500">{selectedRole.description || 'No description'}</div>
+                  <div className="text-sm text-neutral-500">{selectedRole.description || 'No description'}</div>
                 </div>
               </div>
               

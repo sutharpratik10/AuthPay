@@ -351,7 +351,7 @@ export default function AdminUserRolesPage() {
           <CardContent className="flex items-center p-6">
             <Shield className="h-8 w-8 text-blue-600" />
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Admins</p>
+              <p className="text-sm font-medium text-neutral-600">Admins</p>
               <p className="text-2xl font-bold">{stats.adminCount}</p>
             </div>
           </CardContent>
@@ -361,7 +361,7 @@ export default function AdminUserRolesPage() {
           <CardContent className="flex items-center p-6">
             <User className="h-8 w-8 text-green-600" />
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Users</p>
+              <p className="text-sm font-medium text-neutral-600">Users</p>
               <p className="text-2xl font-bold">{stats.userCount}</p>
             </div>
           </CardContent>
@@ -371,7 +371,7 @@ export default function AdminUserRolesPage() {
           <CardContent className="flex items-center p-6">
             <CheckCircle className="h-8 w-8 text-emerald-600" />
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active</p>
+              <p className="text-sm font-medium text-neutral-600">Active</p>
               <p className="text-2xl font-bold">{stats.activeCount}</p>
             </div>
           </CardContent>
@@ -381,7 +381,7 @@ export default function AdminUserRolesPage() {
           <CardContent className="flex items-center p-6">
             <Mail className="h-8 w-8 text-slate-700 dark:text-slate-300" />
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Verified</p>
+              <p className="text-sm font-medium text-neutral-600">Verified</p>
               <p className="text-2xl font-bold">{stats.verifiedCount}</p>
             </div>
           </CardContent>
@@ -391,7 +391,7 @@ export default function AdminUserRolesPage() {
       {/* Search and Actions */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
           <Input
             placeholder="Search users by name or email..."
             value={searchTerm}
@@ -400,7 +400,7 @@ export default function AdminUserRolesPage() {
           />
         </div>
         
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-neutral-600">
           Total: {users.length} users
         </div>
       </div>
@@ -524,13 +524,13 @@ export default function AdminUserRolesPage() {
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           <div className="flex-shrink-0">
-                            <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                              <User className="h-4 w-4 text-gray-500" />
+                            <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                              <User className="h-4 w-4 text-neutral-500" />
                             </div>
                           </div>
                           <div>
                             <div className="font-medium">{user.name || 'No name'}</div>
-                            <div className="text-sm text-gray-500 flex items-center">
+                            <div className="text-sm text-neutral-500 flex items-center">
                               <Mail className="h-3 w-3 mr-1" />
                               {user.email}
                             </div>
@@ -568,12 +568,12 @@ export default function AdminUserRolesPage() {
                       
                       <TableCell>
                         {user.lastLoginAt ? (
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-neutral-600">
                             <Clock className="h-3 w-3 inline mr-1" />
                             {formatDate(user.lastLoginAt)}
                           </div>
                         ) : (
-                          <span className="text-gray-400">Never</span>
+                          <span className="text-neutral-400">Never</span>
                         )}
                       </TableCell>
                       
@@ -615,7 +615,7 @@ export default function AdminUserRolesPage() {
 
       {/* Role Change Confirmation Dialog */}
       <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-neutral-800">
           <DialogHeader>
             <DialogTitle>Confirm Role Change</DialogTitle>
             <DialogDescription>
@@ -626,13 +626,13 @@ export default function AdminUserRolesPage() {
           {selectedUser && pendingRoleChange && (
             <div className="py-4">
               <div className="flex items-center space-x-3 p-4 border rounded-lg">
-                <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                  <User className="h-5 w-5 text-gray-500" />
+                <div className="h-10 w-10 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                  <User className="h-5 w-5 text-neutral-500" />
                 </div>
                 <div className="flex-1">
                   <div className="font-medium">{selectedUser.name || 'No name'}</div>
-                  <div className="text-sm text-gray-500">{selectedUser.email}</div>
-                  <div className="text-sm text-gray-600 mt-1">
+                  <div className="text-sm text-neutral-500">{selectedUser.email}</div>
+                  <div className="text-sm text-neutral-600 mt-1">
                     Role: <span className="font-medium">{selectedUser.role}</span> → <span className="font-medium text-blue-600">{pendingRoleChange.newRole}</span>
                   </div>
                 </div>

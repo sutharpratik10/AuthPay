@@ -43,6 +43,16 @@ export const ROUTE_POLICIES = {
     policy: 'admin:access',
     fallback: '/protected/user/dashboard'
   },
+  ADMIN_PERMISSIONS: {
+    path: '/protected/admin/permissions',
+    policy: 'policy:manage',
+    fallback: '/protected/user/dashboard'
+  },
+  ADMIN_RBAC_AUDIT: {
+    path: '/protected/admin/rbac-audit',
+    policy: 'admin:access',
+    fallback: '/protected/user/dashboard'
+  },
   
   // User routes
   USER_DASHBOARD: {

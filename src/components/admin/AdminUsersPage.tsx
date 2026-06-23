@@ -24,6 +24,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Search, Plus, Edit, Trash2, Shield, User, Mail, Calendar, Activity, AlertTriangle, Clock } from 'lucide-react';
 import { getExpiryStatus } from '@/lib/utils/subscription-utils';
+import { UserPermissionViewer } from './UserPermissionViewer';
 
 interface User {
   id: string;
@@ -77,6 +78,7 @@ export default function AdminUsersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRoleEditDialogOpen, setIsRoleEditDialogOpen] = useState(false);
+  const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
   const [selectedUserForRoles, setSelectedUserForRoles] = useState<User | null>(null);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
@@ -646,7 +648,7 @@ export default function AdminUsersPage() {
       {/* Header with search and create button */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
           <Input
             placeholder="Search users by name or email..."
             value={searchTerm}
@@ -662,7 +664,7 @@ export default function AdminUsersPage() {
               Create User
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800">
+          <DialogContent className="sm:max-w-md bg-white dark:bg-neutral-800">
             <DialogHeader>
               <DialogTitle>Create New User</DialogTitle>
               <DialogDescription>
@@ -795,7 +797,7 @@ export default function AdminUsersPage() {
                     >
                       Created
                     </TableHeadSortable>
-                    <TableHead>Role Edit</TableHead>
+                    <TableHead>Roles & Perms</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
 
@@ -867,13 +869,13 @@ export default function AdminUsersPage() {
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           <div className="flex-shrink-0">
-                            <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                              <User className="h-4 w-4 text-gray-500" />
+                            <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                              <User className="h-4 w-4 text-neutral-500" />
                             </div>
                           </div>
                           <div>
                             <div className="font-medium">{user.name || 'No name'}</div>
-                            <div className="text-sm text-gray-500 flex items-center">
+                            <div className="text-sm text-neutral-500 flex items-center">
                               <Mail className="h-3 w-3 mr-1" />
                               {user.email}
                             </div>
@@ -924,14 +926,14 @@ export default function AdminUsersPage() {
                             {user.subscriptionName}
                           </Badge>
                         ) : (
-                          <span className="text-gray-400">No Subscription</span>
+                          <span className="text-neutral-400">No Subscription</span>
                         )}
                       </TableCell>
                       <TableCell>
                         {user.subscriptionBillingCycle ? (
                           <span className="text-sm capitalize">{user.subscriptionBillingCycle}</span>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-neutral-400">-</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -940,7 +942,7 @@ export default function AdminUsersPage() {
                             {formatDate(user.subscriptionStartDate)}
                           </div>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-neutral-400">-</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -983,7 +985,7 @@ export default function AdminUsersPage() {
                               );
                             })()}
                           </div>                        ) : (
-                          <span className="text-gray-400">No Expiry</span>
+                          <span className="text-neutral-400">No Expiry</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -993,7 +995,7 @@ export default function AdminUsersPage() {
                             {formatDate(user.lastLoginAt)}
                           </div>
                         ) : (
-                          <span className="text-gray-400">Never</span>
+                          <span className="text-neutral-400">Never</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -1002,19 +1004,32 @@ export default function AdminUsersPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={user.id === currentUserId}
-                          onClick={() => {
-                            setSelectedUserForRoles(user);
-                            setSelectedRoles(user.roles || [user.role]);
-                            setIsRoleEditDialogOpen(true);
-                          }}
-                        >
-                          <Edit className="h-3 w-3 mr-1" />
-                          Edit Roles
-                        </Button>
+                        <div className="flex justify-end space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={user.id === currentUserId}
+                            onClick={() => {
+                              setSelectedUserForRoles(user);
+                              setSelectedRoles(user.roles || [user.role]);
+                              setIsRoleEditDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Roles
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setIsPermissionsDialogOpen(true);
+                            }}
+                          >
+                            <Shield className="h-3 w-3 mr-1" />
+                            Perms
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end space-x-2 items-center">
@@ -1078,7 +1093,7 @@ export default function AdminUsersPage() {
                             </Switch>
                             <Label 
                               htmlFor={`suspend-switch-${user.id}`} 
-                              className="text-xs text-gray-600 dark:text-gray-400"
+                              className="text-xs text-neutral-600 dark:text-neutral-400"
                             >
                               {user.isSuspended ? 'Suspended' : 'Active'}
                             </Label>
@@ -1125,7 +1140,7 @@ export default function AdminUsersPage() {
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-neutral-800">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>
@@ -1140,7 +1155,7 @@ export default function AdminUsersPage() {
                 type="email"
                 value={formData.email}
                 disabled
-                className="bg-gray-50 dark:bg-gray-800"
+                className="bg-neutral-50 dark:bg-neutral-800"
               />
             </div>
             <div className="grid gap-2">
@@ -1170,7 +1185,7 @@ export default function AdminUsersPage() {
                 placeholder="Select subscription plan"
               />
               {selectedUser?.subscriptionName && (
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-neutral-500">
                   Current: {selectedUser.subscriptionName} ({selectedUser.subscriptionBillingCycle})
                 </div>
               )}
@@ -1205,7 +1220,7 @@ export default function AdminUsersPage() {
 
       {/* Edit User Roles Dialog */}
       <Dialog open={isRoleEditDialogOpen} onOpenChange={setIsRoleEditDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-neutral-800">
           <DialogHeader>
             <DialogTitle>Edit User Roles</DialogTitle>
             <DialogDescription>
@@ -1269,7 +1284,7 @@ export default function AdminUsersPage() {
 
       {/* Delete User Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-neutral-800">
           <DialogHeader>
             <DialogTitle>Delete User</DialogTitle>
             <DialogDescription>
@@ -1281,10 +1296,10 @@ export default function AdminUsersPage() {
           </DialogHeader>
           {selectedUser && (
             <div className="py-4">
-              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+              <div className="bg-neutral-50 dark:bg-neutral-800 p-4 rounded-lg">
                 <div className="font-medium">{selectedUser.name || 'No name'}</div>
-                <div className="text-sm text-gray-500">{selectedUser.email}</div>
-                <div className="text-sm text-gray-500">Role: {selectedUser.role}</div>
+                <div className="text-sm text-neutral-500">{selectedUser.email}</div>
+                <div className="text-sm text-neutral-500">Role: {selectedUser.role}</div>
                 {selectedUser.id === currentUserId && (
                   <div className="mt-2 p-2 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-sm rounded flex items-center">
                     <AlertTriangle className="h-4 w-4 mr-2" />
@@ -1304,6 +1319,25 @@ export default function AdminUsersPage() {
               disabled={selectedUser?.id === currentUserId}
             >
               Delete User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* View Permissions Dialog */}
+      <Dialog open={isPermissionsDialogOpen} onOpenChange={setIsPermissionsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-neutral-800">
+          <DialogHeader>
+            <DialogTitle>User Permissions</DialogTitle>
+            <DialogDescription>
+              Effective access rights for {selectedUser?.name || selectedUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {selectedUser && <UserPermissionViewer userId={selectedUser.id} />}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsPermissionsDialogOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

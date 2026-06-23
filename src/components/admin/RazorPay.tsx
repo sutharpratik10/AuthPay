@@ -2104,7 +2104,7 @@ export default function RazorPay() {
                               Active
                             </Badge>
                           ) : subscription.status === 'created' ? (
-                            <Badge className="bg-gray-100 text-gray-700 border-gray-200">
+                            <Badge className="bg-neutral-100 text-neutral-700 border-neutral-200">
                               Created
                             </Badge>
                           ) : subscription.status === 'cancelled' ? (
@@ -2293,7 +2293,7 @@ export default function RazorPay() {
                         <div className="text-sm">{selectedRazorpaySubscription.status === 'active' ? (
                           <Badge className="bg-green-100 text-green-700 border-green-200">Active</Badge>
                         ) : selectedRazorpaySubscription.status === 'created' ? (
-                          <Badge className="bg-gray-100 text-gray-700 border-gray-200">Created</Badge>
+                          <Badge className="bg-neutral-100 text-neutral-700 border-neutral-200">Created</Badge>
                         ) : selectedRazorpaySubscription.status === 'cancelled' ? (
                           <Badge className="bg-red-100 text-red-700 border-red-200">Cancelled</Badge>
                         ) : (

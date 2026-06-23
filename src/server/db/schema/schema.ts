@@ -200,6 +200,8 @@ export const roles = pgTable("roles", {
 	description: varchar('description', { length: 500 }),
 	isDefault: boolean('is_default').default(false),
 	isSystemManaged: boolean('is_system_managed').default(false),
+	isSuperAdmin: boolean('is_super_admin').default(false),
+	priority: integer('priority').default(0),
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
@@ -212,6 +214,7 @@ export const rolePermissions = pgTable("role_permissions", {
 	permissionId: uuid('permission_id').notNull().references(() => permissions.id, { onDelete: 'cascade' }),
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [
+	unique("role_permissions_role_id_permission_id_unique").on(table.roleId, table.permissionId),
 	foreignKey({
 		columns: [table.roleId],
 		foreignColumns: [roles.id],
