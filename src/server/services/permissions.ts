@@ -144,7 +144,8 @@ export class PermissionService {
       
       // Use the new RBACService to assign role
       const { RBACService } = await import("@/lib/rbac");
-      return await RBACService.assignRole(adminUserId, targetUserId, roleId);
+      const result = await RBACService.assignRole(adminUserId, targetUserId, roleId);
+      return result.success;
     } catch (error) {
       console.error("Error setting user role:", error);
       return false;

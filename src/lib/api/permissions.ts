@@ -22,10 +22,10 @@ export interface PolicyPermission {
  * Use this for new routes - it uses the centralized policy-based RBAC system
  */
 export function withPolicy(
-  handler: (req: NextRequest, context?: unknown) => Promise<NextResponse>,
+  handler: (req: NextRequest, context?: any) => Promise<NextResponse>,
   config: PolicyPermission
 ) {
-  return async function (req: NextRequest, context?: unknown): Promise<NextResponse> {
+  return async function (req: NextRequest, context?: any): Promise<NextResponse> {
     try {
       // Get the current session
       const session = await auth();
@@ -66,10 +66,10 @@ export function withPolicy(
  * @deprecated Use withPolicy instead for new routes - it uses the centralized policy-based RBAC system
  */
 export function withPermission(
-  handler: (req: NextRequest, context?: unknown) => Promise<NextResponse>,
+  handler: (req: NextRequest, context?: any) => Promise<NextResponse>,
   config: RoutePermission
 ) {
-  return async function (req: NextRequest, context?: unknown): Promise<NextResponse> {
+  return async function (req: NextRequest, context?: any): Promise<NextResponse> {
     try {
       // Get the current session
       const session = await auth();

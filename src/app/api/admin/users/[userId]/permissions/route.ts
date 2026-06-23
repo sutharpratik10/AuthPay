@@ -30,4 +30,4 @@ async function getUserPermissions(
   }
 }
 
-export const GET = withPolicy(getUserPermissions, API_POLICIES.USER_VIEW);
+export const GET = withPolicy(getUserPermissions, API_POLICIES.USER_MANAGE);

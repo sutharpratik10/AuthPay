@@ -200,7 +200,7 @@ export class RBACService {
           .innerJoin(rolePermissions, eq(permissions.id, rolePermissions.permissionId))
           .where(inArray(rolePermissions.roleId, roleIds));
 
-        explicitPerms = [...new Set(rolePerms.map(p => p.name))];
+        explicitPerms = Array.from(new Set<string>(rolePerms.map(p => p.name as string)));
       }
 
       // Resolve inherited permissions
@@ -864,9 +864,9 @@ export class RBACService {
       // Build where clause
       const whereClause = search
         ? or(
-            like(roles.name, `%${search}%`),
-            like(roles.description, `%${search}%`)
-          )
+          like(roles.name, `%${search}%`),
+          like(roles.description, `%${search}%`)
+        )
         : undefined;
 
       // Count total
@@ -1002,7 +1002,7 @@ export class RBACService {
         .innerJoin(rolePermissions, eq(permissions.id, rolePermissions.permissionId))
         .where(inArray(rolePermissions.roleId, roleIds));
 
-      permissionNames = [...new Set(rolePerms.map(p => p.name))];
+      permissionNames = Array.from(new Set<string>(rolePerms.map(p => p.name as string)));
     }
 
     // Resolve inherited permissions

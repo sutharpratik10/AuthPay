@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withPolicy, API_POLICIES } from '@/lib/api/permissions';
 import { db } from '@/server/db';
 import { auditLogs, users } from '@/server/db/schema';
-import { eq, desc, inArray, count, and } from 'drizzle-orm';
+import { eq, desc, inArray, count, and, SQL } from 'drizzle-orm';
 import { auth } from '@/config/auth';
 
 const RBAC_ACTIONS = [
@@ -33,7 +33,7 @@ async function getRbacAuditLogs(req: NextRequest) {
     const action = searchParams.get('action'); // optional filter
     const offset = (page - 1) * limit;
 
-    const whereConditions = [];
+    const whereConditions: SQL[] = [];
 
     // Filter by RBAC actions only
     if (action && RBAC_ACTIONS.includes(action)) {
