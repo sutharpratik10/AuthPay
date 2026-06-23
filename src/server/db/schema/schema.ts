@@ -372,6 +372,7 @@ export const userPreferences = pgTable("user_preferences", {
 	profileVisibility: boolean("profile_visibility").default(true),
 	theme: varchar({ length: 20 }).default('system'),
 	additionalSettings: text("additional_settings"),
+	dashboardLayout: jsonb("dashboard_layout"),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 	languageId: uuid("language_id"),
