@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/config/auth';
 import { getAuthorizedRoute, ROUTE_POLICIES } from '@/lib/rbac/routing-utils';
-import { getRevenueData, getUserGrowthData, getChurnRateData, getDashboardLayout, getAvailableWidgets } from './actions/analytics';
+import { getRevenueData, getUserGrowthData, getChurnRateData, getDashboardLayout, getAvailableWidgets, getOverviewStats } from './actions/analytics';
 import { MetricSummaryCard } from '@/components/analytics/MetricSummaryCard';
 import { DashboardGrid } from '@/components/analytics/DashboardGrid';
 
@@ -26,12 +26,13 @@ export default async function AdminDashboardPage(props: { searchParams: { range?
   const range = (searchParams?.range || "30d") as any;
 
   // Prefetch data in parallel
-  const [revenue, growth, churn, layout, availableWidgets] = await Promise.all([
+  const [revenue, growth, churn, layout, availableWidgets, overviewStats] = await Promise.all([
     getRevenueData(range),
     getUserGrowthData(range),
     getChurnRateData(range),
     getDashboardLayout(userId),
-    getAvailableWidgets()
+    getAvailableWidgets(),
+    getOverviewStats()
   ]);
 
   const initialData = { revenue, growth, churn };
@@ -45,7 +46,7 @@ export default async function AdminDashboardPage(props: { searchParams: { range?
         </p>
       </div>
 
-      <MetricSummaryCard />
+      <MetricSummaryCard stats={overviewStats} />
 
       <DashboardGrid 
         userId={userId} 

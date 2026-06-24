@@ -1,8 +1,8 @@
 'use server';
 
 import { db } from "@/server/db";
-import { adminDashboardStats, subscriptionAnalytics, userPreferences } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { adminDashboardStats, subscriptionAnalytics, userPreferences, billings, users, userSubscriptions } from "@/server/db/schema";
+import { eq, sql, and, gte, lt } from "drizzle-orm";
 import { z } from "zod";
 import { revalidateTag } from "next/cache";
 
@@ -32,43 +32,145 @@ const layoutSchema = z.array(
   })
 );
 
+export async function getOverviewStats() {
+  try {
+    const now = new Date();
+    const startOfCurrentMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthDateDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+
+    const startOfCurrentMonth = startOfCurrentMonthDate.toISOString();
+    const startOfLastMonth = startOfLastMonthDate.toISOString();
+
+    // 1. Revenue
+    const totalRevResult = await db.select({ value: sql<number>`sum(cast(${billings.amount} as numeric))` })
+      .from(billings).where(eq(billings.status, 'paid'));
+    const currentRevResult = await db.select({ value: sql<number>`sum(cast(${billings.amount} as numeric))` })
+      .from(billings).where(and(eq(billings.status, 'paid'), gte(billings.createdAt, startOfCurrentMonthDate)));
+    const lastRevResult = await db.select({ value: sql<number>`sum(cast(${billings.amount} as numeric))` })
+      .from(billings).where(and(eq(billings.status, 'paid'), gte(billings.createdAt, startOfLastMonthDate), lt(billings.createdAt, startOfCurrentMonthDate)));
+
+    const totalRevenue = Number(totalRevResult[0]?.value) || 0;
+    const currentRev = Number(currentRevResult[0]?.value) || 0;
+    const lastRev = Number(lastRevResult[0]?.value) || 0;
+    const revenueChange = lastRev === 0 ? 100 : ((currentRev - lastRev) / lastRev) * 100;
+
+    // 2. Active Users (using total users as proxy for now)
+    const totalUsersResult = await db.select({ count: sql<number>`count(*)` }).from(users);
+    const currentUsersResult = await db.select({ count: sql<number>`count(*)` })
+      .from(users).where(gte(users.createdAt, startOfCurrentMonth));
+    const lastUsersResult = await db.select({ count: sql<number>`count(*)` })
+      .from(users).where(and(gte(users.createdAt, startOfLastMonth), lt(users.createdAt, startOfCurrentMonth)));
+
+    const totalUsers = Number(totalUsersResult[0]?.count) || 0;
+    const currentUsers = Number(currentUsersResult[0]?.count) || 0;
+    const lastUsers = Number(lastUsersResult[0]?.count) || 0;
+    const userChange = lastUsers === 0 ? 100 : ((currentUsers - lastUsers) / lastUsers) * 100;
+
+    // 3. MoM Growth (revenue based)
+    const momGrowth = revenueChange;
+    const prevRevResult = await db.select({ value: sql<number>`sum(cast(${billings.amount} as numeric))` })
+      .from(billings).where(and(eq(billings.status, 'paid'), gte(billings.createdAt, prevMonthDateDate), lt(billings.createdAt, startOfLastMonthDate)));
+    const prevRev = Number(prevRevResult[0]?.value) || 0;
+    const lastRevChange = prevRev === 0 ? 100 : ((lastRev - prevRev) / prevRev) * 100;
+    const momGrowthChange = momGrowth - lastRevChange;
+
+    // 4. Churn Rate (simplified)
+    const activeSubsResult = await db.select({ count: sql<number>`count(*)` })
+      .from(userSubscriptions); // Simplified active count
+    const activeSubs = Number(activeSubsResult[0]?.count) || 1;
+    const churnCurrentResult = await db.select({ count: sql<number>`count(*)` })
+      .from(userSubscriptions).where(gte(userSubscriptions.updatedAt, startOfCurrentMonth)); // Simplified churn count
+    const churnRate = (Number(churnCurrentResult[0]?.count) || 0) / activeSubs * 100;
+
+    return {
+      totalRevenue,
+      revenueChange,
+      momGrowth,
+      momGrowthChange,
+      activeUsers: totalUsers,
+      activeUsersChange: userChange,
+      churnRate: churnRate,
+      churnRateChange: 0, // simplified
+    };
+  } catch (error) {
+    console.error("Error fetching overview stats:", error);
+    return {
+      totalRevenue: 0, revenueChange: 0, momGrowth: 0, momGrowthChange: 0,
+      activeUsers: 0, activeUsersChange: 0, churnRate: 0, churnRateChange: 0
+    };
+  }
+}
+
 export async function getRevenueData(dateRange: DateRange = "30d") {
-  // Mock data for MVP implementation
-  return [
-    { name: 'Jan', value: 4000 },
-    { name: 'Feb', value: 3000 },
-    { name: 'Mar', value: 5000 },
-    { name: 'Apr', value: 2780 },
-    { name: 'May', value: 1890 },
-    { name: 'Jun', value: 2390 },
-    { name: 'Jul', value: 3490 },
-  ];
+  try {
+    const data = await db.select({
+      name: sql<string>`to_char(${billings.createdAt}, 'Mon YYYY')`,
+      value: sql<number>`sum(cast(${billings.amount} as numeric))`
+    })
+      .from(billings)
+      .where(eq(billings.status, 'paid'))
+      .groupBy(sql`to_char(${billings.createdAt}, 'Mon YYYY')`)
+      .orderBy(sql`min(${billings.createdAt})`);
+
+    if (data.length === 0) {
+      return [
+        { name: 'Jan', value: 0 },
+        { name: 'Feb', value: 0 },
+      ];
+    }
+    return data.map(d => ({ name: String(d.name), value: Number(d.value) || 0 }));
+  } catch (error) {
+    console.error("Error fetching revenue data:", error);
+    return [];
+  }
 }
 
 export async function getUserGrowthData(dateRange: DateRange = "30d") {
-  // Mock data for MVP implementation
-  return [
-    { name: 'Jan', active: 4000, new: 2400 },
-    { name: 'Feb', active: 3000, new: 1398 },
-    { name: 'Mar', active: 2000, new: 9800 },
-    { name: 'Apr', active: 2780, new: 3908 },
-    { name: 'May', active: 1890, new: 4800 },
-    { name: 'Jun', active: 2390, new: 3800 },
-    { name: 'Jul', active: 3490, new: 4300 },
-  ];
+  try {
+    const data = await db.select({
+      name: sql<string>`to_char(${users.createdAt}, 'Mon YYYY')`,
+      new: sql<number>`count(${users.id})`,
+      active: sql<number>`count(${users.id})` // Simplified
+    })
+      .from(users)
+      .groupBy(sql`to_char(${users.createdAt}, 'Mon YYYY')`)
+      .orderBy(sql`min(${users.createdAt})`);
+
+    if (data.length === 0) {
+      return [
+        { name: 'Jan', active: 0, new: 0 },
+        { name: 'Feb', active: 0, new: 0 },
+      ];
+    }
+    return data.map(d => ({ name: String(d.name), active: Number(d.active) || 0, new: Number(d.new) || 0 }));
+  } catch (error) {
+    console.error("Error fetching user growth data:", error);
+    return [];
+  }
 }
 
 export async function getChurnRateData(dateRange: DateRange = "30d") {
-  // Mock data for MVP implementation
-  return [
-    { name: 'Jan', rate: 2.1 },
-    { name: 'Feb', rate: 1.8 },
-    { name: 'Mar', rate: 3.0 },
-    { name: 'Apr', rate: 2.4 },
-    { name: 'May', rate: 1.5 },
-    { name: 'Jun', rate: 2.8 },
-    { name: 'Jul', rate: 1.2 },
-  ];
+  try {
+    const data = await db.select({
+      name: sql<string>`to_char(${userSubscriptions.createdAt}, 'Mon YYYY')`,
+      rate: sql<number>`count(${userSubscriptions.id})` // Simplified churn rate representation
+    })
+      .from(userSubscriptions)
+      .groupBy(sql`to_char(${userSubscriptions.createdAt}, 'Mon YYYY')`)
+      .orderBy(sql`min(${userSubscriptions.createdAt})`);
+
+    if (data.length === 0) {
+      return [
+        { name: 'Jan', rate: 0 },
+        { name: 'Feb', rate: 0 },
+      ];
+    }
+    return data.map(d => ({ name: String(d.name), rate: Number(d.rate) || 0 }));
+  } catch (error) {
+    console.error("Error fetching churn rate data:", error);
+    return [];
+  }
 }
 
 export async function getDashboardLayout(userId: string): Promise<WidgetLayout[]> {
@@ -76,7 +178,7 @@ export async function getDashboardLayout(userId: string): Promise<WidgetLayout[]
   const pref = await db.query.userPreferences.findFirst({
     where: eq(userPreferences.userId, userId)
   });
-  
+
   if (pref?.dashboardLayout) {
     const result = layoutSchema.safeParse(pref.dashboardLayout);
     if (result.success) {
