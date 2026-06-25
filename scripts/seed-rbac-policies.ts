@@ -49,6 +49,29 @@ const defaultPolicies = [
   { name: 'content:create', description: 'Create content', category: 'content' },
   { name: 'content:edit', description: 'Edit content', category: 'content' },
   { name: 'content:delete', description: 'Delete content', category: 'content' },
+
+  // Subscription policies
+  { name: 'subscription:view', description: 'View subscriptions', category: 'subscription' },
+  { name: 'subscription:manage', description: 'Manage subscriptions', category: 'subscription' },
+  { name: 'subscription:purchase', description: 'Purchase subscriptions', category: 'subscription' },
+  { name: 'subscription:cancel', description: 'Cancel subscriptions', category: 'subscription' },
+  
+  // Tenant policies
+  { name: 'tenant:view', description: 'View tenants', category: 'tenant' },
+  { name: 'tenant:create', description: 'Create tenants', category: 'tenant' },
+  { name: 'tenant:edit', description: 'Edit tenants', category: 'tenant' },
+  { name: 'tenant:delete', description: 'Delete tenants', category: 'tenant' },
+  
+  // System policies
+  { name: 'system:manage', description: 'Manage system', category: 'system' },
+  { name: 'analytics:view', description: 'View analytics', category: 'analytics' },
+  { name: 'logs:view', description: 'View logs', category: 'logs' },
+  
+  // Policy policies
+  { name: 'policy:view', description: 'View policies', category: 'policy' },
+  { name: 'policy:create', description: 'Create policies', category: 'policy' },
+  { name: 'policy:update', description: 'Update policies', category: 'policy' },
+  { name: 'policy:delete', description: 'Delete policies', category: 'policy' },
 ];
 
 // Define policy assignments for each role
@@ -68,6 +91,21 @@ const rolePolicyAssignments: Record<string, string[]> = {
     'content:create',
     'content:edit',
     'content:delete',
+    'subscription:view',
+    'subscription:manage',
+    'subscription:purchase',
+    'subscription:cancel',
+    'tenant:view',
+    'tenant:create',
+    'tenant:edit',
+    'tenant:delete',
+    'system:manage',
+    'analytics:view',
+    'logs:view',
+    'policy:view',
+    'policy:create',
+    'policy:update',
+    'policy:delete',
   ],
   'user': [
     'profile:view',

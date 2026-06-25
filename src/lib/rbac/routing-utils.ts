@@ -48,6 +48,11 @@ export const ROUTE_POLICIES = {
     policy: 'policy:manage',
     fallback: '/protected/user/dashboard'
   },
+  ADMIN_POLICIES: {
+    path: '/protected/admin/policies',
+    policy: 'policy:manage',
+    fallback: '/protected/user/dashboard'
+  },
   ADMIN_RBAC_AUDIT: {
     path: '/protected/admin/rbac-audit',
     policy: 'admin:access',

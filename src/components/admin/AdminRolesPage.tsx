@@ -699,7 +699,6 @@ export default function AdminRolesPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => openEditDialog(role)}
-                                disabled={role.isSystemManaged}
                               >
                                 <Edit className="h-3 w-3" />
                               </Button>
@@ -707,7 +706,6 @@ export default function AdminRolesPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => openDeleteDialog(role)}
-                                disabled={role.isSystemManaged || role.isDefault}
                               >
                                 <Trash2 className="h-3 w-3" />
                               </Button>
@@ -778,7 +776,6 @@ export default function AdminRolesPage() {
                   value={formData.priority}
                   onChange={(e) => setFormData(prev => ({ ...prev, priority: parseInt(e.target.value) || 0 }))}
                   placeholder="0-100 (Higher is more powerful)"
-                  disabled={selectedRole?.isSystemManaged}
                 />
                 <p className="text-xs text-muted-foreground">Used to prevent users from modifying roles with equal or higher priority.</p>
               </div>
@@ -787,7 +784,6 @@ export default function AdminRolesPage() {
                   id="edit-is-default"
                   checked={formData.isDefault}
                   onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isDefault: checked }))}
-                  disabled={selectedRole?.isSystemManaged}
                 />
                 <Label htmlFor="edit-is-default">Default role for new users</Label>
               </div>

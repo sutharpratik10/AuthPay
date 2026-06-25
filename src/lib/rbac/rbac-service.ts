@@ -543,18 +543,7 @@ export class RBACService {
         return { success: false, error: "Role not found" };
       }
 
-      // Super Admin role cannot be modified (except by Super Admins)
-      if (role.isSuperAdmin && !(await this.isSuperAdmin(adminUserId))) {
-        return { success: false, error: "The Super Admin role cannot be modified" };
-      }
 
-      // System-managed roles have limited editability
-      if (role.isSystemManaged && !(await this.isSuperAdmin(adminUserId))) {
-        // Only allow description updates for system-managed roles
-        if (data.name || data.isDefault !== undefined || data.priority !== undefined) {
-          return { success: false, error: "System-managed roles can only have their description modified" };
-        }
-      }
 
       // Priority enforcement
       if (data.priority !== undefined) {
@@ -611,15 +600,7 @@ export class RBACService {
         return { success: false, error: "Role not found" };
       }
 
-      // Super Admin role cannot be deleted
-      if (role.isSuperAdmin) {
-        return { success: false, error: "The Super Admin role cannot be deleted" };
-      }
 
-      // System-managed roles cannot be deleted (except by Super Admins)
-      if (role.isSystemManaged && !(await this.isSuperAdmin(adminUserId))) {
-        return { success: false, error: "System-managed roles cannot be deleted" };
-      }
 
       // Get affected user count for audit
       const affectedUsers = await db.query.userRoles.findMany({
@@ -756,6 +737,94 @@ export class RBACService {
   }
 
   /**
+   * Update an existing permission
+   */
+  static async updatePermission(
+    adminUserId: string,
+    permissionId: string,
+    data: { name?: string; description?: string; category?: string; displayName?: string; resource?: string; action?: string }
+  ): Promise<AdminActionResult> {
+    try {
+      const hasPermission = await this.hasPolicy(adminUserId, "policy:update");
+      if (!hasPermission) {
+        return { success: false, error: "Insufficient permissions: policy:update required" };
+      }
+
+      const existing = await db.query.permissions.findFirst({
+        where: eq(permissions.id, permissionId),
+      });
+
+      if (!existing) {
+        return { success: false, error: "Permission not found" };
+      }
+
+
+
+      if (data.name && data.name !== existing.name) {
+        const nameExists = await db.query.permissions.findFirst({
+          where: eq(permissions.name, data.name),
+        });
+        if (nameExists) {
+          return { success: false, error: `Permission "${data.name}" already exists` };
+        }
+      }
+
+      await db.update(permissions).set({
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.category !== undefined && { category: data.category }),
+        ...(data.displayName !== undefined && { displayName: data.displayName }),
+        ...(data.resource !== undefined && { resource: data.resource }),
+        ...(data.action !== undefined && { action: data.action }),
+      }).where(eq(permissions.id, permissionId));
+
+      await this.logAudit(adminUserId, "permission_updated", "permission", permissionId, existing, data);
+      
+      this.clearAllCache();
+
+      return { success: true, message: `Permission updated successfully` };
+    } catch (error) {
+      console.error("Error updating permission:", error);
+      return { success: false, error: "Failed to update permission" };
+    }
+  }
+
+  /**
+   * Delete a permission
+   */
+  static async deletePermission(
+    adminUserId: string,
+    permissionId: string
+  ): Promise<AdminActionResult> {
+    try {
+      const hasPermission = await this.hasPolicy(adminUserId, "policy:delete");
+      if (!hasPermission) {
+        return { success: false, error: "Insufficient permissions: policy:delete required" };
+      }
+
+      const existing = await db.query.permissions.findFirst({
+        where: eq(permissions.id, permissionId),
+      });
+
+      if (!existing) {
+        return { success: false, error: "Permission not found" };
+      }
+
+
+
+      await db.delete(permissions).where(eq(permissions.id, permissionId));
+      await this.logAudit(adminUserId, "permission_deleted", "permission", permissionId, existing, null);
+      
+      this.clearAllCache();
+
+      return { success: true, message: `Permission deleted successfully` };
+    } catch (error) {
+      console.error("Error deleting permission:", error);
+      return { success: false, error: "Failed to delete permission" };
+    }
+  }
+
+  /**
    * Set permissions for a role (replaces all existing)
    */
   static async setRolePermissions(
@@ -777,10 +846,7 @@ export class RBACService {
         return { success: false, error: "Role not found" };
       }
 
-      // Super Admin role permissions cannot be modified (except by Super Admins)
-      if (role.isSuperAdmin && !(await this.isSuperAdmin(adminUserId))) {
-        return { success: false, error: "Super Admin role permissions cannot be modified" };
-      }
+
 
       // Get old permissions for audit
       const oldPerms = await db.query.rolePermissions.findMany({
