@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
   TableRow,
   TableHeadSortable,
   TableColumnSearch,
@@ -133,9 +133,9 @@ export default function AdminUserRolesPage() {
       const response = await fetch('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: pendingRoleChange.userId, 
-          role: pendingRoleChange.newRole 
+        body: JSON.stringify({
+          userId: pendingRoleChange.userId,
+          role: pendingRoleChange.newRole
         }),
       });
 
@@ -308,7 +308,7 @@ export default function AdminUserRolesPage() {
     const userCount = users.filter(user => user.role === 'user').length;
     const activeCount = users.filter(user => user.isActive).length;
     const verifiedCount = users.filter(user => user.isEmailVerified).length;
-    
+
     return { adminCount, userCount, activeCount, verifiedCount };
   };
 
@@ -332,8 +332,8 @@ export default function AdminUserRolesPage() {
             <p className="text-sm text-blue-700 dark:text-blue-300">
               For advanced role management, visit the new Roles page.
             </p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => window.location.href = '/protected/admin/roles'}
               className="border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-600 dark:text-blue-300 dark:hover:bg-blue-900"
@@ -356,7 +356,7 @@ export default function AdminUserRolesPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="flex items-center p-6">
             <User className="h-8 w-8 text-green-600" />
@@ -366,7 +366,7 @@ export default function AdminUserRolesPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="flex items-center p-6">
             <CheckCircle className="h-8 w-8 text-emerald-600" />
@@ -376,7 +376,7 @@ export default function AdminUserRolesPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="flex items-center p-6">
             <Mail className="h-8 w-8 text-slate-700 dark:text-slate-300" />
@@ -399,7 +399,7 @@ export default function AdminUserRolesPage() {
             className="pl-10"
           />
         </div>
-        
+
         <div className="text-sm text-neutral-600">
           Total: {users.length} users
         </div>
@@ -510,7 +510,7 @@ export default function AdminUserRolesPage() {
                     <TableHead className="text-right"></TableHead>
                   </TableRow>
                 </TableHeader>
-                
+
                 <TableBody>
                   {filteredAndSortedUsers.length === 0 ? (
                     <TableRow>
@@ -520,80 +520,80 @@ export default function AdminUserRolesPage() {
                     </TableRow>
                   ) : (
                     filteredAndSortedUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="flex items-center space-x-3">
-                          <div className="flex-shrink-0">
-                            <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                              <User className="h-4 w-4 text-neutral-500" />
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div className="flex items-center space-x-3">
+                            <div className="flex-shrink-0">
+                              <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                                <User className="h-4 w-4 text-neutral-500" />
+                              </div>
+                            </div>
+                            <div>
+                              <div className="font-medium">{user.name || 'No name'}</div>
+                              <div className="text-sm text-neutral-500 flex items-center">
+                                <Mail className="h-3 w-3 mr-1" />
+                                {user.email}
+                              </div>
                             </div>
                           </div>
-                          <div>
-                            <div className="font-medium">{user.name || 'No name'}</div>
-                            <div className="text-sm text-neutral-500 flex items-center">
-                              <Mail className="h-3 w-3 mr-1" />
-                              {user.email}
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                            {user.role === 'admin' ? (
+                              <Shield className="h-3 w-3 mr-1" />
+                            ) : (
+                              <User className="h-3 w-3 mr-1" />
+                            )}
+                            {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge variant={user.isActive ? 'default' : 'secondary'}>
+                            {user.isActive ? (
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                            ) : (
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                            )}
+                            {user.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge variant={user.isEmailVerified ? 'default' : 'destructive'}>
+                            {user.isEmailVerified ? 'Verified' : 'Unverified'}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell>
+                          {user.lastLoginAt ? (
+                            <div className="text-sm text-neutral-600">
+                              <Clock className="h-3 w-3 inline mr-1" />
+                              {formatDate(user.lastLoginAt)}
                             </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                          {user.role === 'admin' ? (
-                            <Shield className="h-3 w-3 mr-1" />
                           ) : (
-                            <User className="h-3 w-3 mr-1" />
+                            <span className="text-neutral-400">Never</span>
                           )}
-                          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <Badge variant={user.isActive ? 'default' : 'secondary'}>
-                          {user.isActive ? (
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                          ) : (
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                          )}
-                          {user.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <Badge variant={user.isEmailVerified ? 'default' : 'destructive'}>
-                          {user.isEmailVerified ? 'Verified' : 'Unverified'}
-                        </Badge>
-                      </TableCell>
-                      
-                      <TableCell>
-                        {user.lastLoginAt ? (
-                          <div className="text-sm text-neutral-600">
-                            <Clock className="h-3 w-3 inline mr-1" />
-                            {formatDate(user.lastLoginAt)}
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="text-sm">
+                            <Calendar className="h-3 w-3 inline mr-1" />
+                            {formatDate(user.createdAt)}
                           </div>
-                        ) : (
-                          <span className="text-neutral-400">Never</span>
-                        )}
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="text-sm">
-                          <Calendar className="h-3 w-3 inline mr-1" />
-                          {formatDate(user.createdAt)}
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell className="text-right">
-                        <Select
-                          value={user.role}
-                          onValueChange={(value) => initiateRoleChange(user.id, value as 'admin' | 'user')}
-                          options={roleOptions}
-                          className="w-24"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <Select
+                            value={user.role}
+                            onValueChange={(value) => initiateRoleChange(user.id, value as 'admin' | 'user')}
+                            options={roleOptions}
+                            className="w-24"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))
                   )}
                 </TableBody>
               </Table>
@@ -622,7 +622,7 @@ export default function AdminUserRolesPage() {
               Are you sure you want to change this user&apos;s role? This will affect their system permissions.
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedUser && pendingRoleChange && (
             <div className="py-4">
               <div className="flex items-center space-x-3 p-4 border rounded-lg">
@@ -637,7 +637,7 @@ export default function AdminUserRolesPage() {
                   </div>
                 </div>
               </div>
-              
+
               {pendingRoleChange.newRole === 'admin' && (
                 <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <div className="flex items-center">
@@ -651,12 +651,12 @@ export default function AdminUserRolesPage() {
               )}
             </div>
           )}
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={confirmRoleChange}
               variant={pendingRoleChange?.newRole === 'admin' ? 'destructive' : 'default'}
             >

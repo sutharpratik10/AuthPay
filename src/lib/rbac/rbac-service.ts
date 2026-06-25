@@ -779,7 +779,7 @@ export class RBACService {
       }).where(eq(permissions.id, permissionId));
 
       await this.logAudit(adminUserId, "permission_updated", "permission", permissionId, existing, data);
-      
+
       this.clearAllCache();
 
       return { success: true, message: `Permission updated successfully` };
@@ -814,7 +814,7 @@ export class RBACService {
 
       await db.delete(permissions).where(eq(permissions.id, permissionId));
       await this.logAudit(adminUserId, "permission_deleted", "permission", permissionId, existing, null);
-      
+
       this.clearAllCache();
 
       return { success: true, message: `Permission deleted successfully` };
