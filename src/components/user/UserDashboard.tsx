@@ -63,6 +63,32 @@ export default function UserDashboard() {
           </div>
         </div>
 
+        {/* Free Trial Banner */}
+        {subscriptionStatus?.status === 'free-trial' && (
+          <div className="mb-8 rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800 p-4">
+            <div className="flex items-start md:items-center justify-between flex-col md:flex-row gap-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
+                  <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-blue-900 dark:text-blue-100">You're on a Free Trial</h3>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    {subscriptionStatus.expiryDate ? (
+                      <>Your trial ends in {Math.ceil((new Date(subscriptionStatus.expiryDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))} days.</>
+                    ) : (
+                      <>Enjoy your free trial!</>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Button asChild variant="default" className="bg-blue-600 hover:bg-blue-700 text-white shrink-0">
+                <a href="/pricing">Upgrade Now</a>
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Subscribed User Dashboard Area - Template Placeholder View */}
         {isActiveSub && (
           <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

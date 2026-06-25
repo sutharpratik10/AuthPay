@@ -61,6 +61,8 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
   const { refreshSubscription } = useSubscription();
   const { data: session, status: sessionStatus } = useSession();
   const searchParams = useSearchParams();
+  const [freeTrialConfig, setFreeTrialConfig] = useState<any>(null);
+  const [isEligibleForTrial, setIsEligibleForTrial] = useState<boolean>(true);
 
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -96,6 +98,24 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
       }
     }
   }, [searchParams, sessionStatus, plans]);
+
+  // Check trial eligibility
+  useEffect(() => {
+    if (sessionStatus === "authenticated") {
+      fetch("/api/user/subscription-history")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.data?.history && data.data.history.length > 0) {
+            setIsEligibleForTrial(false);
+          } else {
+            setIsEligibleForTrial(true);
+          }
+        })
+        .catch(() => setIsEligibleForTrial(false));
+    } else {
+      setIsEligibleForTrial(true);
+    }
+  }, [sessionStatus]);
 
   // Check subscription status, then purchase if no active sub
   const checkSubscriptionThenPurchase = async (plan: RazorpayPlan) => {
@@ -145,6 +165,9 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
         if (data?.success) {
           console.log("[PricingPage] Loaded plans:", data.plans);
           setPlans(data.plans || []);
+          if (data.freeTrial) {
+            setFreeTrialConfig(data.freeTrial);
+          }
         } else {
           toast({
             title: "Error",
@@ -190,8 +213,11 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
     return plans.length === 3 && index === 1;
   };
 
-  // Filter plans by billing cycle
+  // Filter plans by billing cycle and exclude zero price "Free" plans
   const filteredPlans = plans.filter(plan => {
+    // Exclude basic "Free" plans since we show the Free Trial banner instead
+    if (plan.amount === 0 || plan.name.toLowerCase() === "free") return false;
+
     if (billingCycle === "monthly") {
       return plan.period === "monthly";
     } else {
@@ -453,6 +479,41 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
     }
   };
 
+  const handleStartFreeTrial = async () => {
+    if (sessionStatus === "unauthenticated") {
+      setShowAuthModal(true);
+      return;
+    }
+
+    setPurchasing("free-trial");
+    try {
+      const res = await fetch("/api/subscription-plans/free-trial/activate", {
+        method: "POST",
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to activate free trial");
+      }
+
+      toast({
+        title: "Success",
+        description: data.message || "Free trial activated successfully!",
+        variant: "success",
+      });
+
+      refreshSubscription();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setPurchasing(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Script
@@ -514,22 +575,51 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
               and get paid — all in one platform.
             </p>
 
-            {/* Social Proof */}
-            <div className="flex flex-col items-center gap-3 pt-4">
-              <div className="flex -space-x-2">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div
-                    key={i}
-                    className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 border-2 border-background flex items-center justify-center text-primary-foreground font-bold text-sm"
-                  >
-                    {String.fromCharCode(64 + i)}
+            {/* Free Trial Featured Banner */}
+            {freeTrialConfig && isEligibleForTrial && (
+              <div className="mt-12 relative max-w-4xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
+                  <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-1.5 rounded-full text-sm font-bold shadow-lg flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    {freeTrialConfig.durationDays}-Day Free Trial
                   </div>
-                ))}
+                </div>
+                <Card className="relative overflow-hidden border-2 border-blue-500/50 hover:border-blue-500 shadow-xl bg-card transition-all duration-300">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-900/10 dark:to-transparent" />
+                  <CardContent className="relative p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-6 text-left">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center shadow-lg shrink-0">
+                        <Star className="h-8 w-8 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold text-foreground">
+                          Try Premium for Free
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Full access to all features for {freeTrialConfig.durationDays} days. No credit card required.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      className="w-full sm:w-auto py-6 px-8 text-base font-semibold rounded-xl transition-all duration-300 bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg hover:shadow-xl hover:scale-105 shrink-0"
+                      disabled={!!purchasing}
+                      onClick={handleStartFreeTrial}
+                    >
+                      {purchasing === "free-trial" ? (
+                        <>
+                          <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                          Activating...
+                        </>
+                      ) : (
+                        <>
+                          Start Free Trial
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
               </div>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-bold text-foreground">2,547</span> developers joined this week
-              </p>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -575,6 +665,7 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
           </div>
         ) : (
           <div className="flex flex-wrap justify-center gap-8 max-w-7xl mx-auto items-stretch">
+
             {filteredPlans.map((plan, index) => {
               const Icon = getPlanIcon(plan.name);
               const badge = plan.badge;

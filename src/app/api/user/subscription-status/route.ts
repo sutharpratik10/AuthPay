@@ -90,7 +90,7 @@ export const GET = rateLimiters.readOnly(
       // Expired
       statusName = statusName === 'cancelled' ? 'cancelled' : 'expired';
       isActive = false;
-    } else if (statusName === 'active') {
+    } else if (statusName === 'active' || statusName === 'free-trial') {
       isActive = true;
     } else if (statusName === 'cancelled') {
       // Cancelled but not yet expired - user still has access

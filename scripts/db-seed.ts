@@ -81,6 +81,10 @@ const defaultStatuses = [
   {
     name: 'expired',
     description: 'Subscription has expired',
+  },
+  {
+    name: 'free-trial',
+    description: 'User is on a free trial',
   }
 ];
 

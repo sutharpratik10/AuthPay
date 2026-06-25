@@ -583,3 +583,12 @@ export const loginHistory = pgTable("login_history", {
 		name: "login_history_user_id_users_id_fk"
 	}).onDelete("cascade"),
 ]);
+
+export const freeTrialSettings = pgTable("free_trial_settings", {
+	id: uuid('id').defaultRandom().primaryKey(),
+	planId: uuid('plan_id').references(() => subscriptionPlans.id, { onDelete: 'cascade' }).notNull(),
+	durationDays: integer('duration_days').notNull(),
+	isActive: boolean('is_active').default(true).notNull(),
+	createdAt: timestamp('created_at').defaultNow().notNull(),
+	updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
