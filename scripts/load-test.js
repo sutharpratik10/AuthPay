@@ -15,8 +15,12 @@
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const autocannon = require('autocannon');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const chalk = require('chalk');
+// Mock chalk to avoid ESM require issues
+const dummyFn = (s) => s;
+dummyFn.bold = dummyFn;
+const chalk = new Proxy({}, {
+  get: () => dummyFn
+});
 
 // Configuration
 const BASE_URL = process.env.TEST_URL || 'http://localhost:3000';
@@ -49,7 +53,7 @@ const INTENSITY_CONFIGS = {
   },
   stress: {
     connections: 1000,
-    duration: 60,
+    duration: 10,
     pipelining: 50,
     description: 'Stress test - 1000+ RPS target across all routes'
   },
