@@ -6,7 +6,7 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
  * GET /api/subscription-plans - Get all active subscription plans (public)
  * Rate Limited: 100 requests per minute
  */
-export const GET = rateLimiters.readOnly(async () => {
+export const GET = rateLimiters.withAggressiveCache(async () => {
   try {
     const plans = await subscriptionPlanService.getActiveSubscriptionPlans();
 

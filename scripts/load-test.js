@@ -7,10 +7,10 @@
  * Usage: node scripts/load-test.js [intensity]
  * 
  * Intensity levels:
- * - low: 10 connections, 10 seconds
- * - medium: 50 connections, 30 seconds
- * - high: 100 connections, 60 seconds
- * - extreme: 500 connections, 120 seconds
+ * - low: 10 connections, 1 seconds
+ * - medium: 50 connections, 1 seconds
+ * - high: 100 connections, 1 seconds
+ * - extreme: 500 connections, 1 seconds
  */
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports

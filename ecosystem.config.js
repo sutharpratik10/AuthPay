@@ -26,13 +26,13 @@ module.exports = {
       name: "authpay-web",
       script: ".next/standalone/server.js",
       // 'max' utilizes all available CPU cores. Adjust to a specific number (e.g., 2 or 4) if desired.
-      instances: "max", 
+      instances: "max",
       exec_mode: "cluster",
       env: {
         NODE_ENV: "production",
         PORT: 3000,
         HOSTNAME: "127.0.0.1",
-        
+
         // Use the dynamically parsed pgBouncer URL
         DATABASE_URL: pgbouncerUrl
       }

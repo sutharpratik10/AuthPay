@@ -327,7 +327,7 @@ class RequestQueue {
 export const requestQueue = new RequestQueue({
   maxQueueSize: 10000,
   maxWaitTimeMs: 30000,
-  concurrency: 100,
+  concurrency: 250,
   enablePriority: true,
   enableDegradation: true,
 });
@@ -344,7 +344,7 @@ export const QUEUE_PRESETS = {
   production: {
     maxQueueSize: 10000,
     maxWaitTimeMs: 30000,
-    concurrency: 100,
+    concurrency: 250,
     enablePriority: true,
     enableDegradation: true,
   },

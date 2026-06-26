@@ -8,7 +8,7 @@ import { logSecurityEvent } from '@/lib/utils/validation-middleware'
  * POST /api/auth/check-email - Check if email exists
  * Rate Limited: 30 requests per minute (validation endpoint)
  */
-export const POST = rateLimiters.validation(async (req: NextRequest) => {
+export const POST = rateLimiters.withGlobalLimit(async (req: NextRequest) => {
   try {
     const body = await req.json()
     const { email } = body
