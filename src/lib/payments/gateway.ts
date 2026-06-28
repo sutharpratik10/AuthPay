@@ -16,9 +16,28 @@ export interface CreateOrderResult {
   [key: string]: unknown;
 }
 
+export interface RefundInput {
+  providerPaymentId: string;  // Gateway-specific payment ID
+  amountMinor: number;        // In smallest currency unit
+  currency?: string;
+  reason?: string;
+  notes?: Record<string, string>;
+  receipt?: string;
+}
+
+export interface RefundResult {
+  success: boolean;
+  providerRefundId: string;
+  status: string;
+  amountMinor: number;
+  currency: string;
+  gatewayResponse?: Record<string, unknown>;
+}
+
 export interface PaymentProvider {
   createOrder(input: CreateOrderInput): Promise<CreateOrderResult>;
   verifyPayment(options: Record<string, unknown>): Promise<boolean>;
+  createRefund(input: RefundInput): Promise<RefundResult>;
 }
 
 const providers: Record<string, () => PaymentProvider> = {};

@@ -592,3 +592,54 @@ export const freeTrialSettings = pgTable("free_trial_settings", {
 	createdAt: timestamp('created_at').defaultNow().notNull(),
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+export const refundRequests = pgTable("refund_requests", {
+	id: uuid('id').defaultRandom().primaryKey(),
+	paymentOrderId: uuid('payment_order_id').notNull().references(() => paymentOrders.id),
+	userId: uuid('user_id').notNull().references(() => users.id),
+	planId: uuid('plan_id').references(() => subscriptionPlans.id),
+	amountMinor: integer('amount_minor').notNull(),
+	currency: varchar('currency', { length: 3 }).notNull(),
+	reason: text('reason').notNull(),
+	status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, approved, rejected, completed, failed
+	gateway: varchar('gateway', { length: 50 }).notNull(), // razorpay or stripe
+	gatewayPaymentId: varchar('gateway_payment_id', { length: 150 }).notNull(),
+	gatewayRefundId: varchar('gateway_refund_id', { length: 150 }),
+	gatewayResponse: jsonb('gateway_response'),
+	approvedBy: uuid('approved_by').references(() => users.id),
+	approvedAt: timestamp('approved_at'),
+	processedAt: timestamp('processed_at'),
+	completedAt: timestamp('completed_at'),
+	failureReason: text('failure_reason'),
+	revokeSubscription: boolean('revoke_subscription').default(false).notNull(),
+	subscriptionAction: varchar('subscription_action', { length: 20 }).default('none'), // none, cancelled, keep_active
+	createdAt: timestamp('created_at').defaultNow().notNull(),
+	updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+		columns: [table.paymentOrderId],
+		foreignColumns: [paymentOrders.id],
+		name: "refund_requests_payment_order_id_payment_orders_id_fk"
+	}),
+	foreignKey({
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "refund_requests_user_id_users_id_fk"
+	}),
+	foreignKey({
+		columns: [table.planId],
+		foreignColumns: [subscriptionPlans.id],
+		name: "refund_requests_plan_id_subscription_plans_id_fk"
+	}),
+	foreignKey({
+		columns: [table.approvedBy],
+		foreignColumns: [users.id],
+		name: "refund_requests_approved_by_users_id_fk"
+	})
+]);
+
+export const platformSettings = pgTable("platform_settings", {
+	id: varchar('id', { length: 50 }).primaryKey(),
+	autoProcessRefunds: boolean('auto_process_refunds').default(false).notNull(),
+	updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});

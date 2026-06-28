@@ -36,6 +36,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { InvoiceDialog } from '@/components/shared/InvoiceDialog';
+import { CreateRefundDialog } from './CreateRefundDialog';
 
 export default function Transactions() {
   // transient copied key state used for copy buttons in dialogs/tables
@@ -274,22 +275,27 @@ export default function Transactions() {
   const [paymentDetailsLoading, setPaymentDetailsLoading] = useState(false);
   const [paymentDetailsError, setPaymentDetailsError] = useState<string | null>(null);
 
-  const fetchPaymentById = useCallback(async (id: string) => {
+  // Refund dialog state
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+
+  const fetchPaymentById = useCallback(async (id: string, gateway: string = 'razorpay') => {
     setPaymentDetailsLoading(true);
     setPaymentDetailsError(null);
     setPaymentDetails(null);
     try {
-      // Logic for multi-gateway fetch if necessary, currently assumes id prefix/lookup
-      const res = await fetch(`/api/payments/razorpay-payments/${encodeURIComponent(id)}`);
+      const endpoint = gateway === 'stripe' ? 'stripe-payments' : 'razorpay-payments';
+      const res = await fetch(`/api/payments/${endpoint}/${encodeURIComponent(id)}`);
       const text = await res.text();
 
       if (!res.ok) {
         let message = `Request failed (${res.status})`;
         try {
           const parsed = JSON.parse(text);
-          message = parsed?.error || parsed?.message || JSON.stringify(parsed);
+          const errField = parsed?.error;
+          const msgField = parsed?.message;
+          message = typeof errField === 'string' ? errField : (errField?.description || errField?.message || msgField || JSON.stringify(parsed));
         } catch { }
-        throw new Error(message);
+        throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
       }
 
       try {
@@ -491,10 +497,10 @@ export default function Transactions() {
     return String(v);
   }, []);
 
-  const openPaymentDialog = (id: string) => {
+  const openPaymentDialog = (id: string, gateway: string = 'razorpay') => {
     setSelectedPaymentId(id);
     setPaymentDialogOpen(true);
-    fetchPaymentById(id);
+    fetchPaymentById(id, gateway);
   };
 
   const toggleStatusFilter = (status: string) => {
@@ -865,7 +871,7 @@ export default function Transactions() {
                           <button
                             type="button"
                             className="text-primary underline hover:text-primary/80"
-                            onClick={() => openPaymentDialog(payment.id)}
+                            onClick={() => openPaymentDialog(payment.id, payment._gateway as string)}
                           >
                             {payment.id}
                           </button>
@@ -1157,6 +1163,11 @@ export default function Transactions() {
           <div className="flex items-center justify-between p-2">
             <DialogTitle>Payment Details</DialogTitle>
             <div className="flex items-center gap-2">
+              {paymentDetails && ['captured', 'succeeded'].includes(paymentDetails.status) && (
+                <Button size="sm" onClick={() => setRefundDialogOpen(true)}>
+                  Issue Refund
+                </Button>
+              )}
               <DialogClose asChild>
                 <Button variant="outline" size="sm">Close</Button>
               </DialogClose>
@@ -1339,6 +1350,21 @@ export default function Transactions() {
         invoiceId={selectedInvoiceId}
         open={invoiceDialogOpen}
         onOpenChange={setInvoiceDialogOpen}
+      />
+
+      <CreateRefundDialog
+        isOpen={refundDialogOpen}
+        onClose={() => setRefundDialogOpen(false)}
+        paymentOrder={paymentDetails ? {
+          id: paymentDetails.id, // wait, our DB id or gateway id? 
+          amountMinor: paymentDetails.amount,
+          currency: paymentDetails.currency,
+          user: { email: paymentDetails.email, name: paymentDetails.contact }
+        } : null}
+        onSuccess={() => {
+          setRefundDialogOpen(false);
+          // could refresh payments here if needed
+        }}
       />
     </div>
   );

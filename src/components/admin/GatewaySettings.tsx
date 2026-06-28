@@ -222,6 +222,10 @@ export default function GatewaySettings() {
   const [deleteTarget, setDeleteTarget] = useState<GatewayRule | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  // ---- platform settings state ----
+  const [platformSettings, setPlatformSettings] = useState<{ autoProcessRefunds: boolean }>({ autoProcessRefunds: false });
+  const [settingsLoading, setSettingsLoading] = useState(true);
+
   // --------------------------------------------------------------------------
   // Fetch
   // --------------------------------------------------------------------------
@@ -239,6 +243,41 @@ export default function GatewaySettings() {
       setLoading(false);
     }
   }, [toast]);
+
+  const fetchPlatformSettings = useCallback(async () => {
+    setSettingsLoading(true);
+    try {
+      const res = await fetch('/api/admin/platform-settings');
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setPlatformSettings({ autoProcessRefunds: json.data?.autoProcessRefunds || false });
+      }
+    } catch (err) {
+      console.error("Failed to load platform settings:", err);
+    } finally {
+      setSettingsLoading(false);
+    }
+  }, []);
+
+  const toggleAutoProcessRefunds = async (checked: boolean) => {
+    try {
+      setSettingsLoading(true);
+      const res = await fetch('/api/admin/platform-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoProcessRefunds: checked }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'Failed to update settings');
+      setPlatformSettings({ autoProcessRefunds: checked });
+      toast({ title: 'Success', description: 'Refund automation setting updated', variant: 'success' });
+    } catch (err) {
+      toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
+      // Revert optimism if implemented, but we just re-fetch on next render
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
 
   // ---- Plan Visibility Control ----
   const [vendorPlans, setVendorPlans] = useState<any[]>([]);
@@ -407,7 +446,8 @@ export default function GatewaySettings() {
   useEffect(() => {
     fetchRules();
     fetchVendorPlans();
-  }, [fetchRules, fetchVendorPlans]);
+    fetchPlatformSettings();
+  }, [fetchRules, fetchVendorPlans, fetchPlatformSettings]);
 
   // --------------------------------------------------------------------------
   // Derived stats
@@ -729,6 +769,33 @@ export default function GatewaySettings() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Refund Automation ── */}
+      <Card className="border border-primary/20 bg-primary/5">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="w-5 h-5 text-primary shrink-0" />
+              <div>
+                <p className="text-sm font-medium">Automatic Refund Processing</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  If enabled, user-initiated refund requests will be automatically sent to the payment provider without requiring admin manual review.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground mr-2">
+                {platformSettings.autoProcessRefunds ? 'Enabled' : 'Disabled'}
+              </span>
+              <Switch
+                checked={platformSettings.autoProcessRefunds}
+                onCheckedChange={toggleAutoProcessRefunds}
+                disabled={settingsLoading}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ── Global default banner ── */}
       {globalRule ? (

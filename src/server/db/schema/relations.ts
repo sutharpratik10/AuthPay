@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { subscriptionPlans, adminDashboardStats, userUsageMetrics, users, auditLogs, errorLogs, userNotifications, billings, permissions, roles, rolePermissions, otpCodes, userPreferences, userRoles, twoFactorAuth, recoveryCodes, loginHistory } from "./schema";
+import { subscriptionPlans, adminDashboardStats, userUsageMetrics, users, auditLogs, errorLogs, userNotifications, billings, permissions, roles, rolePermissions, otpCodes, userPreferences, userRoles, twoFactorAuth, recoveryCodes, loginHistory, refundRequests, paymentOrders } from "./schema";
 
 export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({
   billings: many(billings),
@@ -43,6 +43,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   userNotifications: many(userNotifications),
   billings: many(billings),
   loginHistory: many(loginHistory),
+  refundRequests: many(refundRequests),
 }));
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
@@ -135,4 +136,36 @@ export const loginHistoryRelations = relations(loginHistory, ({ one }) => ({
     fields: [loginHistory.userId],
     references: [users.id],
   }),
+}));
+
+export const refundRequestsRelations = relations(refundRequests, ({ one }) => ({
+  paymentOrder: one(paymentOrders, {
+    fields: [refundRequests.paymentOrderId],
+    references: [paymentOrders.id],
+  }),
+  user: one(users, {
+    fields: [refundRequests.userId],
+    references: [users.id],
+  }),
+  plan: one(subscriptionPlans, {
+    fields: [refundRequests.planId],
+    references: [subscriptionPlans.id],
+  }),
+  approvedByUser: one(users, {
+    fields: [refundRequests.approvedBy],
+    references: [users.id],
+    relationName: "approvedBy"
+  }),
+}));
+
+export const paymentOrdersRelations = relations(paymentOrders, ({ one, many }) => ({
+  user: one(users, {
+    fields: [paymentOrders.userId],
+    references: [users.id],
+  }),
+  plan: one(subscriptionPlans, {
+    fields: [paymentOrders.planId],
+    references: [subscriptionPlans.id],
+  }),
+  refundRequests: many(refundRequests),
 }));

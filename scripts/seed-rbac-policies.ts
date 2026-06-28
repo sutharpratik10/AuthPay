@@ -62,6 +62,10 @@ const defaultPolicies = [
   { name: 'tenant:edit', description: 'Edit tenants', category: 'tenant' },
   { name: 'tenant:delete', description: 'Delete tenants', category: 'tenant' },
   
+  // Billing policies
+  { name: 'billing:view', description: 'View billing and refunds', category: 'billing' },
+  { name: 'billing:manage', description: 'Manage billing and refunds', category: 'billing' },
+  
   // System policies
   { name: 'system:manage', description: 'Manage system', category: 'system' },
   { name: 'analytics:view', description: 'View analytics', category: 'analytics' },
@@ -99,6 +103,8 @@ const rolePolicyAssignments: Record<string, string[]> = {
     'tenant:create',
     'tenant:edit',
     'tenant:delete',
+    'billing:view',
+    'billing:manage',
     'system:manage',
     'analytics:view',
     'logs:view',

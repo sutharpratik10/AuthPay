@@ -32,6 +32,10 @@ export default function AdminDashboardClient({ adminName }: AdminDashboard) {
     revenue: "$0",
     errors24h: 0,
   })
+  const [refundStats, setRefundStats] = useState({
+    pendingCount: 0,
+    completedCount: 0,
+  })
 
   // Use refs to prevent duplicate fetches
   const hasFetchedRef = useRef(false);
@@ -46,12 +50,22 @@ export default function AdminDashboardClient({ adminName }: AdminDashboard) {
     setLoading(true);
     
     try {
-      const res = await fetch('/api/admin/dashboard-stats');
+      const [res, refundRes] = await Promise.all([
+        fetch('/api/admin/dashboard-stats'),
+        fetch('/api/admin/refunds/stats')
+      ]);
       const data = await res.json();
+      
       if (data.success) {
         setStats(data.data);
-        hasFetchedRef.current = true;
       }
+      
+      if (refundRes.ok) {
+        const refundData = await refundRes.json();
+        setRefundStats(refundData);
+      }
+      
+      hasFetchedRef.current = true;
     } catch (error) {
       console.error('Failed to fetch dashboard stats:', error);
     } finally {
@@ -77,7 +91,8 @@ export default function AdminDashboardClient({ adminName }: AdminDashboard) {
         <div className="animate-pulse space-y-4">
           <div className="h-7 w-48 bg-muted rounded" />
           <div className="h-4 w-72 bg-muted rounded" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="h-28 bg-muted rounded" />
             <div className="h-28 bg-muted rounded" />
             <div className="h-28 bg-muted rounded" />
             <div className="h-28 bg-muted rounded" />
@@ -103,10 +118,12 @@ export default function AdminDashboardClient({ adminName }: AdminDashboard) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
         <StatCard title="Active Users" value={stats.activeUsers} />
         <StatCard title="Revenue (MTD)" value={stats.revenue} />
         <StatCard title="Errors (24h)" value={stats.errors24h} />
+        <StatCard title="Pending Refunds" value={refundStats.pendingCount} />
+        <StatCard title="Completed Refunds" value={refundStats.completedCount} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mt-6">

@@ -15,6 +15,8 @@ import {
   PaymentProvider,
   CreateOrderInput,
   CreateOrderResult,
+  RefundInput,
+  RefundResult,
 } from "../gateway";
 
 export interface StripeCreateOrderInput extends CreateOrderInput {
@@ -172,6 +174,36 @@ class StripeProvider implements PaymentProvider {
       );
     }
     return stripe.webhooks.constructEvent(payload, sig, secret);
+  }
+
+  async createRefund(input: RefundInput): Promise<RefundResult> {
+    const stripe = this.ensureClient();
+    
+    const params: Stripe.RefundCreateParams = {};
+    if (input.providerPaymentId.startsWith('pi_')) {
+      params.payment_intent = input.providerPaymentId;
+    } else {
+      params.charge = input.providerPaymentId; // 'ch_' or something else
+    }
+    
+    if (input.amountMinor > 0) {
+      params.amount = input.amountMinor;
+    }
+
+    if (input.reason && ['duplicate', 'fraudulent', 'requested_by_customer'].includes(input.reason)) {
+      params.reason = input.reason as Stripe.RefundCreateParams.Reason;
+    }
+
+    const response = await stripe.refunds.create(params);
+
+    return {
+      success: true, // throws on failure
+      providerRefundId: response.id,
+      status: response.status || 'unknown',
+      amountMinor: response.amount,
+      currency: response.currency,
+      gatewayResponse: response as unknown as Record<string, unknown>,
+    };
   }
 }
 

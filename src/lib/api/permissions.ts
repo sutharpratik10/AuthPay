@@ -290,6 +290,10 @@ export const API_POLICIES = {
   SUBSCRIPTION_CANCEL: { policy: 'subscription:cancel' },
   SUBSCRIPTION_MANAGE: { policy: 'subscription:manage' },
   
+  // Billing policies
+  BILLING_REFUND: { policy: 'billing:manage' },
+  REFUND_VIEW: { policy: 'billing:view' },
+  
   // Content policies
   CONTENT_VIEW: { policy: 'content:view' },
   CONTENT_CREATE: { policy: 'content:create' },

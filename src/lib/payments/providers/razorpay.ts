@@ -1,7 +1,7 @@
 // src/lib/payments/providers/razorpay.ts
 import Razorpay from "razorpay";
 import { createHmac } from "crypto";
-import { registerPaymentProvider, PaymentProvider, CreateOrderInput, CreateOrderResult } from "../gateway";
+import { registerPaymentProvider, PaymentProvider, CreateOrderInput, CreateOrderResult, RefundInput, RefundResult } from "../gateway";
 
 export interface RazorpayCreateOrderResponse extends CreateOrderResult {
   id: string;
@@ -42,8 +42,8 @@ class RazorpayProvider implements PaymentProvider {
       receipt: input.receipt,
       notes: input.notes
         ? Object.fromEntries(
-            Object.entries(input.notes).map(([k, v]) => [k, v == null ? null : String(v)])
-          )
+          Object.entries(input.notes).map(([k, v]) => [k, v == null ? null : String(v)])
+        )
         : undefined,
     });
 
@@ -76,6 +76,30 @@ class RazorpayProvider implements PaymentProvider {
     hmac.update(signedString);
     const expected = hmac.digest("hex");
     return expected === razorpay_signature;
+  }
+
+  async createRefund(input: RefundInput): Promise<RefundResult> {
+    if (this.keyId === 'placeholder_key_id') {
+      throw new Error("Razorpay credentials not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment.");
+    }
+    const client = new Razorpay({ key_id: this.keyId, key_secret: this.keySecret });
+    const params: any = {
+      speed: 'normal',
+      notes: input.notes,
+      receipt: input.receipt,
+    };
+    if (input.amountMinor && input.amountMinor > 0) {
+      params.amount = input.amountMinor;
+    }
+    const response = await client.payments.refund(input.providerPaymentId, params);
+    return {
+      success: true,
+      providerRefundId: response.id,
+      status: response.status,
+      amountMinor: Number(response.amount),
+      currency: response.currency,
+      gatewayResponse: response as unknown as Record<string, unknown>,
+    };
   }
 }
 

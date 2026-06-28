@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { InvoiceDialog } from '@/components/shared/InvoiceDialog';
+import { RequestRefundModal } from '@/components/shared/RequestRefundModal';
 
 interface SubscriptionStatus {
   planName: string;
@@ -47,6 +48,7 @@ export default function ManageSubscriptionPage() {
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = React.useState<string | null>(null);
   const [showInvoiceDialog, setShowInvoiceDialog] = React.useState(false);
+  const [showRefundModal, setShowRefundModal] = React.useState(false);
   const { toast } = useToast();
 
   // Debug navigation
@@ -421,14 +423,23 @@ export default function ManageSubscriptionPage() {
             </div>
             Current Subscription
             {subscriptionStatus?.providerSubscriptionId && subscriptionStatus?.status === 'active' && !isSubscriptionExpired && (
-              <button
-                type="button"
-                onClick={handleCancelClick}
-                className="cursor-pointer ml-auto inline-flex items-center px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white text-sm font-medium"
-                disabled={cancelling}
-              >
-                {cancelling ? 'Cancelling...' : 'Cancel subscription'}
-              </button>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRefundModal(true)}
+                  className="cursor-pointer inline-flex items-center px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"
+                >
+                  Request Refund
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelClick}
+                  className="cursor-pointer inline-flex items-center px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white text-sm font-medium"
+                  disabled={cancelling}
+                >
+                  {cancelling ? 'Cancelling...' : 'Cancel subscription'}
+                </button>
+              </div>
             )}
             {subscriptionStatus?.status === 'cancelled' && !isSubscriptionExpired && (
               <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-gray-700 text-white text-sm font-medium">cancelled</span>
@@ -628,6 +639,15 @@ export default function ManageSubscriptionPage() {
         invoiceId={selectedInvoiceId}
         open={showInvoiceDialog}
         onOpenChange={setShowInvoiceDialog}
+      />
+
+      <RequestRefundModal
+        isOpen={showRefundModal}
+        onClose={() => setShowRefundModal(false)}
+        providerSubscriptionId={subscriptionStatus?.providerSubscriptionId || null}
+        onSuccess={() => {
+          // optionally refresh data
+        }}
       />
     </div>
   );

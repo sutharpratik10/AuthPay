@@ -79,6 +79,13 @@ export async function POST(req: NextRequest): Promise<Response> {
         );
         break;
 
+      case "charge.refund.updated":
+      case "refund.created":
+      case "refund.updated":
+      case "refund.failed":
+        await handleRefundEvent(event);
+        break;
+
       default:
         console.log(`[stripe-webhook] Unhandled event type: ${event.type}`);
     }
@@ -88,6 +95,22 @@ export async function POST(req: NextRequest): Promise<Response> {
     console.error(`[stripe-webhook] Handler error for ${event.type}:`, err);
     // Return 200 to prevent Stripe from retrying — log the error for manual inspection
     return NextResponse.json({ received: true, warning: "Handler error logged" });
+  }
+}
+
+async function handleRefundEvent(event: Stripe.Event) {
+  const refund = event.data.object as Stripe.Refund;
+  const { refundService } = await import("@/server/services/refund");
+  
+  if (event.type === 'refund.failed') {
+    await refundService.handleWebhookUpdate(refund.id, 'failed', refund);
+  } else {
+    // For created/updated events, check status
+    if (refund.status === 'succeeded') {
+      await refundService.handleWebhookUpdate(refund.id, 'succeeded', refund);
+    } else if (refund.status === 'failed' || refund.status === 'canceled') {
+      await refundService.handleWebhookUpdate(refund.id, 'failed', refund);
+    }
   }
 }
 
