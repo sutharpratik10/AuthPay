@@ -178,12 +178,38 @@ class StripeProvider implements PaymentProvider {
 
   async createRefund(input: RefundInput): Promise<RefundResult> {
     const stripe = this.ensureClient();
+
+    let paymentId = input.providerPaymentId;
+
+    // If we received a Checkout Session ID, resolve it to the actual Payment Intent
+    if (paymentId.startsWith('cs_')) {
+      const session = await stripe.checkout.sessions.retrieve(paymentId);
+      if (session.payment_intent) {
+        paymentId = typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent.id;
+      } else if (session.subscription) {
+        // For subscription checkouts, get the latest invoice's payment intent
+        const subId = typeof session.subscription === 'string'
+          ? session.subscription
+          : session.subscription.id;
+        const invoices = await stripe.invoices.list({ subscription: subId, limit: 1 });
+        if (invoices.data.length > 0 && invoices.data[0].payment_intent) {
+          const pi = invoices.data[0].payment_intent;
+          paymentId = typeof pi === 'string' ? pi : pi.id;
+        } else {
+          throw new Error('Could not resolve Stripe checkout session to a refundable payment');
+        }
+      } else {
+        throw new Error('Stripe checkout session has no associated payment');
+      }
+    }
     
     const params: Stripe.RefundCreateParams = {};
-    if (input.providerPaymentId.startsWith('pi_')) {
-      params.payment_intent = input.providerPaymentId;
+    if (paymentId.startsWith('pi_')) {
+      params.payment_intent = paymentId;
     } else {
-      params.charge = input.providerPaymentId; // 'ch_' or something else
+      params.charge = paymentId; // 'ch_' or something else
     }
     
     if (input.amountMinor > 0) {

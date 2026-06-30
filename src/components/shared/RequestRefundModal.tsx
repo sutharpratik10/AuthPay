@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,10 +22,42 @@ interface RequestRefundModalProps {
   onSuccess: () => void;
 }
 
+interface RefundEstimate {
+  totalPlanCostMinor: number;
+  currency: string;
+  durationMinutes: number;
+  timeUsedMinutes: number;
+  unusedTimeMinutes: number;
+  refundAmountMinor: number;
+  isLifetime: boolean;
+}
+
 export function RequestRefundModal({ isOpen, onClose, providerSubscriptionId, onSuccess }: RequestRefundModalProps) {
   const [loading, setLoading] = useState(false);
   const [reason, setReason] = useState("");
+  const [estimate, setEstimate] = useState<RefundEstimate | null>(null);
+  const [loadingEstimate, setLoadingEstimate] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (isOpen && providerSubscriptionId) {
+      setLoadingEstimate(true);
+      fetch(`/api/user/refunds/estimate?providerSubscriptionId=${encodeURIComponent(providerSubscriptionId)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setEstimate(data.estimate);
+          } else {
+            console.error("Failed to load estimate:", data.error);
+          }
+        })
+        .catch(err => console.error(err))
+        .finally(() => setLoadingEstimate(false));
+    } else {
+      setEstimate(null);
+      setReason("");
+    }
+  }, [isOpen, providerSubscriptionId]);
 
   if (!providerSubscriptionId) return null;
 
@@ -41,6 +73,7 @@ export function RequestRefundModal({ isOpen, onClose, providerSubscriptionId, on
         body: JSON.stringify({
           providerSubscriptionId,
           reason,
+          expectedRefundAmountMinor: estimate?.refundAmountMinor,
         }),
       });
 
@@ -78,7 +111,40 @@ export function RequestRefundModal({ isOpen, onClose, providerSubscriptionId, on
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+        {loadingEstimate ? (
+          <div className="py-8 text-center text-sm text-muted-foreground animate-pulse">
+            Calculating pro-rata refund estimate...
+          </div>
+        ) : estimate ? (
+          <div className="bg-natural-20 dark:bg-natural-900 rounded-md p-4 space-y-2 text-sm border border-natural-900 dark:border-natural-800">
+            <h4 className="font-semibold text-foreground mb-3">Refund Estimate</h4>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total Plan Cost:</span>
+              <span className="font-medium">{estimate.currency} {(estimate.totalPlanCostMinor / 100).toFixed(2)}</span>
+            </div>
+            {!estimate.isLifetime && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Time Used:</span>
+                  <span className="font-medium">{Math.floor(estimate.timeUsedMinutes / (24 * 60))} Days, {Math.floor((estimate.timeUsedMinutes % (24 * 60)) / 60)} Hours</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Unused Time:</span>
+                  <span className="font-medium">{Math.floor(estimate.unusedTimeMinutes / (24 * 60))} Days, {Math.floor((estimate.unusedTimeMinutes % (24 * 60)) / 60)} Hours</span>
+                </div>
+              </>
+            )}
+            <div className="flex justify-between pt-2 border-t border-natural-200 dark:border-natural-800 mt-2">
+              <span className="font-semibold">Fixed Refund Amount:</span>
+              <span className="font-bold text-amber-600 dark:text-amber-400">{estimate.currency} {(estimate.refundAmountMinor / 100).toFixed(2)}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-4 italic leading-relaxed">
+              *Disclaimer: Your refund is calculated pro-rata based on the exact time remaining on your billing cycle. By submitting this request, your access to the service will be paused immediately, and the refund amount will be locked in while your request is pending review.
+            </p>
+          </div>
+        ) : null}
+
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-2">
             <Label htmlFor="reason">Reason for Refund</Label>
             <Textarea

@@ -8,16 +8,17 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 const updateRefundSchema = z.object({
-  action: z.enum(['approve', 'reject']),
+  action: z.enum(['approve', 'reject', 'deny']),
   reason: z.string().optional(),
   revokeSubscription: z.boolean().optional(),
 });
 
 export const GET = withPolicy(async (
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> | { id: string } }
 ) => {
   try {
+    const params = await context.params;
     const request = await db.query.refundRequests.findFirst({
       where: eq(refundRequests.id, params.id),
       with: {
@@ -39,9 +40,10 @@ export const GET = withPolicy(async (
 
 export const PATCH = withPolicy(async (
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> | { id: string } }
 ) => {
   try {
+    const params = await context.params;
     const { auth } = await import("@/config/auth");
     const session = await auth();
     const adminId = session!.user!.id!;

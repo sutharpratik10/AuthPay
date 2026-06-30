@@ -46,9 +46,9 @@ export const POST = withPolicy(async (req: NextRequest) => {
           orderBy: [desc(paymentOrders.createdAt)],
         });
         if (latestFallback) {
-            paymentOrderId = latestFallback.id;
+          paymentOrderId = latestFallback.id;
         } else {
-            return NextResponse.json({ error: "No payment order found for this subscription" }, { status: 400 });
+          return NextResponse.json({ error: "No payment order found for this subscription" }, { status: 400 });
         }
       } else {
         paymentOrderId = latestOrder.id;
@@ -56,12 +56,34 @@ export const POST = withPolicy(async (req: NextRequest) => {
     }
 
     if (!paymentOrderId) {
-        return NextResponse.json({ error: "paymentOrderId is required" }, { status: 400 });
+      return NextResponse.json({ error: "paymentOrderId is required" }, { status: 400 });
     }
 
     const result = await refundService.createUserRefundRequest(userId, { ...data, paymentOrderId });
     return NextResponse.json({ success: true, request: result });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}, API_POLICIES.USER_ACCESS);
+
+export const GET = withPolicy(async (req: NextRequest) => {
+  try {
+    const { auth } = await import("@/config/auth");
+    const session = await auth();
+    const userId = session!.user!.id!;
+
+    const { db } = await import("@/server/db");
+    const { refundRequests } = await import("@/server/db/schema");
+    const { eq, desc } = await import("drizzle-orm");
+
+    const requests = await db.query.refundRequests.findMany({
+      where: eq(refundRequests.userId, userId),
+      orderBy: [desc(refundRequests.createdAt)],
+      with: { plan: true }
+    });
+
+    return NextResponse.json({ success: true, requests });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }, API_POLICIES.USER_ACCESS);

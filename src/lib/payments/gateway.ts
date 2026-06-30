@@ -1,5 +1,4 @@
 // src/lib/payments/gateway.ts
-//
 // Payment gateway abstraction + registry
 
 export interface CreateOrderInput {
@@ -41,13 +40,25 @@ export interface PaymentProvider {
 }
 
 const providers: Record<string, () => PaymentProvider> = {};
+let providersInitialized = false;
 
 export function registerPaymentProvider(name: string, factory: () => PaymentProvider) {
   providers[name] = factory;
 }
 
+function ensureProvidersRegistered() {
+  if (providersInitialized) return;
+  providersInitialized = true;
+  // Lazy-load providers to avoid circular dependency
+  // (providers import registerPaymentProvider from this file)
+  require("./providers/razorpay");
+  require("./providers/stripe");
+}
+
 export function getPaymentProvider(name: string): PaymentProvider {
+  ensureProvidersRegistered();
   const factory = providers[name];
   if (!factory) throw new Error(`Payment provider "${name}" is not registered`);
   return factory();
 }
+

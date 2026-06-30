@@ -43,6 +43,7 @@ export default function ManageSubscriptionPage() {
   const { subscriptionStatus: contextStatus, refreshSubscription } = useSubscription();
   const [subscriptionStatus, setSubscriptionStatus] = React.useState<SubscriptionStatus | null>(null);
   const [subscriptionHistory, setSubscriptionHistory] = React.useState<SubscriptionHistoryItem[]>([]);
+  const [refundRequests, setRefundRequests] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [cancelling, setCancelling] = React.useState(false);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
@@ -164,8 +165,12 @@ export default function ManageSubscriptionPage() {
       isFetching = true;
 
       try {
-        const historyResponse = await fetch('/api/user/subscription-history');
+        const [historyResponse, refundsResponse] = await Promise.all([
+          fetch('/api/user/subscription-history'),
+          fetch('/api/user/refunds')
+        ]);
         const historyData = await historyResponse.json();
+        const refundsData = await refundsResponse.json();
 
         if (!isMounted) return;
 
@@ -255,6 +260,9 @@ export default function ManageSubscriptionPage() {
 
           if (isMounted) {
             setSubscriptionHistory(enriched);
+            if (refundsData.success) {
+              setRefundRequests(refundsData.requests || []);
+            }
           }
         }
       } catch (error) {
@@ -422,15 +430,21 @@ export default function ManageSubscriptionPage() {
               <Crown className="h-6 w-6 text-white" />
             </div>
             Current Subscription
-            {subscriptionStatus?.providerSubscriptionId && subscriptionStatus?.status === 'active' && !isSubscriptionExpired && (
+            {subscriptionStatus?.providerSubscriptionId && ['active', 'on-hold'].includes(subscriptionStatus?.status || '') && !isSubscriptionExpired && (
               <div className="ml-auto flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowRefundModal(true)}
-                  className="cursor-pointer inline-flex items-center px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"
-                >
-                  Request Refund
-                </button>
+                {refundRequests.some(r => r.status === 'pending' || r.status === 'approved') ? (
+                  <span className="inline-flex items-center px-3 py-1.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-sm font-medium">
+                    Refund Processing
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowRefundModal(true)}
+                    className="cursor-pointer inline-flex items-center px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"
+                  >
+                    Request Refund
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleCancelClick}
@@ -456,7 +470,7 @@ export default function ManageSubscriptionPage() {
               <p className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
                 {!subscriptionStatus
                   ? "You don't have a subscription yet. Choose a plan to get started!"
-                  : isSubscriptionExpired || !['active', 'trialing', 'cancelled'].includes(subscriptionStatus.status)
+                  : isSubscriptionExpired || !['active', 'trialing', 'cancelled', 'on-hold'].includes(subscriptionStatus.status)
                     ? 'No active plan'
                     : (subscriptionStatus.planName || (subscriptionHistory && subscriptionHistory.length > 0 ? subscriptionHistory[0].planName : undefined))}
               </p>
@@ -473,12 +487,16 @@ export default function ManageSubscriptionPage() {
                           ? 'bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 dark:from-yellow-900/30 dark:to-yellow-900/30 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800 px-3 py-1.5 font-semibold'
                           : displayStatus === 'cancelled'
                             ? 'bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 dark:from-orange-900/30 dark:to-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800 px-3 py-1.5 font-semibold'
-                            : displayStatus === 'expired'
-                              ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 dark:from-red-900/30 dark:to-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800 px-3 py-1.5 font-semibold'
-                              : 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300 border-green-200 dark:border-green-800 px-3 py-1.5 font-semibold'
+                            : displayStatus === 'on-hold'
+                              ? 'bg-gradient-to-r from-amber-100 to-amber-200 text-amber-800 dark:from-amber-900/40 dark:to-amber-900/30 dark:text-amber-300 border-amber-300 dark:border-amber-700 px-3 py-1.5 font-semibold'
+                              : displayStatus === 'expired'
+                                ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 dark:from-red-900/30 dark:to-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800 px-3 py-1.5 font-semibold'
+                                : 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300 border-green-200 dark:border-green-800 px-3 py-1.5 font-semibold'
                       }
                     >
                       {displayStatus === 'expired' ? (
+                        <AlertTriangle className="h-4 w-4 mr-1.5" />
+                      ) : displayStatus === 'on-hold' ? (
                         <AlertTriangle className="h-4 w-4 mr-1.5" />
                       ) : (
                         <CheckCircle className="h-4 w-4 mr-1.5" />
@@ -497,7 +515,7 @@ export default function ManageSubscriptionPage() {
             </div>
 
             {/* Only show Billing and Next Billing/Valid Until if active/trialing (not cancelled or expired) */}
-            {subscriptionStatus && ['active', 'trialing', 'lifetime'].includes(subscriptionStatus.status) && !isSubscriptionExpired && (
+            {subscriptionStatus && ['active', 'trialing', 'lifetime', 'on-hold'].includes(subscriptionStatus.status) && !isSubscriptionExpired && (
               <>
                 <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
                   <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Billing</p>
@@ -593,6 +611,47 @@ export default function ManageSubscriptionPage() {
         </CardContent>
       </Card>
 
+      {/* Refund History Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Refund History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {refundRequests.length === 0 ? (
+            <p className="text-muted-foreground">No refund requests found.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-2 text-left">Plan</th>
+                    <th className="px-4 py-2 text-left">Refund Amount</th>
+                    <th className="px-4 py-2 text-left">Status</th>
+                    <th className="px-4 py-2 text-left">Reason</th>
+                    <th className="px-4 py-2 text-left">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {refundRequests.map((req, idx) => (
+                    <tr key={idx} className="border-b last:border-0">
+                      <td className="px-4 py-2">{req.plan?.name || 'Unknown Plan'}</td>
+                      <td className="px-4 py-2">{req.currency} {(req.amountMinor / 100).toFixed(2)}</td>
+                      <td className="px-4 py-2">
+                        <Badge variant={req.status === 'completed' ? 'default' : req.status === 'failed' || req.status === 'rejected' ? 'destructive' : 'secondary'} className="capitalize">
+                          {req.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-2">{req.reason || 'N/A'}</td>
+                      <td className="px-4 py-2">{new Date(req.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Cancel Subscription Dialog */}
       <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
         <DialogContent className="sm:max-w-[425px]">
@@ -645,8 +704,17 @@ export default function ManageSubscriptionPage() {
         isOpen={showRefundModal}
         onClose={() => setShowRefundModal(false)}
         providerSubscriptionId={subscriptionStatus?.providerSubscriptionId || null}
-        onSuccess={() => {
-          // optionally refresh data
+        onSuccess={async () => {
+          try {
+            const res = await fetch('/api/user/refunds');
+            const data = await res.json();
+            if (data.success) {
+              setRefundRequests(data.requests || []);
+            }
+          } catch (e) {
+            console.error('Failed to refresh refunds:', e);
+          }
+          await refreshSubscription();
         }}
       />
     </div>
