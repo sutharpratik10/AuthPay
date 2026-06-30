@@ -3,6 +3,7 @@ import { withPolicy } from "@/lib/api/permissions";
 import { API_POLICIES } from "@/lib/api/permissions";
 import { refundService } from "@/server/services/refund";
 import { z } from "zod";
+import { auth } from "@/config/auth";
 
 const createRefundSchema = z.object({
   paymentOrderId: z.string().uuid(),
@@ -11,7 +12,7 @@ const createRefundSchema = z.object({
   revokeSubscription: z.boolean().default(true),
 });
 
-export const GET = async (req: NextRequest) => {
+export const GET = withPolicy(async (req: NextRequest) => {
   const url = new URL(req.url);
   const status = url.searchParams.get("status") || "all";
   const gateway = url.searchParams.get("gateway") || "all";
@@ -23,15 +24,14 @@ export const GET = async (req: NextRequest) => {
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("[REFUNDS_API_ERROR]", error);
-    return NextResponse.json({ error: error.message, stack: error.stack }, { status: 500 });
+    return NextResponse.json({ error: "An internal server error occurred" }, { status: 500 });
   }
-};
+}, API_POLICIES.BILLING_REFUND);
 
 export const POST = withPolicy(async (req: NextRequest) => {
   try {
     // We need to parse user from the session, but withPolicy checks it already.
     // To get the user ID, we can use the auth() function as done inside withPolicy.
-    const { auth } = await import("@/config/auth");
     const session = await auth();
     const userId = session!.user!.id!;
 

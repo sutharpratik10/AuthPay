@@ -24,7 +24,7 @@ import {
   subscriptionStatuses,
   subscriptionRenewalTypes,
 } from "@/server/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import "@/lib/payments/providers/stripe";
 import { StripeProvider } from "@/lib/payments/providers/stripe";
 import { getPaymentProvider } from "@/lib/payments/gateway";
@@ -142,38 +142,53 @@ async function handleCheckoutSessionCompleted(
     return;
   }
 
-  // Update order status
-  await db
-    .update(paymentOrders)
-    .set({
-      status: "success",
-      providerTransactionId: stripeSubscriptionId ?? stripeSessionId,
-      updatedAt: new Date(),
-    })
-    .where(eq(paymentOrders.id, order.id));
-
-  // Log transaction
-  await db.insert(paymentTransactions).values({
-    paymentOrderId: order.id,
-    provider: "stripe",
-    event: "checkout.session.completed",
-    status: "success",
-    providerOrderId: stripeSessionId,
-    providerTransactionId: stripeSubscriptionId ?? stripeSessionId,
-    message: "Stripe checkout completed",
-    rawResponse: session as unknown as Record<string, unknown>,
-    receivedAt: new Date(),
-  });
-
-  // Activate subscription if planId is available
-  if (order.planId && order.userId) {
-    await activateStripeSubscription({
-      userId: order.userId,
-      planId: order.planId,
-      stripeSubscriptionId,
-      stripeCustomerId,
+  await db.transaction(async (tx) => {
+    // Check if the order was already successfully processed (Idempotency)
+    const alreadyProcessed = await tx.query.paymentTransactions.findFirst({
+      where: and(
+        eq(paymentTransactions.providerOrderId, stripeSessionId),
+        eq(paymentTransactions.event, "checkout.session.completed")
+      )
     });
-  }
+    
+    if (alreadyProcessed) {
+      console.log(`[stripe-webhook] Session ${stripeSessionId} already processed.`);
+      return;
+    }
+
+    // Update order status
+    await tx
+      .update(paymentOrders)
+      .set({
+        status: "success",
+        providerTransactionId: stripeSubscriptionId ?? stripeSessionId,
+        updatedAt: new Date(),
+      })
+      .where(eq(paymentOrders.id, order.id));
+
+    // Log transaction
+    await tx.insert(paymentTransactions).values({
+      paymentOrderId: order.id,
+      provider: "stripe",
+      event: "checkout.session.completed",
+      status: "success",
+      providerOrderId: stripeSessionId,
+      providerTransactionId: stripeSubscriptionId ?? stripeSessionId,
+      message: "Stripe checkout completed",
+      rawResponse: session as unknown as Record<string, unknown>,
+      receivedAt: new Date(),
+    });
+
+    // Activate subscription if planId is available
+    if (order.planId && order.userId) {
+      await activateStripeSubscriptionInTx(tx, {
+        userId: order.userId,
+        planId: order.planId,
+        stripeSubscriptionId,
+        stripeCustomerId,
+      });
+    }
+  });
 }
 
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
@@ -238,31 +253,51 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function activateStripeSubscription({
-  userId,
-  planId,
-  stripeSubscriptionId,
-  stripeCustomerId,
-}: {
-  userId: string;
-  planId: string;
-  stripeSubscriptionId: string | null;
-  stripeCustomerId: string | null;
-}) {
-  const plan = await db.query.subscriptionPlans.findFirst({
+async function activateStripeSubscriptionInTx(
+  tx: any,
+  {
+    userId,
+    planId,
+    stripeSubscriptionId,
+    stripeCustomerId,
+  }: {
+    userId: string;
+    planId: string;
+    stripeSubscriptionId: string | null;
+    stripeCustomerId: string | null;
+  }
+) {
+  // Lock the user row to serialize concurrent webhook/verify requests (check-then-act race condition fix)
+  await tx.execute(sql`SELECT 1 FROM users WHERE id = ${userId} FOR UPDATE`);
+
+  const plan = await tx.query.subscriptionPlans.findFirst({
     where: eq(subscriptionPlans.id, planId),
     columns: { id: true, billingCycle: true },
   });
   if (!plan) return;
 
-  const activeStatus = await db.query.subscriptionStatuses.findFirst({
+  const activeStatus = await tx.query.subscriptionStatuses.findFirst({
     where: eq(subscriptionStatuses.name, "active"),
   });
   if (!activeStatus) return;
 
-  const renewalType = await db.query.subscriptionRenewalTypes.findFirst({
+  const renewalType = await tx.query.subscriptionRenewalTypes.findFirst({
     where: eq(subscriptionRenewalTypes.name, "auto"),
   });
+
+  // Idempotency: Check if already activated
+  const existingSub = await tx.query.userSubscriptions.findFirst({
+    where: and(
+      eq(userSubscriptions.userId, userId),
+      eq(userSubscriptions.planId, planId),
+      eq(userSubscriptions.statusId, activeStatus.id)
+    ),
+  });
+
+  if (existingSub) {
+    console.log(`[stripe-webhook] Subscription for user ${userId} and plan ${planId} is already active.`);
+    return;
+  }
 
   const now = new Date();
   const interval = plan.billingCycle === "yearly" ? "year" : "month";
@@ -273,7 +308,7 @@ async function activateStripeSubscription({
     expiry.setMonth(expiry.getMonth() + 1);
   }
 
-  await db.insert(userSubscriptions).values({
+  await tx.insert(userSubscriptions).values({
     userId,
     planId,
     statusId: activeStatus.id,

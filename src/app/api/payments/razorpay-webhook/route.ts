@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { refundService } from "@/server/services/refund";
 
 export const runtime = "nodejs";
@@ -26,7 +26,16 @@ export async function POST(req: NextRequest): Promise<Response> {
   hmac.update(rawBody);
   const expectedSig = hmac.digest("hex");
 
-  if (expectedSig !== sig) {
+  const expectedBuffer = Buffer.from(expectedSig);
+  const actualBuffer = Buffer.from(sig);
+  let isValid = false;
+  try {
+    isValid = timingSafeEqual(expectedBuffer, actualBuffer);
+  } catch {
+    isValid = false; // catches length mismatch errors
+  }
+
+  if (!isValid) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 

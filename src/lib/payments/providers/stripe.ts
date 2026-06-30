@@ -194,8 +194,8 @@ class StripeProvider implements PaymentProvider {
           ? session.subscription
           : session.subscription.id;
         const invoices = await stripe.invoices.list({ subscription: subId, limit: 1 });
-        if (invoices.data.length > 0 && invoices.data[0].payment_intent) {
-          const pi = invoices.data[0].payment_intent;
+        if (invoices.data.length > 0 && (invoices.data[0] as any).payment_intent) {
+          const pi = (invoices.data[0] as any).payment_intent;
           paymentId = typeof pi === 'string' ? pi : pi.id;
         } else {
           throw new Error('Could not resolve Stripe checkout session to a refundable payment');

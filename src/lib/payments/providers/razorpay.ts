@@ -1,6 +1,6 @@
 // src/lib/payments/providers/razorpay.ts
 import Razorpay from "razorpay";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { registerPaymentProvider, PaymentProvider, CreateOrderInput, CreateOrderResult, RefundInput, RefundResult } from "../gateway";
 
 export interface RazorpayCreateOrderResponse extends CreateOrderResult {
@@ -75,7 +75,18 @@ class RazorpayProvider implements PaymentProvider {
     const hmac = createHmac("sha256", this.keySecret);
     hmac.update(signedString);
     const expected = hmac.digest("hex");
-    return expected === razorpay_signature;
+    
+    const expectedBuffer = Buffer.from(expected);
+    const actualBuffer = Buffer.from(razorpay_signature);
+    
+    let isValid = false;
+    try {
+      isValid = timingSafeEqual(expectedBuffer, actualBuffer);
+    } catch {
+      isValid = false; // Length mismatch
+    }
+    
+    return isValid;
   }
 
   async createRefund(input: RefundInput): Promise<RefundResult> {

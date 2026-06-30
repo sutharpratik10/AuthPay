@@ -23,7 +23,7 @@ import {
   subscriptionStatuses,
   subscriptionRenewalTypes,
 } from "@/server/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
@@ -38,25 +38,27 @@ export async function GET(req: NextRequest) {
     const isPaid = await provider.verifyPayment({ sessionId });
 
     if (isPaid) {
-      // Mark order as success
-      const [updatedOrder] = await db
-        .update(paymentOrders)
-        .set({ status: "success", updatedAt: new Date() })
-        .where(eq(paymentOrders.providerOrderId, sessionId))
-        .returning({
-          id: paymentOrders.id,
-          userId: paymentOrders.userId,
-          planId: paymentOrders.planId,
-        });
+      await db.transaction(async (tx) => {
+        // Mark order as success
+        const [updatedOrder] = await tx
+          .update(paymentOrders)
+          .set({ status: "success", updatedAt: new Date() })
+          .where(eq(paymentOrders.providerOrderId, sessionId))
+          .returning({
+            id: paymentOrders.id,
+            userId: paymentOrders.userId,
+            planId: paymentOrders.planId,
+          });
 
-      // Activate subscription if not already activated (webhook may not have fired yet)
-      if (updatedOrder?.userId && updatedOrder?.planId) {
-        await ensureSubscriptionActivated({
-          userId: updatedOrder.userId,
-          planId: updatedOrder.planId,
-          sessionId,
-        });
-      }
+        // Activate subscription if not already activated (webhook may not have fired yet)
+        if (updatedOrder?.userId && updatedOrder?.planId) {
+          await ensureSubscriptionActivatedInTx(tx, {
+            userId: updatedOrder.userId,
+            planId: updatedOrder.planId,
+            sessionId,
+          });
+        }
+      });
     }
 
     return NextResponse.json({ success: true, paid: isPaid });
@@ -71,18 +73,24 @@ export async function GET(req: NextRequest) {
  * This is a fallback for the webhook — idempotent so it's safe to call
  * even if the webhook already created the subscription record.
  */
-async function ensureSubscriptionActivated({
-  userId,
-  planId,
-  sessionId,
-}: {
-  userId: string;
-  planId: string;
-  sessionId: string;
-}) {
+async function ensureSubscriptionActivatedInTx(
+  tx: any,
+  {
+    userId,
+    planId,
+    sessionId,
+  }: {
+    userId: string;
+    planId: string;
+    sessionId: string;
+  }
+) {
+  // Lock the user row to serialize concurrent webhook/verify requests (prevent duplicate insertions)
+  await tx.execute(sql`SELECT 1 FROM users WHERE id = ${userId} FOR UPDATE`);
+
   // Check if the webhook already created a subscription for this user + plan
   // with an active status (avoid duplicates)
-  const activeStatus = await db.query.subscriptionStatuses.findFirst({
+  const activeStatus = await tx.query.subscriptionStatuses.findFirst({
     where: eq(subscriptionStatuses.name, "active"),
   });
   if (!activeStatus) {
@@ -90,7 +98,7 @@ async function ensureSubscriptionActivated({
     return;
   }
 
-  const existingSub = await db.query.userSubscriptions.findFirst({
+  const existingSub = await tx.query.userSubscriptions.findFirst({
     where: and(
       eq(userSubscriptions.userId, userId),
       eq(userSubscriptions.planId, planId),
@@ -104,13 +112,13 @@ async function ensureSubscriptionActivated({
   }
 
   // Fetch plan details for billing cycle
-  const plan = await db.query.subscriptionPlans.findFirst({
+  const plan = await tx.query.subscriptionPlans.findFirst({
     where: eq(subscriptionPlans.id, planId),
     columns: { id: true, billingCycle: true },
   });
   if (!plan) return;
 
-  const renewalType = await db.query.subscriptionRenewalTypes.findFirst({
+  const renewalType = await tx.query.subscriptionRenewalTypes.findFirst({
     where: eq(subscriptionRenewalTypes.name, "auto"),
   });
 
@@ -142,7 +150,7 @@ async function ensureSubscriptionActivated({
     expiry.setMonth(expiry.getMonth() + 1);
   }
 
-  await db.insert(userSubscriptions).values({
+  await tx.insert(userSubscriptions).values({
     userId,
     planId,
     statusId: activeStatus.id,

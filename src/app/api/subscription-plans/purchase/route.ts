@@ -62,130 +62,10 @@ export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response>
       return NextResponse.json({ error: 'Subscription plan not found or inactive' }, { status: 404 });
     }
 
-    // If payment is present, verify + persist
-    // Track razorpay ids that may be set during payment verification so we can persist them on the subscription
-    let razorpaySubscriptionId: string | undefined;
-    let razorpayCustomerId: string | undefined;
-    if (payment?.provider) {
-      const providerName = payment.provider.toLowerCase();
-      const provider = getPaymentProvider(providerName);
-
-      if (providerName === 'razorpay') {
-        const p = payment as PaymentInfo;
-        const razorpayPaymentId = p.razorpayPaymentId;
-        const razorpayOrderId = p.razorpayOrderId;
-        const razorpaySignature = p.razorpaySignature;
-        // assign to outer vars
-        razorpaySubscriptionId = p.razorpaySubscriptionId;
-        razorpayCustomerId = p.razorpayCustomerId;
-        if (!razorpayPaymentId || !razorpaySignature || (!razorpayOrderId && !razorpaySubscriptionId)) {
-          return NextResponse.json({ error: 'Incomplete Razorpay payment details' }, { status: 400 });
-        }
-
-        const verified = await provider.verifyPayment({
-          razorpay_order_id: razorpayOrderId,
-          razorpay_subscription_id: razorpaySubscriptionId,
-          razorpay_payment_id: razorpayPaymentId,
-          razorpay_signature: razorpaySignature,
-        });
-        if (!verified) return NextResponse.json({ error: 'Payment verification failed' }, { status: 400 });
-
-        // If this was an order flow, update the payment_orders table by providerOrderId
-        let updatedOrderId: string | null = null;
-        if (razorpayOrderId) {
-          const [updated] = await db
-            .update(paymentOrders)
-            .set({
-              providerTransactionId: razorpayPaymentId,
-              planId: planId || undefined,
-              status: 'success',
-            })
-            .where(eq(paymentOrders.providerOrderId, razorpayOrderId))
-            .returning({ id: paymentOrders.id });
-
-          if (!updated?.id) {
-            return NextResponse.json({ error: 'Failed to update payment order' }, { status: 500 });
-          }
-          updatedOrderId = updated.id;
-
-          await db.insert(paymentTransactions).values({
-            paymentOrderId: updatedOrderId,
-            provider: 'razorpay',
-            event: 'payment_success',
-            status: 'success',
-            providerOrderId: razorpayOrderId,
-            providerTransactionId: razorpayPaymentId,
-            message: 'Payment successful',
-            rawRequest: payment,
-            rawResponse: null,
-            receivedAt: new Date(),
-          });
-        } else if (razorpaySubscriptionId) {
-          // Subscription flow: create a minimal payment_orders row so paymentTransactions can reference it
-          const parsedAmount = (() => {
-            try {
-              const priceStr = plan?.price ?? '0';
-              const num = parseFloat(String(priceStr).replace(/[^0-9.]/g, '')) || 0;
-              return Math.round(num * 100);
-            } catch {
-              return 0;
-            }
-          })();
-
-          const [createdOrder] = await db.insert(paymentOrders).values({
-            userId: userId ?? undefined,
-            planId: plan?.id ?? undefined,
-            orderId: `rzsub-${razorpaySubscriptionId}`,
-            provider: 'razorpay',
-            providerOrderId: razorpaySubscriptionId,
-            providerTransactionId: razorpayPaymentId,
-            amountMinor: parsedAmount,
-            currency: 'INR',
-            status: 'success',
-            razorpaySubscriptionId: razorpaySubscriptionId,
-          }).returning({ id: paymentOrders.id });
-
-          const paymentOrderIdStr = createdOrder?.id;
-          if (!paymentOrderIdStr) {
-            return NextResponse.json({ error: 'Failed to create payment order for subscription' }, { status: 500 });
-          }
-
-          await db.insert(paymentTransactions).values({
-            paymentOrderId: paymentOrderIdStr,
-            provider: 'razorpay',
-            event: 'subscription_payment_success',
-            status: 'success',
-            providerOrderId: razorpaySubscriptionId,
-            providerTransactionId: razorpayPaymentId,
-            message: 'Subscription payment successful',
-            rawRequest: payment,
-            rawResponse: null,
-            receivedAt: new Date(),
-          });
-        }
-        // Fetch user email and name
-        const userDetails = await db.query.users.findFirst({
-          where: eq(users.id, userId),
-          columns: { email: true, name: true },
-        });
-        if (userDetails?.email) {
-          await emailService.sendSubscriptionPurchaseEmail(
-            userDetails.email,
-            userDetails.name || "",
-            plan?.name ?? 'Razorpay plan',
-            Number(plan?.price ?? 0),
-            new Date()
-          );
-        }
-      } else {
-        return NextResponse.json({ error: `Unsupported payment provider: ${providerName}` }, { status: 400 });
-      }
-    }
-
-    // Validate user
+    // Validate user first
     const user = await db.query.users.findFirst({
       where: eq(users.id, userId),
-      columns: { id: true },
+      columns: { id: true, email: true, name: true },
     });
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
@@ -199,46 +79,185 @@ export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response>
     if (!status?.id) return NextResponse.json({ error: 'Subscription status "active" not found' }, { status: 500 });
     if (!renewalType?.id) return NextResponse.json({ error: 'Subscription renewal type "auto" not found' }, { status: 500 });
 
-    // If we have a Razorpay subscription id, try to fetch subscription details
-    let rpCreatedAt: string | undefined = undefined;
-    let rpExpiryAt: string | undefined = undefined;
-    let rpCustomerId: string | undefined = undefined;
-    if (razorpaySubscriptionId) {
-      try {
-        const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
-        if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
-          const client = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
-          const sub = await client.subscriptions.fetch(razorpaySubscriptionId);
-          if (sub && typeof sub === 'object') {
-            const s = sub as unknown as Record<string, unknown>;
-            // Razorpay commonly returns timestamps in seconds under keys like created_at and current_end
-            const createdRaw = s['created_at'] ?? s['createdAt'];
-            const expiryRaw = s['current_end'] ?? s['current_end_at'] ?? s['currentEnd'];
-            if (createdRaw) rpCreatedAt = new Date(Number(createdRaw) * 1000).toISOString();
-            if (expiryRaw) rpExpiryAt = new Date(Number(expiryRaw) * 1000).toISOString();
-            // customer id may appear under customer_id, customer or customerId
-            rpCustomerId = (s['customer_id'] ?? s['customer'] ?? s['customerId']) as string | undefined;
+    // If payment is present, verify + persist
+    if (payment?.provider) {
+      const providerName = payment.provider.toLowerCase();
+      const provider = getPaymentProvider(providerName);
+
+      if (providerName === 'razorpay') {
+        const p = payment as PaymentInfo;
+        const razorpayPaymentId = p.razorpayPaymentId;
+        const razorpayOrderId = p.razorpayOrderId;
+        const razorpaySignature = p.razorpaySignature;
+        // assign to outer vars
+        const razorpaySubscriptionId = p.razorpaySubscriptionId;
+        const razorpayCustomerId = p.razorpayCustomerId;
+        
+        if (!razorpayPaymentId || !razorpaySignature || (!razorpayOrderId && !razorpaySubscriptionId)) {
+          return NextResponse.json({ error: 'Incomplete Razorpay payment details' }, { status: 400 });
+        }
+
+        const verified = await provider.verifyPayment({
+          razorpay_order_id: razorpayOrderId,
+          razorpay_subscription_id: razorpaySubscriptionId,
+          razorpay_payment_id: razorpayPaymentId,
+          razorpay_signature: razorpaySignature,
+        });
+        if (!verified) return NextResponse.json({ error: 'Payment verification failed' }, { status: 400 });
+
+        // Idempotency Check: Has this payment ID already been processed?
+        const alreadyProcessed = await db.query.paymentTransactions.findFirst({
+          where: eq(paymentTransactions.providerTransactionId, razorpayPaymentId),
+        });
+        if (alreadyProcessed) {
+          return NextResponse.json({ 
+            success: true, 
+            message: "Payment already processed",
+            data: { planId: plan?.id ?? null } 
+          });
+        }
+
+        // If we have a Razorpay subscription id, try to fetch subscription details
+        let rpCreatedAt: string | undefined = undefined;
+        let rpExpiryAt: string | undefined = undefined;
+        let rpCustomerId: string | undefined = undefined;
+        if (razorpaySubscriptionId) {
+          try {
+            const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
+            if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
+              const client = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
+              const sub = await client.subscriptions.fetch(razorpaySubscriptionId);
+              if (sub && typeof sub === 'object') {
+                const s = sub as unknown as Record<string, unknown>;
+                const createdRaw = s['created_at'] ?? s['createdAt'];
+                const expiryRaw = s['current_end'] ?? s['current_end_at'] ?? s['currentEnd'];
+                if (createdRaw) rpCreatedAt = new Date(Number(createdRaw) * 1000).toISOString();
+                if (expiryRaw) rpExpiryAt = new Date(Number(expiryRaw) * 1000).toISOString();
+                rpCustomerId = (s['customer_id'] ?? s['customer'] ?? s['customerId']) as string | undefined;
+              }
+            }
+          } catch (err) {
+            console.warn('Failed to fetch Razorpay subscription details:', err);
           }
         }
-      } catch (err) {
-        console.warn('Failed to fetch Razorpay subscription details:', err);
-      }
-    }
 
-    // Create subscription record (persist razorpay ids and dates if available)
-    await db.insert(userSubscriptions).values({
-      userId,
-      planId: plan?.id ?? undefined,
-      statusId: status.id,
-      renewalTypeId: renewalType.id,
-      startDate: rpCreatedAt ?? startDate.toISOString(),
-      expiryDate: rpExpiryAt ?? expiryDate.toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      providerSubscriptionId: razorpaySubscriptionId ?? null,
-      providerCustomerId: rpCustomerId ?? razorpayCustomerId ?? null,
-      paymentGatewayProvider: 'razorpay',
-    });
+        // Transaction block for Razorpay flow to ensure atomicity
+        await db.transaction(async (tx) => {
+          let updatedOrderId: string | null = null;
+          if (razorpayOrderId) {
+            const [updated] = await tx
+              .update(paymentOrders)
+              .set({
+                providerTransactionId: razorpayPaymentId,
+                planId: planId || undefined,
+                status: 'success',
+              })
+              .where(eq(paymentOrders.providerOrderId, razorpayOrderId))
+              .returning({ id: paymentOrders.id });
+
+            if (!updated?.id) throw new Error('Failed to update payment order');
+            updatedOrderId = updated.id;
+
+            await tx.insert(paymentTransactions).values({
+              paymentOrderId: updatedOrderId,
+              provider: 'razorpay',
+              event: 'payment_success',
+              status: 'success',
+              providerOrderId: razorpayOrderId,
+              providerTransactionId: razorpayPaymentId,
+              message: 'Payment successful',
+              rawRequest: payment,
+              rawResponse: null,
+              receivedAt: new Date(),
+            });
+          } else if (razorpaySubscriptionId) {
+            const parsedAmount = (() => {
+              try {
+                const priceStr = plan?.price ?? '0';
+                const num = parseFloat(String(priceStr).replace(/[^0-9.]/g, '')) || 0;
+                return Math.round(num * 100);
+              } catch {
+                return 0;
+              }
+            })();
+
+            const [createdOrder] = await tx.insert(paymentOrders).values({
+              userId: userId ?? undefined,
+              planId: plan?.id ?? undefined,
+              orderId: `rzsub-${razorpaySubscriptionId}`,
+              provider: 'razorpay',
+              providerOrderId: razorpaySubscriptionId,
+              providerTransactionId: razorpayPaymentId,
+              amountMinor: parsedAmount,
+              currency: 'INR',
+              status: 'success',
+              razorpaySubscriptionId: razorpaySubscriptionId,
+            }).returning({ id: paymentOrders.id });
+
+            const paymentOrderIdStr = createdOrder?.id;
+            if (!paymentOrderIdStr) throw new Error('Failed to create payment order for subscription');
+
+            await tx.insert(paymentTransactions).values({
+              paymentOrderId: paymentOrderIdStr,
+              provider: 'razorpay',
+              event: 'subscription_payment_success',
+              status: 'success',
+              providerOrderId: razorpaySubscriptionId,
+              providerTransactionId: razorpayPaymentId,
+              message: 'Subscription payment successful',
+              rawRequest: payment,
+              rawResponse: null,
+              receivedAt: new Date(),
+            });
+          }
+
+          // Create subscription record
+          await tx.insert(userSubscriptions).values({
+            userId,
+            planId: plan?.id ?? undefined,
+            statusId: status.id,
+            renewalTypeId: renewalType.id,
+            startDate: rpCreatedAt ?? startDate.toISOString(),
+            expiryDate: rpExpiryAt ?? expiryDate.toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            providerSubscriptionId: razorpaySubscriptionId ?? null,
+            providerCustomerId: rpCustomerId ?? razorpayCustomerId ?? null,
+            paymentGatewayProvider: 'razorpay',
+          });
+        });
+
+        // Outside transaction - send email
+        if (user.email) {
+          await emailService.sendSubscriptionPurchaseEmail(
+            user.email,
+            user.name || "",
+            plan?.name ?? 'Razorpay plan',
+            Number(plan?.price ?? 0),
+            new Date()
+          );
+        }
+      } else {
+        return NextResponse.json({ error: `Unsupported payment provider: ${providerName}` }, { status: 400 });
+      }
+    } else {
+       // Free plan or direct plan activation logic (without payment block)
+       await db.transaction(async (tx) => {
+         await tx.insert(userSubscriptions).values({
+           userId,
+           planId: plan?.id ?? undefined,
+           statusId: status.id,
+           renewalTypeId: renewalType.id,
+           startDate: startDate.toISOString(),
+           expiryDate: expiryDate.toISOString(),
+           createdAt: new Date().toISOString(),
+           updatedAt: new Date().toISOString(),
+           providerSubscriptionId: null,
+           providerCustomerId: null,
+           paymentGatewayProvider: 'internal',
+         });
+       });
+    }
 
     return NextResponse.json({
       success: true,

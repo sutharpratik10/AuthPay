@@ -43,14 +43,6 @@ export const POST = rateLimiters.api(
   async (req: NextRequest): Promise<Response> => {
     try {
       const body = (await req.json()) as Partial<CreateSessionBody>;
-      const rawAmount = Number(body?.amount);
-      if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
-        return NextResponse.json(
-          { success: false, error: "Invalid amount" },
-          { status: 400 }
-        );
-      }
-
       const currency = (body?.currency || "USD").toUpperCase();
       const planId = body?.planId ?? null;
       const planName = body?.planName ?? "Subscription";
@@ -58,46 +50,41 @@ export const POST = rateLimiters.api(
       const mode = body?.mode ?? "subscription";
       const stripePriceId = body?.stripePriceId;
 
-      // Validate plan if planId provided
+      // Require user authentication
+      const session = await auth();
+      if (!session?.user?.id || !session?.user?.email) {
+        return NextResponse.json(
+          { success: false, error: "Authentication required" },
+          { status: 401 }
+        );
+      }
+      
+      const userId = session.user.id;
+      const customerEmail = session.user.email;
+
+      // Validate plan and get secure price from DB
+      let secureAmountMinor = 0;
       if (planId) {
         const plan = await db.query.subscriptionPlans.findFirst({
           where: eq(subscriptionPlans.id, planId),
-          columns: { id: true },
+          columns: { id: true, price: true },
         });
+        
         if (!plan) {
           return NextResponse.json(
             { success: false, error: "Invalid planId" },
             { status: 400 }
           );
         }
-      }
-
-      // Resolve userId from session
-      let userId: string | null = null;
-      let customerEmail: string | undefined;
-      try {
-        interface SessionUser {
-          id?: string;
-          email?: string;
-        }
-        interface Session {
-          user?: SessionUser;
-        }
-        const session = (await auth()) as Session | null;
-        const sid = session?.user?.id as string | undefined;
-        if (sid) {
-          userId = sid;
-          customerEmail = session?.user?.email;
-        } else if (session?.user?.email) {
-          const user = await db.query.users.findFirst({
-            where: eq(users.email, session.user.email),
-            columns: { id: true, email: true },
-          });
-          userId = user?.id ?? null;
-          customerEmail = user?.email;
-        }
-      } catch {
-        // Unauthenticated — allowed for guest checkouts
+        
+        // Calculate amount strictly from the database price
+        const priceNumber = parseFloat(String(plan.price).replace(/[^0-9.]/g, '')) || 0;
+        secureAmountMinor = Math.round(priceNumber * 100);
+      } else {
+        return NextResponse.json(
+          { success: false, error: "planId is required for subscription checkout" },
+          { status: 400 }
+        );
       }
 
       const appUrl =
@@ -114,7 +101,7 @@ export const POST = rateLimiters.api(
           provider: "stripe",
           providerOrderId: null,
           providerTransactionId: null,
-          amountMinor: Math.round(rawAmount * 100),
+          amountMinor: secureAmountMinor,
           currency: currency.slice(0, 3), // schema: varchar(3)
           status: "created",
         })
@@ -125,7 +112,7 @@ export const POST = rateLimiters.api(
       // Create Stripe Checkout Session
       const stripeInput: StripeCreateOrderInput = {
         receipt: internalOrderId,
-        amount: rawAmount,
+        amount: secureAmountMinor / 100, // StripeCreateOrderInput takes major units
         currency,
         planName,
         billingInterval,
@@ -158,7 +145,7 @@ export const POST = rateLimiters.api(
         providerTransactionId: null,
         message: "Stripe checkout session created",
         rawRequest: {
-          amount: rawAmount,
+          amountMinor: secureAmountMinor,
           currency,
           planId,
           internalOrderId,

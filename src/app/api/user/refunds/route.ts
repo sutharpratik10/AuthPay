@@ -3,6 +3,10 @@ import { withPolicy } from "@/lib/api/permissions";
 import { API_POLICIES } from "@/lib/api/permissions";
 import { refundService } from "@/server/services/refund";
 import { z } from "zod";
+import { auth } from "@/config/auth";
+import { db } from "@/server/db";
+import { paymentOrders, refundRequests } from "@/server/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 
 const createRefundSchema = z.object({
   paymentOrderId: z.string().uuid().optional(),
@@ -13,7 +17,6 @@ const createRefundSchema = z.object({
 
 export const POST = withPolicy(async (req: NextRequest) => {
   try {
-    const { auth } = await import("@/config/auth");
     const session = await auth();
     const userId = session!.user!.id!;
 
@@ -24,10 +27,6 @@ export const POST = withPolicy(async (req: NextRequest) => {
 
     if (!paymentOrderId && data.providerSubscriptionId) {
       // Find the payment order for this subscription
-      const { db } = await import("@/server/db");
-      const { paymentOrders } = await import("@/server/db/schema");
-      const { eq, and, desc } = await import("drizzle-orm");
-
       const latestOrder = await db.query.paymentOrders.findFirst({
         where: and(
           eq(paymentOrders.userId, userId),
@@ -68,13 +67,8 @@ export const POST = withPolicy(async (req: NextRequest) => {
 
 export const GET = withPolicy(async (req: NextRequest) => {
   try {
-    const { auth } = await import("@/config/auth");
     const session = await auth();
     const userId = session!.user!.id!;
-
-    const { db } = await import("@/server/db");
-    const { refundRequests } = await import("@/server/db/schema");
-    const { eq, desc } = await import("drizzle-orm");
 
     const requests = await db.query.refundRequests.findMany({
       where: eq(refundRequests.userId, userId),

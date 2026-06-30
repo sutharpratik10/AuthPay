@@ -39,6 +39,9 @@ export class RefundService {
     // We assume the frontend passed the correct calculated amount or we default to the full amount.
     // In a real pro-rata system, backend should recalculate to ensure safety.
     const amountToRefund = input.expectedRefundAmountMinor ?? order.amountMinor;
+    if (amountToRefund > order.amountMinor) {
+      throw new Error("Refund amount cannot exceed the original payment amount.");
+    }
 
     // Check platform settings for automation
     const settings = await db.query.platformSettings.findFirst({
@@ -172,8 +175,12 @@ export class RefundService {
         approvedAt: new Date(),
         revokeSubscription
       })
-      .where(eq(refundRequests.id, refundId))
+      .where(and(eq(refundRequests.id, refundId), eq(refundRequests.status, 'pending')))
       .returning();
+
+    if (updated.length === 0) {
+      throw new Error("Refund request is no longer pending or already processed.");
+    }
 
     // Process the refund with the gateway
     const finalRequest = await this.processRefund(updated[0]);
@@ -264,14 +271,19 @@ export class RefundService {
    * Admin rejects
    */
   async rejectRefund(adminId: string, refundId: string, reason: string) {
-    const [updated] = await db.update(refundRequests)
+    const updatedRes = await db.update(refundRequests)
       .set({
         status: 'rejected',
         approvedBy: adminId,
         failureReason: reason
       })
-      .where(eq(refundRequests.id, refundId))
+      .where(and(eq(refundRequests.id, refundId), eq(refundRequests.status, 'pending')))
       .returning();
+
+    if (updatedRes.length === 0) {
+      throw new Error("Only pending refund requests can be rejected.");
+    }
+    const updated = updatedRes[0];
 
     // Restore the user's subscription access since refund was denied
     await this.restoreSubscriptionAccess(updated.userId, updated.paymentOrderId).catch(e =>
@@ -431,35 +443,36 @@ export class RefundService {
   }
 
   async getRefundStats() {
-    const all = await db.select().from(refundRequests);
+    const stats = await db.select({
+      status: refundRequests.status,
+      count: sql<number>`count(*)`,
+      totalAmount: sql<number>`sum(${refundRequests.amountMinor})`
+    })
+    .from(refundRequests)
+    .groupBy(refundRequests.status);
 
-    let totalRefunded = 0;
-    let pendingCount = 0;
-    let approvedCount = 0;
-    let completedCount = 0;
-    let rejectedCount = 0;
-    let failedCount = 0;
-
-    for (const r of all) {
-      if (r.status === 'pending') pendingCount++;
-      if (r.status === 'approved') approvedCount++;
-      if (r.status === 'completed') {
-        completedCount++;
-        totalRefunded += r.amountMinor;
-      }
-      if (r.status === 'rejected') rejectedCount++;
-      if (r.status === 'failed') failedCount++;
-    }
-
-    return {
-      totalRefunded,
-      pendingCount,
-      approvedCount,
-      completedCount,
-      rejectedCount,
-      failedCount,
+    const result = {
+      totalRefunded: 0,
+      pendingCount: 0,
+      approvedCount: 0,
+      completedCount: 0,
+      rejectedCount: 0,
+      failedCount: 0,
       monthlyBreakdown: [] // Can be implemented with grouping later
     };
+
+    for (const row of stats) {
+      if (row.status === 'pending') result.pendingCount = Number(row.count);
+      if (row.status === 'approved') result.approvedCount = Number(row.count);
+      if (row.status === 'completed') {
+        result.completedCount = Number(row.count);
+        result.totalRefunded = Number(row.totalAmount || 0);
+      }
+      if (row.status === 'rejected') result.rejectedCount = Number(row.count);
+      if (row.status === 'failed') result.failedCount = Number(row.count);
+    }
+
+    return result;
   }
 }
 
