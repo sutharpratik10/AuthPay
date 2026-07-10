@@ -194,11 +194,11 @@ export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response>
               razorpaySubscriptionId: razorpaySubscriptionId,
             }).returning({ id: paymentOrders.id });
 
-            const paymentOrderIdStr = createdOrder?.id;
-            if (!paymentOrderIdStr) throw new Error('Failed to create payment order for subscription');
+            updatedOrderId = createdOrder?.id ?? null;
+            if (!updatedOrderId) throw new Error('Failed to create payment order for subscription');
 
             await tx.insert(paymentTransactions).values({
-              paymentOrderId: paymentOrderIdStr,
+              paymentOrderId: updatedOrderId,
               provider: 'razorpay',
               event: 'subscription_payment_success',
               status: 'success',
@@ -215,6 +215,7 @@ export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response>
           await tx.insert(userSubscriptions).values({
             userId,
             planId: plan?.id ?? undefined,
+            paymentOrderId: updatedOrderId,
             statusId: status.id,
             renewalTypeId: renewalType.id,
             startDate: rpCreatedAt ?? startDate.toISOString(),
@@ -246,6 +247,7 @@ export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response>
          await tx.insert(userSubscriptions).values({
            userId,
            planId: plan?.id ?? undefined,
+           paymentOrderId: null,
            statusId: status.id,
            renewalTypeId: renewalType.id,
            startDate: startDate.toISOString(),

@@ -94,23 +94,63 @@ class RazorpayProvider implements PaymentProvider {
       throw new Error("Razorpay credentials not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment.");
     }
     const client = new Razorpay({ key_id: this.keyId, key_secret: this.keySecret });
-    const params: any = {
-      speed: 'normal',
-      notes: input.notes,
-      receipt: input.receipt,
-    };
+
+    // Pre-flight: fetch payment details for diagnostics
+    try {
+      const payment = await client.payments.fetch(input.providerPaymentId);
+      console.log(`[Razorpay] Payment state for ${input.providerPaymentId}: status=${payment.status}, amount=${payment.amount}, amount_refunded=${(payment as any).amount_refunded}, currency=${payment.currency}`);
+    } catch (fetchErr: any) {
+      console.warn(`[Razorpay] Could not fetch payment ${input.providerPaymentId} for diagnostics:`, fetchErr?.message || fetchErr);
+    }
+
+    const params: any = {};
+    if (input.notes) params.notes = input.notes;
+    if (input.receipt) params.receipt = input.receipt;
+    
     if (input.amountMinor && input.amountMinor > 0) {
       params.amount = input.amountMinor;
     }
-    const response = await client.payments.refund(input.providerPaymentId, params);
-    return {
-      success: true,
-      providerRefundId: response.id,
-      status: response.status,
-      amountMinor: Number(response.amount),
-      currency: response.currency,
-      gatewayResponse: response as unknown as Record<string, unknown>,
-    };
+
+    console.log(`[Razorpay] Refund request: paymentId=${input.providerPaymentId}, params=${JSON.stringify(params)}`);
+
+    try {
+      const response = await client.payments.refund(input.providerPaymentId, params);
+      return {
+        success: true,
+        providerRefundId: response.id,
+        status: response.status,
+        amountMinor: Number(response.amount),
+        currency: response.currency,
+        gatewayResponse: response as unknown as Record<string, unknown>,
+      };
+    } catch (error: any) {
+      const errInfo = error?.error || {};
+      console.error(`[Razorpay] Refund failed for ${input.providerPaymentId}:`, JSON.stringify(errInfo));
+
+      // If partial refund failed and we sent an amount, retry as full refund
+      if (params.amount && errInfo.code === 'BAD_REQUEST_ERROR') {
+        console.log(`[Razorpay] Retrying as full refund (without amount) for ${input.providerPaymentId}...`);
+        try {
+          const retryParams: any = {};
+          if (input.notes) retryParams.notes = input.notes;
+          if (input.receipt) retryParams.receipt = input.receipt;
+          const response = await client.payments.refund(input.providerPaymentId, retryParams);
+          return {
+            success: true,
+            providerRefundId: response.id,
+            status: response.status,
+            amountMinor: Number(response.amount),
+            currency: response.currency,
+            gatewayResponse: response as unknown as Record<string, unknown>,
+          };
+        } catch (retryError: any) {
+          console.error(`[Razorpay] Full refund retry also failed for ${input.providerPaymentId}:`, JSON.stringify(retryError?.error || retryError?.message || retryError));
+          throw retryError;
+        }
+      }
+
+      throw error;
+    }
   }
 }
 

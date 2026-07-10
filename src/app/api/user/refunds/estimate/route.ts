@@ -18,54 +18,26 @@ export const GET = withPolicy(async (req: NextRequest) => {
     const { paymentOrders, userSubscriptions } = await import("@/server/db/schema");
     const { eq, and, desc } = await import("drizzle-orm");
 
-    // Get the latest payment order to know the amount paid
-    let order = await db.query.paymentOrders.findFirst({
+    // Find the subscription first, and join the payment order via the FK
+    const subscription = await db.query.userSubscriptions.findFirst({
       where: and(
-        eq(paymentOrders.userId, userId),
-        eq(paymentOrders.razorpaySubscriptionId, providerSubscriptionId),
-        eq(paymentOrders.status, 'success')
+        eq(userSubscriptions.userId, userId),
+        eq(userSubscriptions.providerSubscriptionId, providerSubscriptionId)
       ),
-      orderBy: [desc(paymentOrders.createdAt)],
-      with: { plan: true }
+      with: {
+        paymentOrder: {
+          with: { plan: true }
+        }
+      }
     });
-
-    if (!order) {
-      order = await db.query.paymentOrders.findFirst({
-        where: and(
-          eq(paymentOrders.userId, userId),
-          eq(paymentOrders.providerOrderId, providerSubscriptionId),
-          eq(paymentOrders.status, 'success')
-        ),
-        orderBy: [desc(paymentOrders.createdAt)],
-        with: { plan: true }
-      });
-    }
-
-    if (!order) {
-      return NextResponse.json({ error: "No successful payment order found for this subscription" }, { status: 404 });
-    }
-
-    const subId = order.razorpaySubscriptionId || order.providerOrderId || providerSubscriptionId;
-    let subscription;
-
-    if (subId) {
-      subscription = await db.query.userSubscriptions.findFirst({
-        where: and(
-          eq(userSubscriptions.userId, userId),
-          eq(userSubscriptions.providerSubscriptionId, subId)
-        )
-      });
-    } else if (order.planId) {
-      subscription = await db.query.userSubscriptions.findFirst({
-        where: and(
-          eq(userSubscriptions.userId, userId),
-          eq(userSubscriptions.planId, order.planId)
-        )
-      });
-    }
 
     if (!subscription) {
       return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
+    }
+
+    const order = subscription.paymentOrder;
+    if (!order || order.status !== 'success') {
+      return NextResponse.json({ error: "No successful payment order linked to this subscription" }, { status: 404 });
     }
 
     const startDate = new Date(subscription.startDate);
@@ -74,10 +46,10 @@ export const GET = withPolicy(async (req: NextRequest) => {
     let totalPlanCostMinor = order.amountMinor;
 
     // Fix for Razorpay setup orders which have 0 amount
-    if (totalPlanCostMinor === 0 && order.provider === 'razorpay' && subId) {
+    if (totalPlanCostMinor === 0 && order.provider === 'razorpay' && providerSubscriptionId) {
       try {
         const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID!, key_secret: process.env.RAZORPAY_KEY_SECRET! });
-        const sub = await razorpay.subscriptions.fetch(subId as string);
+        const sub = await razorpay.subscriptions.fetch(providerSubscriptionId);
         if (sub && (sub as any).plan_id) {
           const plan = await razorpay.plans.fetch((sub as any).plan_id);
           if (plan && (plan.item as any)?.amount) {

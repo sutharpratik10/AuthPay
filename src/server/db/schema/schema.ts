@@ -550,6 +550,7 @@ export const userSubscriptions = pgTable("user_subscriptions", {
 	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 	// planId made nullable to support subscriptions created directly on Razorpay
 	planId: uuid('plan_id').references(() => subscriptionPlans.id, { onDelete: 'cascade' }),
+	paymentOrderId: uuid('payment_order_id').references(() => paymentOrders.id, { onDelete: 'set null' }),
 	statusId: uuid('status_id').notNull().references(() => subscriptionStatuses.id),
 	renewalTypeId: uuid('renewal_type_id').references(() => subscriptionRenewalTypes.id),
 	// Razorpay metadata (nullable)
@@ -641,5 +642,6 @@ export const refundRequests = pgTable("refund_requests", {
 export const platformSettings = pgTable("platform_settings", {
 	id: varchar('id', { length: 50 }).primaryKey(),
 	autoProcessRefunds: boolean('auto_process_refunds').default(false).notNull(),
+	refundsEnabled: boolean('refunds_enabled').default(true).notNull(),
 	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

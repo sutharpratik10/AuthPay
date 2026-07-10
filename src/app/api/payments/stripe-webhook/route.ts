@@ -186,6 +186,7 @@ async function handleCheckoutSessionCompleted(
         planId: order.planId,
         stripeSubscriptionId,
         stripeCustomerId,
+        paymentOrderId: order.id,
       });
     }
   });
@@ -198,6 +199,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
     typeof invoiceAny.subscription === "string"
       ? invoiceAny.subscription
       : null;
+  const paymentIntentId = typeof invoiceAny.payment_intent === 'string' ? invoiceAny.payment_intent : (invoiceAny.payment_intent as any)?.id;
   if (!stripeSubId) return;
 
   // Find user subscription by providerSubscriptionId field
@@ -209,15 +211,46 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   // Extend expiry by the billing period (Stripe sends next period end)
   const lines = invoiceAny.lines as { data?: Array<{ period?: { end?: number } }> } | undefined;
   const periodEnd = lines?.data?.[0]?.period?.end;
+  
   if (periodEnd) {
-    await db
-      .update(userSubscriptions)
-      .set({
-        nextBillingDate: new Date(periodEnd * 1000).toISOString(),
-        lastPaymentDate: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(userSubscriptions.id, sub.id));
+    await db.transaction(async (tx) => {
+      // Create a payment order for the recurring invoice
+      const [newOrder] = await tx.insert(paymentOrders).values({
+        userId: sub.userId,
+        planId: sub.planId,
+        orderId: `inv-${invoice.id}`,
+        provider: 'stripe',
+        providerOrderId: invoice.id,
+        providerTransactionId: paymentIntentId || invoice.id,
+        amountMinor: invoice.amount_paid,
+        currency: invoice.currency.toUpperCase(),
+        status: 'success',
+      }).returning({ id: paymentOrders.id });
+
+      if (newOrder) {
+        await tx.insert(paymentTransactions).values({
+          paymentOrderId: newOrder.id,
+          provider: "stripe",
+          event: "invoice.payment_succeeded",
+          status: "success",
+          providerOrderId: invoice.id,
+          providerTransactionId: paymentIntentId || invoice.id,
+          message: "Stripe recurring invoice paid",
+          rawResponse: invoice as unknown as Record<string, unknown>,
+          receivedAt: new Date(),
+        });
+      }
+
+      await tx
+        .update(userSubscriptions)
+        .set({
+          paymentOrderId: newOrder?.id,
+          nextBillingDate: new Date(periodEnd * 1000).toISOString(),
+          lastPaymentDate: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(userSubscriptions.id, sub.id));
+    });
   }
 }
 
@@ -260,11 +293,13 @@ async function activateStripeSubscriptionInTx(
     planId,
     stripeSubscriptionId,
     stripeCustomerId,
+    paymentOrderId,
   }: {
     userId: string;
     planId: string;
     stripeSubscriptionId: string | null;
     stripeCustomerId: string | null;
+    paymentOrderId: string;
   }
 ) {
   // Lock the user row to serialize concurrent webhook/verify requests (check-then-act race condition fix)
@@ -311,6 +346,7 @@ async function activateStripeSubscriptionInTx(
   await tx.insert(userSubscriptions).values({
     userId,
     planId,
+    paymentOrderId,
     statusId: activeStatus.id,
     renewalTypeId: renewalType?.id,
     // Use generic provider columns for the Stripe subscription ID

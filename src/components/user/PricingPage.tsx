@@ -52,6 +52,64 @@ interface PricingPageProps {
   onPlanSelected?: (planId: string) => void;
 }
 
+const loadRazorpayScript = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    // Already loaded (e.g. by Next.js <Script> or a prior call)
+    if (typeof window !== "undefined" && (window as any).Razorpay) {
+      resolve(true);
+      return;
+    }
+
+    // Check if a script tag for Razorpay already exists in the DOM
+    // (the Next.js <Script strategy="lazyOnload"> may have injected it)
+    const existing = document.querySelector(
+      'script[src*="checkout.razorpay.com"]'
+    );
+    if (existing) {
+      // Script tag exists but hasn't finished loading yet — wait for it
+      existing.addEventListener("load", () => resolve(true));
+      existing.addEventListener("error", () => resolve(false));
+      // If it already loaded (and we just missed the event), double-check
+      setTimeout(() => {
+        if ((window as any).Razorpay) resolve(true);
+      }, 200);
+      return;
+    }
+
+    // Inject a fresh script tag
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => {
+      console.error(
+        "[Razorpay] Failed to load checkout script. This can happen if an ad-blocker is active or there is a network issue."
+      );
+      resolve(false);
+    };
+    document.body.appendChild(script);
+  });
+};
+
+/** Attempt to load the Razorpay SDK with retries */
+const loadRazorpayWithRetry = async (
+  retries = 3,
+  delayMs = 1000
+): Promise<boolean> => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const loaded = await loadRazorpayScript();
+    if (loaded) return true;
+    if (attempt < retries) {
+      console.warn(
+        `[Razorpay] Load attempt ${attempt}/${retries} failed, retrying in ${delayMs}ms…`
+      );
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  return false;
+};
+
+
 export default function PricingPage({ onPlanSelected }: PricingPageProps) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("yearly");
   const [purchasing, setPurchasing] = useState<string | null>(null);
@@ -260,6 +318,11 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
           throw new Error('Razorpay key not configured');
         }
 
+        const isLoaded = await loadRazorpayWithRetry();
+        if (!isLoaded) {
+          throw new Error('Failed to load Razorpay SDK. Please disable any ad-blockers and check your internet connection, then try again.');
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const Razorpay = (window as any).Razorpay;
         if (!Razorpay) {
@@ -391,6 +454,11 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
           throw new Error('Razorpay key not configured');
         }
 
+        const isLoaded = await loadRazorpayWithRetry();
+        if (!isLoaded) {
+          throw new Error('Failed to load Razorpay SDK. Please disable any ad-blockers and check your internet connection, then try again.');
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const Razorpay = (window as any).Razorpay;
         if (!Razorpay) {
@@ -518,7 +586,7 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
     <div className="min-h-screen bg-background">
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
-        strategy="lazyOnload"
+        strategy="afterInteractive"
       />
 
       {/* Auth Modal */}

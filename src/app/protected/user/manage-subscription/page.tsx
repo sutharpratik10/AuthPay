@@ -44,6 +44,7 @@ export default function ManageSubscriptionPage() {
   const [subscriptionStatus, setSubscriptionStatus] = React.useState<SubscriptionStatus | null>(null);
   const [subscriptionHistory, setSubscriptionHistory] = React.useState<SubscriptionHistoryItem[]>([]);
   const [refundRequests, setRefundRequests] = React.useState<any[]>([]);
+  const [refundsEnabled, setRefundsEnabled] = React.useState(true);
   const [loading, setLoading] = React.useState(true);
   const [cancelling, setCancelling] = React.useState(false);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
@@ -165,14 +166,20 @@ export default function ManageSubscriptionPage() {
       isFetching = true;
 
       try {
-        const [historyResponse, refundsResponse] = await Promise.all([
+        const [historyResponse, refundsResponse, settingsResponse] = await Promise.all([
           fetch('/api/user/subscription-history'),
-          fetch('/api/user/refunds')
+          fetch('/api/user/refunds'),
+          fetch('/api/public/platform-settings')
         ]);
         const historyData = await historyResponse.json();
         const refundsData = await refundsResponse.json();
+        const settingsData = await settingsResponse.json();
 
         if (!isMounted) return;
+
+        if (settingsData.success && settingsData.data) {
+          setRefundsEnabled(settingsData.data.refundsEnabled);
+        }
 
         // Process subscription history with enrichment BEFORE setting state
         if (historyData.success) {
@@ -432,18 +439,20 @@ export default function ManageSubscriptionPage() {
             Current Subscription
             {subscriptionStatus?.providerSubscriptionId && ['active', 'on-hold'].includes(subscriptionStatus?.status || '') && !isSubscriptionExpired && (
               <div className="ml-auto flex items-center gap-2">
-                {refundRequests.some(r => r.status === 'pending' || r.status === 'approved') ? (
-                  <span className="inline-flex items-center px-3 py-1.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-sm font-medium">
-                    Refund Processing
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowRefundModal(true)}
-                    className="cursor-pointer inline-flex items-center px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"
-                  >
-                    Request Refund
-                  </button>
+                {refundsEnabled && (
+                  refundRequests.some(r => r.status === 'pending' || r.status === 'approved') ? (
+                    <span className="inline-flex items-center px-3 py-1.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-sm font-medium">
+                      Refund Processing
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowRefundModal(true)}
+                      className="cursor-pointer inline-flex items-center px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"
+                    >
+                      Request Refund
+                    </button>
+                  )
                 )}
                 <button
                   type="button"
@@ -612,45 +621,47 @@ export default function ManageSubscriptionPage() {
       </Card>
 
       {/* Refund History Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Refund History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {refundRequests.length === 0 ? (
-            <p className="text-muted-foreground">No refund requests found.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr>
-                    <th className="px-4 py-2 text-left">Plan</th>
-                    <th className="px-4 py-2 text-left">Refund Amount</th>
-                    <th className="px-4 py-2 text-left">Status</th>
-                    <th className="px-4 py-2 text-left">Reason</th>
-                    <th className="px-4 py-2 text-left">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {refundRequests.map((req, idx) => (
-                    <tr key={idx} className="border-b last:border-0">
-                      <td className="px-4 py-2">{req.plan?.name || 'Unknown Plan'}</td>
-                      <td className="px-4 py-2">{req.currency} {(req.amountMinor / 100).toFixed(2)}</td>
-                      <td className="px-4 py-2">
-                        <Badge variant={req.status === 'completed' ? 'default' : req.status === 'failed' || req.status === 'rejected' ? 'destructive' : 'secondary'} className="capitalize">
-                          {req.status}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-2">{req.reason || 'N/A'}</td>
-                      <td className="px-4 py-2">{new Date(req.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
+      {refundsEnabled && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Refund History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {refundRequests.length === 0 ? (
+              <p className="text-muted-foreground">No refund requests found.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-2 text-left">Plan</th>
+                      <th className="px-4 py-2 text-left">Refund Amount</th>
+                      <th className="px-4 py-2 text-left">Status</th>
+                      <th className="px-4 py-2 text-left">Reason</th>
+                      <th className="px-4 py-2 text-left">Date</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </thead>
+                  <tbody>
+                    {refundRequests.map((req, idx) => (
+                      <tr key={idx} className="border-b last:border-0">
+                        <td className="px-4 py-2">{req.plan?.name || 'Unknown Plan'}</td>
+                        <td className="px-4 py-2">{req.currency} {(req.amountMinor / 100).toFixed(2)}</td>
+                        <td className="px-4 py-2">
+                          <Badge variant={req.status === 'completed' ? 'default' : req.status === 'failed' || req.status === 'rejected' ? 'destructive' : 'secondary'} className="capitalize">
+                            {req.status}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-2">{req.reason || 'N/A'}</td>
+                        <td className="px-4 py-2">{new Date(req.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Cancel Subscription Dialog */}
       <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>

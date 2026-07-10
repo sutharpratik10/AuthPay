@@ -5,7 +5,7 @@ import { refundService } from "@/server/services/refund";
 import { z } from "zod";
 import { auth } from "@/config/auth";
 import { db } from "@/server/db";
-import { paymentOrders, refundRequests } from "@/server/db/schema";
+import { userSubscriptions, refundRequests, platformSettings } from "@/server/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 const createRefundSchema = z.object({
@@ -23,35 +23,31 @@ export const POST = withPolicy(async (req: NextRequest) => {
     const body = await req.json();
     const data = createRefundSchema.parse(body);
 
+    // Check if refunds are globally enabled
+    const settings = await db.query.platformSettings.findFirst({
+      where: eq(platformSettings.id, "singleton"),
+    });
+
+    if (settings && !settings.refundsEnabled) {
+      return NextResponse.json({ error: "Refunds are currently disabled by the administrator" }, { status: 403 });
+    }
+
     let paymentOrderId = data.paymentOrderId;
 
     if (!paymentOrderId && data.providerSubscriptionId) {
-      // Find the payment order for this subscription
-      const latestOrder = await db.query.paymentOrders.findFirst({
+      // Find the subscription to get its linked payment order
+      const sub = await db.query.userSubscriptions.findFirst({
         where: and(
-          eq(paymentOrders.userId, userId),
-          eq(paymentOrders.razorpaySubscriptionId, data.providerSubscriptionId)
-        ),
-        orderBy: [desc(paymentOrders.createdAt)],
+          eq(userSubscriptions.userId, userId),
+          eq(userSubscriptions.providerSubscriptionId, data.providerSubscriptionId)
+        )
       });
 
-      if (!latestOrder) {
-        // also check providerOrderId or providerTransactionId just in case
-        const latestFallback = await db.query.paymentOrders.findFirst({
-          where: and(
-            eq(paymentOrders.userId, userId),
-            eq(paymentOrders.providerOrderId, data.providerSubscriptionId)
-          ),
-          orderBy: [desc(paymentOrders.createdAt)],
-        });
-        if (latestFallback) {
-          paymentOrderId = latestFallback.id;
-        } else {
-          return NextResponse.json({ error: "No payment order found for this subscription" }, { status: 400 });
-        }
-      } else {
-        paymentOrderId = latestOrder.id;
+      if (!sub || !sub.paymentOrderId) {
+        return NextResponse.json({ error: "No successful payment order linked to this subscription" }, { status: 400 });
       }
+      
+      paymentOrderId = sub.paymentOrderId;
     }
 
     if (!paymentOrderId) {

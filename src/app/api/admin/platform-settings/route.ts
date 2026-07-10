@@ -23,6 +23,7 @@ export const GET = withApiHandler(async (_req: NextRequest, { user }) => {
     const inserted = await db.insert(platformSettings).values({
       id: SETTINGS_ID,
       autoProcessRefunds: false,
+      refundsEnabled: true,
     }).returning();
     settings = inserted[0];
   }
@@ -37,7 +38,7 @@ export const PATCH = withApiHandler(async (req: NextRequest, { user }) => {
   }
 
   const body = await req.json();
-  const { autoProcessRefunds } = body;
+  const { autoProcessRefunds, refundsEnabled } = body;
 
   let settings = await db.query.platformSettings.findFirst({
     where: eq(platformSettings.id, SETTINGS_ID),
@@ -46,14 +47,16 @@ export const PATCH = withApiHandler(async (req: NextRequest, { user }) => {
   if (!settings) {
     const inserted = await db.insert(platformSettings).values({
       id: SETTINGS_ID,
-      autoProcessRefunds: !!autoProcessRefunds,
+      autoProcessRefunds: autoProcessRefunds ?? false,
+      refundsEnabled: refundsEnabled ?? true,
     }).returning();
     settings = inserted[0];
   } else {
     const updated = await db
       .update(platformSettings)
       .set({
-        autoProcessRefunds: !!autoProcessRefunds,
+        autoProcessRefunds: autoProcessRefunds !== undefined ? !!autoProcessRefunds : settings.autoProcessRefunds,
+        refundsEnabled: refundsEnabled !== undefined ? !!refundsEnabled : settings.refundsEnabled,
         updatedAt: new Date(),
       })
       .where(eq(platformSettings.id, SETTINGS_ID))

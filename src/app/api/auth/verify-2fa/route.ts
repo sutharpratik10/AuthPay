@@ -119,7 +119,7 @@ export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response
     const totpRecord = await db.query.twoFactorAuth.findFirst({
       where: (table) => eq(table.userId, user.id),
     });
-    
+
     const hasApp2FA = totpRecord?.enabled && totpRecord.method === 'app';
 
     if (hasApp2FA) {

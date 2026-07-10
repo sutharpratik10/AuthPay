@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { subscriptionPlans, adminDashboardStats, userUsageMetrics, users, auditLogs, errorLogs, userNotifications, billings, permissions, roles, rolePermissions, otpCodes, userPreferences, userRoles, twoFactorAuth, recoveryCodes, loginHistory, refundRequests, paymentOrders } from "./schema";
+import { subscriptionPlans, adminDashboardStats, userUsageMetrics, users, auditLogs, errorLogs, userNotifications, billings, permissions, roles, rolePermissions, otpCodes, userPreferences, userRoles, twoFactorAuth, recoveryCodes, loginHistory, refundRequests, paymentOrders, userSubscriptions } from "./schema";
 
 export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({
   billings: many(billings),
@@ -44,6 +44,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   billings: many(billings),
   loginHistory: many(loginHistory),
   refundRequests: many(refundRequests),
+  userSubscriptions: many(userSubscriptions),
 }));
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
@@ -168,4 +169,20 @@ export const paymentOrdersRelations = relations(paymentOrders, ({ one, many }) =
     references: [subscriptionPlans.id],
   }),
   refundRequests: many(refundRequests),
+  userSubscriptions: many(userSubscriptions),
+}));
+
+export const userSubscriptionsRelations = relations(userSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [userSubscriptions.userId],
+    references: [users.id],
+  }),
+  plan: one(subscriptionPlans, {
+    fields: [userSubscriptions.planId],
+    references: [subscriptionPlans.id],
+  }),
+  paymentOrder: one(paymentOrders, {
+    fields: [userSubscriptions.paymentOrderId],
+    references: [paymentOrders.id],
+  }),
 }));

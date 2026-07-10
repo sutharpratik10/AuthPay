@@ -4,8 +4,48 @@ import { eq, and, desc, sql, SQL } from "drizzle-orm";
 import { getPaymentProvider } from "@/lib/payments/gateway";
 import { emailService } from "./email";
 import { getAppName } from "@/lib/utils/config";
+import Razorpay from "razorpay";
 
 export class RefundService {
+  /**
+   * Resolve the actual payment amount for a payment order.
+   * For Razorpay subscription setup orders, amountMinor is 0 — we fetch
+   * the real plan cost from Razorpay's API (mirrors the estimate endpoint logic).
+   */
+  private async resolveActualAmountMinor(order: {
+    amountMinor: number;
+    provider: string;
+    razorpaySubscriptionId?: string | null;
+    providerOrderId?: string | null;
+  }): Promise<number> {
+    let amount = order.amountMinor;
+
+    if (amount === 0 && order.provider === 'razorpay') {
+      const subId = order.razorpaySubscriptionId || order.providerOrderId;
+      if (subId) {
+        try {
+          const razorpay = new Razorpay({
+            key_id: process.env.RAZORPAY_KEY_ID!,
+            key_secret: process.env.RAZORPAY_KEY_SECRET!,
+          });
+          const sub = await razorpay.subscriptions.fetch(subId);
+          if (sub && (sub as any).plan_id) {
+            const plan = await razorpay.plans.fetch((sub as any).plan_id);
+            if (plan && (plan.item as any)?.amount) {
+              amount = Number((plan.item as any).amount);
+            } else if (plan && (plan as any).amount) {
+              amount = Number((plan as any).amount);
+            }
+          }
+        } catch (err) {
+          console.error('[RefundService] Failed to fetch Razorpay plan amount:', err);
+        }
+      }
+    }
+
+    return amount;
+  }
+
   /**
    * User initiates a refund request from their dashboard
    */
@@ -36,10 +76,10 @@ export class RefundService {
 
     if (existing) throw new Error("A refund request is already pending for this payment");
 
-    // We assume the frontend passed the correct calculated amount or we default to the full amount.
-    // In a real pro-rata system, backend should recalculate to ensure safety.
-    const amountToRefund = input.expectedRefundAmountMinor ?? order.amountMinor;
-    if (amountToRefund > order.amountMinor) {
+    // Resolve the actual payment amount (handles Razorpay setup orders with 0 amount)
+    const actualAmountMinor = await this.resolveActualAmountMinor(order);
+    const amountToRefund = input.expectedRefundAmountMinor ?? actualAmountMinor;
+    if (amountToRefund > actualAmountMinor) {
       throw new Error("Refund amount cannot exceed the original payment amount.");
     }
 
@@ -64,17 +104,12 @@ export class RefundService {
     }).returning();
 
     // Pause subscription if active
-    const providerSubscriptionId = order.razorpaySubscriptionId || order.providerOrderId;
-    let subscription;
+    let subscription = await db.query.userSubscriptions.findFirst({
+      where: eq(userSubscriptions.paymentOrderId, order.id)
+    });
 
-    if (providerSubscriptionId) {
-      subscription = await db.query.userSubscriptions.findFirst({
-        where: and(
-          eq(userSubscriptions.userId, userId),
-          eq(userSubscriptions.providerSubscriptionId, providerSubscriptionId)
-        )
-      });
-    } else if (order.planId) {
+    if (!subscription && order.planId) {
+      // Fallback for older data or non-subscription orders that might map by plan
       subscription = await db.query.userSubscriptions.findFirst({
         where: and(
           eq(userSubscriptions.userId, userId),
@@ -189,22 +224,85 @@ export class RefundService {
   }
 
   /**
+   * Resolve the actual Razorpay payment ID (pay_XXX) needed for refunds.
+   * The gatewayPaymentId stored on a refund request might be a sub_XXX,
+   * order_XXX, or empty string — none of which work for Razorpay's
+   * POST /v1/payments/:id/refund endpoint.
+   */
+  private async resolveRazorpayPaymentId(request: any): Promise<string> {
+    let paymentId = request.gatewayPaymentId;
+
+    // If it already looks like a Razorpay payment ID, use it directly
+    if (paymentId && paymentId.startsWith('pay_')) {
+      return paymentId;
+    }
+
+    // Step 1: Try to get providerTransactionId from the linked payment order
+    const order = await db.query.paymentOrders.findFirst({
+      where: eq(paymentOrders.id, request.paymentOrderId)
+    });
+
+    if (order?.providerTransactionId && order.providerTransactionId.startsWith('pay_')) {
+      return order.providerTransactionId;
+    }
+
+    // Step 2: Try checking via the subscription FK mapping
+    const sub = await db.query.userSubscriptions.findFirst({
+      where: eq(userSubscriptions.paymentOrderId, request.paymentOrderId)
+    });
+    
+    if (sub && sub.providerSubscriptionId && sub.providerSubscriptionId.startsWith('sub_')) {
+      try {
+        const razorpay = new Razorpay({
+          key_id: process.env.RAZORPAY_KEY_ID!,
+          key_secret: process.env.RAZORPAY_KEY_SECRET!,
+        });
+        // Fetch the subscription to find the latest payment
+        const rpSub = await razorpay.subscriptions.fetch(sub.providerSubscriptionId) as any;
+        // payment_id on the subscription is the most recent captured payment
+        if (rpSub?.payment_id) {
+          return rpSub.payment_id;
+        }
+      } catch (err) {
+        console.error('[RefundService] Failed to resolve payment ID from Razorpay subscription:', err);
+      }
+    }
+
+    // Fallback: return whatever we have (will likely cause a descriptive Razorpay error)
+    console.warn(`[RefundService] Could not resolve a pay_XXX ID for refund ${request.id}. Using: "${paymentId}"`);
+    return paymentId || '';
+  }
+
+  /**
    * Actually call the gateway API
    */
   async processRefund(request: any) {
     try {
       let paymentId = request.gatewayPaymentId;
 
-      // For Razorpay: if gatewayPaymentId is a subscription ID (sub_XXX),
-      // resolve it to the actual payment transaction ID (pay_XXX)
-      if (request.gateway === 'razorpay' && paymentId && paymentId.startsWith('sub_')) {
-        const order = await db.query.paymentOrders.findFirst({
-          where: eq(paymentOrders.id, request.paymentOrderId)
-        });
-        if (order?.providerTransactionId) {
-          paymentId = order.providerTransactionId;
+      // For Razorpay: resolve the actual payment ID (pay_XXX) and validate payment state
+      if (request.gateway === 'razorpay') {
+        paymentId = await this.resolveRazorpayPaymentId(request);
+        
+        try {
+          const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID!, key_secret: process.env.RAZORPAY_KEY_SECRET! });
+          const rpPayment = await razorpay.payments.fetch(paymentId);
+          
+          if (rpPayment.status !== 'captured') {
+            throw new Error(`Payment ${paymentId} cannot be refunded because its status is '${rpPayment.status}' (expected 'captured')`);
+          }
+          if (request.amountMinor > Number(rpPayment.amount)) {
+            throw new Error(`Refund amount (${request.amountMinor}) exceeds captured payment amount (${rpPayment.amount})`);
+          }
+        } catch (validationErr: any) {
+          console.warn(`[RefundService] Pre-refund validation failed for ${paymentId}:`, validationErr.message);
+          if (validationErr.message.includes('Payment') || validationErr.message.includes('Refund amount')) {
+            throw validationErr;
+          }
         }
       }
+
+      console.log(`[RefundService] Processing refund ${request.id} via ${request.gateway} | paymentId: ${paymentId} | amount: ${request.amountMinor} ${request.currency}`);
 
       const provider = getPaymentProvider(request.gateway);
       const result = await provider.createRefund({
@@ -220,6 +318,8 @@ export class RefundService {
       } else if (result.status === 'failed' || result.status === 'canceled') {
         nextStatus = 'failed';
       }
+
+      console.log(`[RefundService] Refund ${request.id} gateway response: status=${result.status}, refundId=${result.providerRefundId}, nextStatus=${nextStatus}`);
 
       const [updated] = await db.update(refundRequests)
         .set({
@@ -250,10 +350,13 @@ export class RefundService {
       return updated;
     } catch (error: any) {
       const failureReason = error.error?.description || error.message || 'Gateway error';
+      console.error(`[RefundService] Refund ${request.id} FAILED:`, failureReason, error.error || error);
+
       const [updated] = await db.update(refundRequests)
         .set({
           status: 'failed',
           failureReason,
+          gatewayResponse: (error.error || { message: error.message }) as any,
         })
         .where(eq(refundRequests.id, request.id))
         .returning();
@@ -364,8 +467,7 @@ export class RefundService {
     });
 
     const providerSubId = order?.razorpaySubscriptionId || order?.providerOrderId;
-
-    // Find the on-hold subscription
+    // Find the on-hold status
     const holdStatus = await db.query.subscriptionStatuses.findFirst({
       where: eq(subscriptionStatuses.name, 'on-hold')
     });
@@ -378,25 +480,24 @@ export class RefundService {
       return;
     }
 
-    // Try to find subscription by provider ID first, then by planId
-    let subscription;
-    if (providerSubId) {
-      subscription = await db.query.userSubscriptions.findFirst({
-        where: and(
-          eq(userSubscriptions.userId, userId),
-          eq(userSubscriptions.providerSubscriptionId, providerSubId),
-          eq(userSubscriptions.statusId, holdStatus.id)
-        )
+    let subscription = await db.query.userSubscriptions.findFirst({
+      where: eq(userSubscriptions.paymentOrderId, paymentOrderId)
+    });
+
+    if (!subscription) {
+      // Fallback 
+      const order = await db.query.paymentOrders.findFirst({
+        where: eq(paymentOrders.id, paymentOrderId)
       });
-    }
-    if (!subscription && order?.planId) {
-      subscription = await db.query.userSubscriptions.findFirst({
-        where: and(
-          eq(userSubscriptions.userId, userId),
-          eq(userSubscriptions.planId, order.planId),
-          eq(userSubscriptions.statusId, holdStatus.id)
-        )
-      });
+      if (order && order.planId) {
+        subscription = await db.query.userSubscriptions.findFirst({
+          where: and(
+            eq(userSubscriptions.userId, userId),
+            eq(userSubscriptions.planId, order.planId),
+            eq(userSubscriptions.statusId, holdStatus.id)
+          )
+        });
+      }
     }
 
     if (subscription) {
@@ -448,8 +549,8 @@ export class RefundService {
       count: sql<number>`count(*)`,
       totalAmount: sql<number>`sum(${refundRequests.amountMinor})`
     })
-    .from(refundRequests)
-    .groupBy(refundRequests.status);
+      .from(refundRequests)
+      .groupBy(refundRequests.status);
 
     const result = {
       totalRefunded: 0,

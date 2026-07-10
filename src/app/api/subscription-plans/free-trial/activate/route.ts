@@ -43,6 +43,7 @@ export async function POST() {
     const [newSubscription] = await db.insert(userSubscriptions).values({
       userId,
       planId: settings.planId,
+      paymentOrderId: null,
       statusId: status.id,
       startDate: startDate.toISOString(),
       expiryDate: expiryDate.toISOString(),

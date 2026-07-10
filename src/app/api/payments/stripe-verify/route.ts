@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
             userId: updatedOrder.userId,
             planId: updatedOrder.planId,
             sessionId,
+            paymentOrderId: updatedOrder.id,
           });
         }
       });
@@ -79,10 +80,12 @@ async function ensureSubscriptionActivatedInTx(
     userId,
     planId,
     sessionId,
+    paymentOrderId,
   }: {
     userId: string;
     planId: string;
     sessionId: string;
+    paymentOrderId: string;
   }
 ) {
   // Lock the user row to serialize concurrent webhook/verify requests (prevent duplicate insertions)
@@ -153,6 +156,7 @@ async function ensureSubscriptionActivatedInTx(
   await tx.insert(userSubscriptions).values({
     userId,
     planId,
+    paymentOrderId,
     statusId: activeStatus.id,
     renewalTypeId: renewalType?.id,
     providerSubscriptionId: stripeSubscriptionId,

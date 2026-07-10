@@ -86,6 +86,7 @@ async function assignSubscriptionToUser(req: NextRequest) {
       await db.update(userSubscriptions)
         .set({
           planId: planId,
+          paymentOrderId: null,
           statusId: activeStatus.id,
           startDate: startDate.toISOString(),
           expiryDate: expiryDate.toISOString(),
@@ -97,6 +98,7 @@ async function assignSubscriptionToUser(req: NextRequest) {
       await db.insert(userSubscriptions).values({
         userId,
         planId,
+        paymentOrderId: null,
         statusId: activeStatus.id,
         startDate: startDate.toISOString(),
         expiryDate: expiryDate.toISOString(),

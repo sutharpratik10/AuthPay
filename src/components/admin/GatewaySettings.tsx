@@ -223,7 +223,7 @@ export default function GatewaySettings() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // ---- platform settings state ----
-  const [platformSettings, setPlatformSettings] = useState<{ autoProcessRefunds: boolean }>({ autoProcessRefunds: false });
+  const [platformSettings, setPlatformSettings] = useState<{ autoProcessRefunds: boolean, refundsEnabled: boolean }>({ autoProcessRefunds: false, refundsEnabled: true });
   const [settingsLoading, setSettingsLoading] = useState(true);
 
   // --------------------------------------------------------------------------
@@ -250,7 +250,10 @@ export default function GatewaySettings() {
       const res = await fetch('/api/admin/platform-settings');
       const json = await res.json();
       if (res.ok && json.success) {
-        setPlatformSettings({ autoProcessRefunds: json.data?.autoProcessRefunds || false });
+        setPlatformSettings({
+          autoProcessRefunds: json.data?.autoProcessRefunds || false,
+          refundsEnabled: json.data?.refundsEnabled ?? true
+        });
       }
     } catch (err) {
       console.error("Failed to load platform settings:", err);
@@ -269,11 +272,30 @@ export default function GatewaySettings() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Failed to update settings');
-      setPlatformSettings({ autoProcessRefunds: checked });
+      setPlatformSettings(prev => ({ ...prev, autoProcessRefunds: checked }));
       toast({ title: 'Success', description: 'Refund automation setting updated', variant: 'success' });
     } catch (err) {
       toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
       // Revert optimism if implemented, but we just re-fetch on next render
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const toggleRefundsEnabled = async (checked: boolean) => {
+    try {
+      setSettingsLoading(true);
+      const res = await fetch('/api/admin/platform-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refundsEnabled: checked }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'Failed to update settings');
+      setPlatformSettings(prev => ({ ...prev, refundsEnabled: checked }));
+      toast({ title: 'Success', description: `Refunds feature ${checked ? 'enabled' : 'disabled'}`, variant: 'success' });
+    } catch (err) {
+      toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
     } finally {
       setSettingsLoading(false);
     }
@@ -770,30 +792,58 @@ export default function GatewaySettings() {
         </Card>
       </div>
 
-      {/* ── Refund Automation ── */}
+      {/* ── Platform Settings ── */}
       <Card className="border border-primary/20 bg-primary/5">
-        <CardContent className="pt-4 pb-4">
+        <CardContent className="pt-4 pb-4 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
-              <RefreshCw className="w-5 h-5 text-primary shrink-0" />
+              <Shield className="w-5 h-5 text-primary shrink-0" />
               <div>
-                <p className="text-sm font-medium">Automatic Refund Processing</p>
+                <p className="text-sm font-medium">Enable Refunds Feature</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  If enabled, user-initiated refund requests will be automatically sent to the payment provider without requiring admin manual review.
+                  Global switch to enable or disable the refund feature for users. When disabled, the Request Refund button is hidden.
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground mr-2">
-                {platformSettings.autoProcessRefunds ? 'Enabled' : 'Disabled'}
+                {platformSettings.refundsEnabled ? 'Enabled' : 'Disabled'}
               </span>
               <Switch
-                checked={platformSettings.autoProcessRefunds}
-                onCheckedChange={toggleAutoProcessRefunds}
+                checked={platformSettings.refundsEnabled}
+                onCheckedChange={toggleRefundsEnabled}
                 disabled={settingsLoading}
               />
             </div>
           </div>
+
+          {platformSettings.refundsEnabled && (
+            <>
+              <div className="h-px bg-primary/10 w-full" />
+
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <RefreshCw className="w-5 h-5 text-primary shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Automatic Refund Processing</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      If enabled, user-initiated refund requests will be automatically sent to the payment provider without requiring admin manual review.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground mr-2">
+                    {platformSettings.autoProcessRefunds ? 'Enabled' : 'Disabled'}
+                  </span>
+                  <Switch
+                    checked={platformSettings.autoProcessRefunds}
+                    onCheckedChange={toggleAutoProcessRefunds}
+                    disabled={settingsLoading}
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
