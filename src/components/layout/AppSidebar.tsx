@@ -81,6 +81,19 @@ export function AppSidebar() {
     return nav;
   }, [isAdmin, isPermissionsLoading, subscriptionStatus?.hasSubscription]);
 
+  const [refundsEnabled, setRefundsEnabled] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/public/platform-settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          setRefundsEnabled(data.data.refundsEnabled);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
   const adminNavigation: NavItem[] = useMemo(() => [
     {
       name: 'Manage Users',
@@ -195,7 +208,7 @@ export function AppSidebar() {
             </svg>
           ),
         },
-        {
+        ...(refundsEnabled ? [{
           name: 'Refunds',
           href: '/protected/admin/refunds',
           icon: (
@@ -204,10 +217,10 @@ export function AppSidebar() {
               <path d="M3 3v5h5" />
             </svg>
           ),
-        }
+        }] : [])
       ]
     },
-  ], [hasPolicy]);
+  ], [hasPolicy, refundsEnabled]);
 
   // Combine regular navigation with admin navigation if user is admin
   // Only show admin navigation if:
