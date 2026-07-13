@@ -296,14 +296,14 @@ describe('Security Tests - Authentication', () => {
   });
 
   describe('2FA Security', () => {
-    it('should generate 6-digit OTP codes', () => {
+    it('should generate 8-digit OTP codes', () => {
       const generateOTP = (): string => {
-        return Math.floor(100000 + Math.random() * 900000).toString();
+        return Math.floor(10000000 + Math.random() * 90000000).toString();
       };
-      
+
       const otp = generateOTP();
-      expect(otp).toMatch(/^\d{6}$/);
-      expect(otp.length).toBe(6);
+      expect(otp).toMatch(/^\d{8}$/);
+      expect(otp.length).toBe(8);
     });
 
     it('should have limited OTP validity period', () => {

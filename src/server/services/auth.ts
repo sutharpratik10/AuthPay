@@ -148,10 +148,26 @@ export class AuthService {
         return { success: false, error: "Invalid or expired verification code" };
       }
       if (otpRecord.expiresAt < new Date()) {
-        await db.delete(otpCodes).where(eq(otpCodes.id, otpRecord.id));
-        return { success: false, error: "Verification code has expired" };
+        const newAttemptCount = (otpRecord.attemptCount ?? 0) + 1;
+
+        if (newAttemptCount >= 5) {
+          await db.update(otpCodes)
+            .set({
+              attemptCount: newAttemptCount,
+              isValid: false,
+            })
+            .where(eq(otpCodes.id, otpRecord.id));
+        } else {
+          await db.update(otpCodes)
+            .set({
+              attemptCount: newAttemptCount,
+            })
+            .where(eq(otpCodes.id, otpRecord.id));
+        }
+
+        return { success: false, error: "Invalid or expired verification code" };
       }
-      
+
       // Update user's email verification status
       await db.update(users)
         .set({
@@ -532,10 +548,10 @@ export class AuthService {
   }
 
   /**
-   * Generate a 6-digit verification code
+   * Generate an 8-digit verification code
    */
   private static generateVerificationCode(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    return Math.floor(10000000 + Math.random() * 90000000).toString();
   }
   /**
    * Clean up expired OTP codes
