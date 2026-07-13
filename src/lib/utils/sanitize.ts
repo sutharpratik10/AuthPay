@@ -110,6 +110,17 @@ export function validatePassword(password: string | undefined | null): { valid: 
   if (password.length > 128) {
     return { valid: false, error: 'Password too long' };
   }
+
+  // Require at least 3 of 4 character classes
+  let classes = 0;
+  if (/[A-Z]/.test(password)) classes += 1;
+  if (/[a-z]/.test(password)) classes += 1;
+  if (/[0-9]/.test(password)) classes += 1;
+  if (/[^A-Za-z0-9]/.test(password)) classes += 1;
+
+  if (classes < 3) {
+    return { valid: false, error: 'Password must contain at least 3 of the following: uppercase letter, lowercase letter, number, special character' };
+  }
   
   return { valid: true };
 }

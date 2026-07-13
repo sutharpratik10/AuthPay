@@ -393,10 +393,11 @@ export class AuthService {
           error: "Invalid new password"
         };
       }
-      if (newPassword.length < 8) {
+      const passwordValidation = validatePassword(newPassword);
+      if (!passwordValidation.valid) {
         return {
           success: false,
-          error: "Password must be at least 8 characters long"
+          error: passwordValidation.error || "Invalid new password"
         };
       }
       const verificationResult = await this.verifyPasswordResetCode(code);
@@ -459,10 +460,11 @@ export class AuthService {
         };
       }
       
-      if (newPassword.length < 8) {
+      const passwordValidation = validatePassword(newPassword);
+      if (!passwordValidation.valid) {
         return {
           success: false,
-          error: "Password must be at least 8 characters long"
+          error: passwordValidation.error || "Invalid new password"
         };
       }
 

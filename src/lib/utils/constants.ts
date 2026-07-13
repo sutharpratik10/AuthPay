@@ -123,7 +123,7 @@ export const APP_CONFIG = {
       NETWORK: 'Network error. Please check your connection.',
       INVALID_CREDENTIALS: 'Invalid email or password',
       PASSWORD_MISMATCH: 'Passwords do not match',
-      WEAK_PASSWORD: 'Password must be at least 8 characters long',
+      WEAK_PASSWORD: 'Password must be at least 8 characters long and contain at least 3 of the following: uppercase letter, lowercase letter, number, special character',
       INVALID_CODE: 'Invalid or expired verification code',
       EMAIL_EXISTS: 'An account with this email already exists',
     },
