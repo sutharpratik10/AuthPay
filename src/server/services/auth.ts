@@ -40,7 +40,8 @@ export class AuthService {
         where: (users, { eq }) => eq(users.email, sanitizedEmail)
       });
       if (existingUser) {
-        return { success: false, error: "Email already in use" };
+        console.log(`[Registration] Duplicate registration attempt for user: ${existingUser.id}`);
+        return { success: false, error: "Registration failed. Please try again or contact support." };
       }
       // Hash the password
       const hashedPassword = await bcrypt.hash(password, 10);

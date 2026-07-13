@@ -57,8 +57,7 @@ class RegistrationRouteHandler extends AuthRouteHandler {
 
       // Create response with verification token in secure cookie
       const response = this.createSuccessResponse({
-        message: 'User registered successfully. Please verify your email.',
-        user: result.user
+        message: 'User registered successfully. Please verify your email.'
       });
 
       // Set secure HTTP-only cookie with verification token
