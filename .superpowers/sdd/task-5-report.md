@@ -49,7 +49,7 @@ Commit message: `Task 5: rate-limit /api/auth/verify, cap OTP attempts, use 8-di
 Completed.
 
 ## Commit
-- **Hash:** `02d20422c9a85274ce42c18efb135e13f3b5eacc`
+- **Hash:** `6dde9777c6bf91699c96b15670044ce6fcb53875`
 - **Branch:** `Dev`
 - **Message:** `Task 5: Harden verify/OTP flow for 8-digit codes and attempt lockout`
 
