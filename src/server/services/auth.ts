@@ -129,43 +129,69 @@ export class AuthService {
 
   /**
    * Verify email with OTP code
+   * @param code - The OTP code entered by the user
+   * @param userId - Optional user ID from the signed verification token or session.
+   *                   When provided, the user's active verification record is looked up
+   *                   first so wrong guesses increment attemptCount and lock out after 5 tries.
    */
-  static async verifyEmail(code: string): Promise<ServiceResult<{ user: { email: string; name?: string } }>> {
+  static async verifyEmail(code: string, userId?: string): Promise<ServiceResult<{ user: { email: string; name?: string } }>> {
     try {
-      await this.cleanupExpiredOtpCodes();
-      const otpRecord = await db.query.otpCodes.findFirst({
-        where: (otpCodes, { eq, and }) =>
-          and(
-            eq(otpCodes.code, code),
-            eq(otpCodes.type, "email_verification"),
-            eq(otpCodes.isValid, true)
-          ),
-        with: {
-          user: true,
-        },
-      }) as (typeof otpCodes.$inferSelect & { user: { email: string; name?: string } });
-      if (!otpRecord) {
-        return { success: false, error: "Invalid or expired verification code" };
-      }
-      if (otpRecord.expiresAt < new Date()) {
-        const newAttemptCount = (otpRecord.attemptCount ?? 0) + 1;
+      let otpRecord: (typeof otpCodes.$inferSelect & { user: { email: string; name?: string } }) | undefined;
 
-        if (newAttemptCount >= 5) {
-          await db.update(otpCodes)
-            .set({
-              attemptCount: newAttemptCount,
-              isValid: false,
-            })
-            .where(eq(otpCodes.id, otpRecord.id));
-        } else {
-          await db.update(otpCodes)
-            .set({
-              attemptCount: newAttemptCount,
-            })
-            .where(eq(otpCodes.id, otpRecord.id));
+      if (userId) {
+        // Cookie/session-based flow: look up the user's active verification record
+        // and compare the provided code. This lets us count wrong guesses.
+        otpRecord = await db.query.otpCodes.findFirst({
+          where: (otpCodes, { eq, and }) =>
+            and(
+              eq(otpCodes.userId, userId),
+              eq(otpCodes.type, "email_verification"),
+              eq(otpCodes.isValid, true)
+            ),
+          with: {
+            user: true,
+          },
+        }) as (typeof otpCodes.$inferSelect & { user: { email: string; name?: string } }) | undefined;
+
+        if (!otpRecord) {
+          return { success: false, error: "Invalid or expired verification code" };
         }
 
-        return { success: false, error: "Invalid or expired verification code" };
+        const now = new Date();
+        const isExpired = otpRecord.expiresAt < now;
+        const isMatch = otpRecord.code === code;
+
+        if (!isMatch || isExpired) {
+          const newAttemptCount = (otpRecord.attemptCount ?? 0) + 1;
+          const shouldInvalidate = newAttemptCount >= 5;
+
+          await db.update(otpCodes)
+            .set({
+              attemptCount: newAttemptCount,
+              ...(shouldInvalidate ? { isValid: false } : {}),
+            })
+            .where(eq(otpCodes.id, otpRecord.id));
+
+          return { success: false, error: "Invalid or expired verification code" };
+        }
+      } else {
+        // Direct POST fallback: exact-code lookup, IP-level rate limiting handles brute force
+        await this.cleanupExpiredOtpCodes();
+        otpRecord = await db.query.otpCodes.findFirst({
+          where: (otpCodes, { eq, and }) =>
+            and(
+              eq(otpCodes.code, code),
+              eq(otpCodes.type, "email_verification"),
+              eq(otpCodes.isValid, true)
+            ),
+          with: {
+            user: true,
+          },
+        }) as (typeof otpCodes.$inferSelect & { user: { email: string; name?: string } }) | undefined;
+
+        if (!otpRecord || otpRecord.expiresAt < new Date()) {
+          return { success: false, error: "Invalid or expired verification code" };
+        }
       }
 
       // Update user's email verification status

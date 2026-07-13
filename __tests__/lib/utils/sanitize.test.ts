@@ -70,10 +70,15 @@ describe('sanitizeOTPCode', () => {
     expect(sanitizeOTPCode('123456')).toBe('123456');
   });
 
+  it('should accept 8-digit numeric codes', () => {
+    expect(sanitizeOTPCode('12345678')).toBe('12345678');
+  });
+
   it('should reject non-numeric and wrong-length codes', () => {
     expect(sanitizeOTPCode('12345')).toBeNull();
     expect(sanitizeOTPCode('12345a')).toBeNull();
     expect(sanitizeOTPCode('1234567')).toBeNull();
+    expect(sanitizeOTPCode('123456789')).toBeNull();
   });
 });
 

@@ -27,7 +27,7 @@ export const passwordResetEmailTemplate = (
     
     ${instructionsList([
       'Go to the password reset page in your browser',
-      'Enter the 6-digit code above',
+      'Enter the 8-digit code above',
       'Choose your new password',
       'Click "Reset Password" to complete the process'
     ])}

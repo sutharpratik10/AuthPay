@@ -65,15 +65,15 @@ export function normalizeEmail(email: string): string {
 
 /**
  * Validate OTP/verification code format
- * Only allows 6-digit numeric codes
+ * Allows 6-8 digit numeric codes (supports legacy 6-digit TOTP and new 8-digit email codes)
  */
 export function sanitizeOTPCode(code: string | undefined | null): string | null {
   if (!code || typeof code !== 'string') return null;
   
   const sanitized = sanitizeString(code);
   
-  // OTP should be exactly 6 digits
-  if (!/^\d{6}$/.test(sanitized)) return null;
+  // OTP should be 6 or 8 digits (legacy TOTP / new email verification & reset codes)
+  if (!/^(\d{6}|\d{8})$/.test(sanitized)) return null;
   
   return sanitized;
 }

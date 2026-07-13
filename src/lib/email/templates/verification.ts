@@ -14,7 +14,7 @@ export const verificationEmailTemplate = (otpCode: string, appName: string): str
     
     ${instructionsList([
       'Go to the verification page in your browser',
-      'Enter the 6-digit code above',
+      'Enter the 8-digit code above',
       'Click "Verify Email" to complete your registration'
     ])}
     

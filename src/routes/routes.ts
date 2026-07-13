@@ -108,8 +108,23 @@ class VerifyEmailRouteHandler extends BaseRouteHandler {
         return this.createErrorResponse('Verification code is required', 400);
       }
 
+      // Identify the user from the signed verification token or authenticated session
+      // so wrong guesses can increment per-user attemptCount.
+      let userId: string | undefined;
+      const verificationToken = req.cookies.get('verification-token')?.value;
+      if (verificationToken) {
+        const tokenData = verifyVerificationToken(verificationToken);
+        if (tokenData) {
+          userId = tokenData.userId;
+        }
+      }
+      if (!userId) {
+        const session = await auth();
+        userId = session?.user?.id;
+      }
+
       console.log(`[VERIFY] Attempting to verify code: ${code}`);
-      const result = await AuthService.verifyEmail(code);
+      const result = await AuthService.verifyEmail(code, userId);
 
       console.log(`[VERIFY] Verification result:`, result);
       
