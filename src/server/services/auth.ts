@@ -316,10 +316,13 @@ export class AuthService {
         };
       }
 
+      // Normalize the email to match the stored address
+      const normalizedEmail = normalizeEmail(sanitizedEmail);
+
       const user = await db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.email, sanitizedEmail)
+        where: (users, { eq }) => eq(users.email, normalizedEmail)
       });
-      
+
       // SECURITY: Always return success even if user doesn't exist
       // This prevents email enumeration attacks
       if (!user) {

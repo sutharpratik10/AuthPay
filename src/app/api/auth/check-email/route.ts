@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/server/db'
 import { rateLimiters } from '@/lib/middleware/rate-limit'
-import { sanitizeEmail, hasSQLInjectionPatterns } from '@/lib/utils/sanitize'
+import { sanitizeEmail, normalizeEmail, hasSQLInjectionPatterns } from '@/lib/utils/sanitize'
 import { logSecurityEvent } from '@/lib/utils/validation-middleware'
 
 /**
@@ -39,9 +39,12 @@ export const POST = rateLimiters.withGlobalLimit(async (req: NextRequest) => {
       )
     }
 
-    // Check if email exists in database (using sanitized email)
+    // Normalize the email to match the stored address
+    const normalizedEmail = normalizeEmail(sanitizedEmail)
+
+    // Check if email exists in database (using normalized email)
     const existingUser = await db.query.users.findFirst({
-      where: (users, { eq }) => eq(users.email, sanitizedEmail),
+      where: (users, { eq }) => eq(users.email, normalizedEmail),
       columns: { id: true, email: true }
     })
     const emailExists = !!existingUser

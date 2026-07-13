@@ -4,7 +4,7 @@ import { users, twoFactorAuth, recoveryCodes } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { rateLimiters } from '@/lib/middleware/rate-limit';
-import { sanitizeEmail, hasSQLInjectionPatterns } from '@/lib/utils/sanitize';
+import { sanitizeEmail, normalizeEmail, hasSQLInjectionPatterns } from '@/lib/utils/sanitize';
 import { logSecurityEvent } from '@/lib/utils/validation-middleware';
 import { TOTPService } from '@/server/services/totp';
 import { TOTPLoginVerifySchema } from '@/lib/validations/auth';
@@ -62,6 +62,9 @@ export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response
       );
     }
 
+    // Normalize the email to match the stored address
+    const normalizedEmail = normalizeEmail(sanitizedEmail);
+
     // Verify temporary token
     let decodedToken: TempTokenPayload;
     try {
@@ -76,7 +79,7 @@ export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response
       );
     }
 
-    if (decodedToken.email !== sanitizedEmail) {
+    if (decodedToken.email !== normalizedEmail) {
       return NextResponse.json(
         { error: 'Token email mismatch' },
         { status: 401 }
@@ -85,7 +88,7 @@ export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response
 
     // Find user
     const user = await db.query.users.findFirst({
-      where: eq(users.email, sanitizedEmail),
+      where: eq(users.email, normalizedEmail),
     });
 
     if (!user) {

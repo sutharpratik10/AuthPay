@@ -11,6 +11,7 @@ import { db } from "@/server/db";
 import { eq } from "drizzle-orm";
 import { users } from "@/server/db/schema";
 import { SessionService } from "@/server/services/session";
+import { sanitizeEmail, normalizeEmail } from "@/lib/utils/sanitize";
 
 const authConfig: NextAuthConfig = {
   providers: [
@@ -47,9 +48,16 @@ const authConfig: NextAuthConfig = {
             return null;
           }
 
-          const email = credentials.email as string;
+          const rawEmail = credentials.email as string;
           const password = credentials.password as string;
           const skipPasswordCheck = credentials.skipPasswordCheck === 'true';
+
+          // Sanitize and normalize email to match the stored address
+          const sanitizedEmail = sanitizeEmail(rawEmail);
+          if (!sanitizedEmail) {
+            return null;
+          }
+          const email = normalizeEmail(sanitizedEmail);
 
           const user = await db.query.users.findFirst({
             where: (usersTable) => eq(usersTable.email, email),

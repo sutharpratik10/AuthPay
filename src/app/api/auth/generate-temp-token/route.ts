@@ -6,6 +6,8 @@ import { emailService } from '@/server/services/email';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { rateLimiters } from '@/lib/middleware/rate-limit';
+import { sanitizeEmail, normalizeEmail, hasSQLInjectionPatterns } from '@/lib/utils/sanitize';
+import { logSecurityEvent } from '@/lib/utils/validation-middleware';
 
 /**
  * Rate Limited: 5 requests per 15 minutes (STRICT - prevents brute force)
@@ -22,9 +24,28 @@ export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response
       );
     }
 
+    // Security: Check for injection patterns
+    if (hasSQLInjectionPatterns(email)) {
+      logSecurityEvent('sql_injection_attempt', { field: 'email', ip: req.headers.get('x-forwarded-for') });
+      return NextResponse.json(
+        { error: 'Invalid input detected' },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize and normalize email to match the stored address
+    const sanitizedEmail = sanitizeEmail(email);
+    if (!sanitizedEmail) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
+        { status: 400 }
+      );
+    }
+    const normalizedEmail = normalizeEmail(sanitizedEmail);
+
     // Verify user credentials
     const user = await db.query.users.findFirst({
-      where: eq(users.email, email.toLowerCase()),
+      where: eq(users.email, normalizedEmail),
       with: {
         userPreferences: true
       }
