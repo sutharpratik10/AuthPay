@@ -1,12 +1,21 @@
 import { db } from "@/server/db";
-import { users, otpCodes } from "@/server/db/schema";
+import { users, otpCodes, userRoles } from "@/server/db/schema";
 import { EmailQueueService } from "./email-queue";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { eq, and, lt, gt } from "drizzle-orm";
-import { sanitizeEmail, sanitizeName, validatePassword, hasSQLInjectionPatterns } from "@/lib/utils/sanitize";
+import { sanitizeEmail, normalizeEmail, sanitizeName, validatePassword, hasSQLInjectionPatterns } from "@/lib/utils/sanitize";
 
 type ServiceResult<T extends object = object> = { success: true } & T | { success: false; error: string };
+
+function isUniqueViolationError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code: unknown }).code === '23505'
+  );
+}
 
 export class AuthService {
   /**
@@ -19,6 +28,9 @@ export class AuthService {
       if (!sanitizedEmail) {
         return { success: false, error: "Invalid email format" };
       }
+
+      // Normalize the email to prevent + aliases and Gmail dot variants
+      const normalizedEmail = normalizeEmail(sanitizedEmail);
 
       // Validate password
       const passwordValidation = validatePassword(password);
@@ -35,17 +47,18 @@ export class AuthService {
         return { success: false, error: "Invalid input detected" };
       }
 
-      // Check if user already exists (using sanitized email)
+      // Check if user already exists (using normalized email)
       const existingUser = await db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.email, sanitizedEmail)
+        where: (users, { eq }) => eq(users.email, normalizedEmail)
       });
       if (existingUser) {
         console.log(`[Registration] Duplicate registration attempt for user: ${existingUser.id}`);
         return { success: false, error: "Registration failed. Please try again or contact support." };
       }
+
       // Hash the password
       const hashedPassword = await bcrypt.hash(password, 10);
-      
+
       // Get the default 'User' role (case-insensitive search)
       const defaultRole = await db.query.roles.findFirst({
         where: (rolesTable, { eq, or, sql }) => 
@@ -55,44 +68,46 @@ export class AuthService {
           ),
         columns: { id: true }
       });
-      
+
       if (!defaultRole) {
         return { success: false, error: 'Default user role not found. Please contact administrator.' };
       }
-      
-      // Create the user (using sanitized values)
-      const [newUser] = await db.insert(users).values({
-        id: uuidv4(),
-        email: sanitizedEmail,
-        password: hashedPassword,
-        name: sanitizedName,
-        isEmailVerified: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }).returning();
-      
-      // Assign default role to user via user_roles table
-      const { userRoles } = await import("@/server/db/schema");
-      await db.insert(userRoles).values({
-        userId: newUser.id,
-        roleId: defaultRole.id,
-      });
-      
-      // Generate verification code
+
+      // Generate verification code before the transaction
       const verificationCode = this.generateVerificationCode();
-      // Store verification code with 15-minute expiration
-      await db.insert(otpCodes).values({
-        userId: newUser.id,
-        code: verificationCode,
-        type: "email_verification",
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-        isValid: true,
-        createdAt: new Date(),
+
+      // Run user, role, and OTP inserts atomically
+      const newUser = await db.transaction(async (tx) => {
+        const [createdUser] = await tx.insert(users).values({
+          id: uuidv4(),
+          email: normalizedEmail,
+          password: hashedPassword,
+          name: sanitizedName,
+          isEmailVerified: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }).returning();
+
+        await tx.insert(userRoles).values({
+          userId: createdUser.id,
+          roleId: defaultRole.id,
+        });
+
+        await tx.insert(otpCodes).values({
+          userId: createdUser.id,
+          code: verificationCode,
+          type: "email_verification",
+          expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+          isValid: true,
+          createdAt: new Date(),
+        });
+
+        return createdUser;
       });
-      
+
       // Queue verification email for background sending (non-blocking)
       EmailQueueService.enqueueVerificationEmail(newUser.email, verificationCode);
-      
+
       return {
         success: true,
         user: {
@@ -103,6 +118,10 @@ export class AuthService {
         },
       };
     } catch (error: unknown) {
+      if (isUniqueViolationError(error)) {
+        console.warn('[Registration] Unique violation during registration insert:', error);
+        return { success: false, error: "Registration failed. Please try again or contact support." };
+      }
       console.error("Registration error:", error);
       return { success: false, error: "An unexpected error occurred during registration. Please try again later." };
     }
@@ -186,6 +205,9 @@ export class AuthService {
         return { success: false, error: "Invalid email format" };
       }
 
+      // Normalize the email to match the stored address
+      const normalizedEmail = normalizeEmail(sanitizedEmail);
+
       // Security check for injection patterns
       if (hasSQLInjectionPatterns(email)) {
         console.warn('[SECURITY] Potential injection attempt in resend verification');
@@ -193,7 +215,7 @@ export class AuthService {
       }
 
       const user = await db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.email, sanitizedEmail)
+        where: (users, { eq }) => eq(users.email, normalizedEmail)
       });
       if (!user) {
         return { success: false, error: "User not found" };

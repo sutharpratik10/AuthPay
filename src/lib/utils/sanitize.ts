@@ -40,6 +40,30 @@ export function sanitizeEmail(email: string | undefined | null): string | null {
 }
 
 /**
+ * Normalize an email address to collapse aliases and Gmail dot variants.
+ * This should only be called AFTER the address has passed sanitizeEmail.
+ */
+export function normalizeEmail(email: string): string {
+  const lower = email.trim().toLowerCase();
+  const atIndex = lower.indexOf('@');
+  if (atIndex === -1) return lower;
+
+  let local = lower.slice(0, atIndex);
+  const domain = lower.slice(atIndex + 1);
+
+  const plusIndex = local.indexOf('+');
+  if (plusIndex !== -1) {
+    local = local.slice(0, plusIndex);
+  }
+
+  if (domain === 'gmail.com' || domain === 'googlemail.com') {
+    local = local.replace(/\./g, '');
+  }
+
+  return `${local}@${domain}`;
+}
+
+/**
  * Validate OTP/verification code format
  * Only allows 6-digit numeric codes
  */
