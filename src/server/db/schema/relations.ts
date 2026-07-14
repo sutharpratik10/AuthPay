@@ -1,5 +1,8 @@
 import { relations } from "drizzle-orm/relations";
-import { subscriptionPlans, adminDashboardStats, userUsageMetrics, users, auditLogs, errorLogs, userNotifications, billings, permissions, roles, rolePermissions, otpCodes, userPreferences, userRoles, twoFactorAuth, recoveryCodes, loginHistory, refundRequests, paymentOrders, userSubscriptions } from "./schema";
+import { users, otpCodes, userPreferences, twoFactorAuth, recoveryCodes, loginHistory } from "./auth";
+import { roles, permissions, rolePermissions, userRoles } from "./rbac";
+import { subscriptionPlans, billings, refundRequests, paymentOrders, userSubscriptions } from "./billing";
+import { adminDashboardStats, userUsageMetrics, auditLogs, errorLogs, userNotifications } from "./logs";
 
 export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({
   billings: many(billings),

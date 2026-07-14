@@ -6,6 +6,7 @@ import { db } from '@/server/db';
 import { users, roles } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
+import { validatePassword } from '@/lib/utils/sanitize';
 
 /**
  * POST /api/admin/users/create-admin
@@ -32,8 +33,9 @@ async function createAdminUser(req: NextRequest) {
     if (!email || !email.trim()) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
-    if (!password || password.length < 8) {
-      return NextResponse.json({ error: 'Password must be at least 8 characters long' }, { status: 400 });
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return NextResponse.json({ error: passwordValidation.error || 'Invalid password' }, { status: 400 });
     }
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });

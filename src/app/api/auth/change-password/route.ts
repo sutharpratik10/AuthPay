@@ -5,6 +5,7 @@ import { users, otpCodes } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { rateLimiters } from '@/lib/middleware/rate-limit';
+import { validatePassword } from '@/lib/utils/sanitize';
 
 /**
  * Rate Limited: 3 requests per hour (VERY STRICT - sensitive operation)
@@ -39,9 +40,10 @@ export const POST = rateLimiters.sensitive(async (req: NextRequest) => {
       );
     }
 
-    if (newPassword.length < 8) {
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
       return NextResponse.json(
-        { error: 'New password must be at least 8 characters long' },
+        { error: passwordValidation.error || 'Invalid new password' },
         { status: 400 }
       );
     }

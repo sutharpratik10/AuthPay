@@ -4,7 +4,12 @@ import postgres from 'postgres';
 import * as dotenv from 'dotenv';
 import path from 'path';
 
-dotenv.config();
+import fs from 'fs';
+const root = path.resolve(process.cwd());
+const envLocal = path.join(root, '.env.local');
+const envDefault = path.join(root, '.env');
+const chosenEnv = fs.existsSync(envLocal) ? envLocal : envDefault;
+dotenv.config({ path: chosenEnv, override: true });
 
 async function main() {
   console.log('Running migrations...');

@@ -10,6 +10,7 @@ import { users } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { rateLimiters } from '@/lib/middleware/rate-limit';
+import { validatePassword } from '@/lib/utils/sanitize';
 
 /**
  * POST /api/user/set-password - Set password for OAuth users
@@ -30,8 +31,9 @@ export const POST = rateLimiters.sensitive(
         return errorResponse('Password is required', 400);
       }
 
-      if (password.length < 8) {
-        return errorResponse('Password must be at least 8 characters long', 400);
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        return errorResponse(passwordValidation.error || 'Invalid password', 400);
       }
 
       // Fetch user from database

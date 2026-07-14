@@ -2,7 +2,13 @@ import postgres from 'postgres';
 import * as dotenv from 'dotenv';
 
 // Load environment variables
-dotenv.config();
+import path from 'path';
+import fs from 'fs';
+const root = path.resolve(process.cwd());
+const envLocal = path.join(root, '.env.local');
+const envDefault = path.join(root, '.env');
+const chosenEnv = fs.existsSync(envLocal) ? envLocal : envDefault;
+dotenv.config({ path: chosenEnv, override: true });
 
 // Function to get the application name
 function getAppName(): string {
@@ -10,11 +16,14 @@ function getAppName(): string {
 }
 
 async function createDatabase() {
-  // Get the database name from the first character of app name
-  const dbName = (getAppName() ?? "").charAt(0).toLowerCase() || 'j';
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) throw new Error("DATABASE_URL must be defined");
+  const parsed = new URL(dbUrl);
+  const dbName = parsed.pathname.slice(1) || 'postgres';
 
-  // Connect to the default postgres database
-  const connectionString = "postgresql://postgres:admin@localhost:5432/postgres";
+
+  parsed.pathname = "/postgres";
+  const connectionString = parsed.toString();
   console.log('Connecting to PostgreSQL to create database...');
   console.log(`Target database name: "${dbName}"`);
 
@@ -44,7 +53,8 @@ async function createDatabase() {
 
     // Now test connection to the new database
     console.log(`\nTesting connection to the ${dbName} database...`);
-    const targetConnectionString = `postgresql://postgres:admin@localhost:5432/${dbName}`;
+    parsed.pathname = `/${dbName}`;
+    const targetConnectionString = parsed.toString();
     const targetSql = postgres(targetConnectionString, {
       max: 1,
       idle_timeout: 10

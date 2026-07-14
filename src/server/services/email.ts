@@ -26,13 +26,13 @@ interface EmailOptions {
 class EmailService {
   private transporter: nodemailer.Transporter;
   constructor() {
-    console.log('[EmailService] Initializing with config:', {
-      host: APP_CONFIG.EMAIL.HOST,
-      port: APP_CONFIG.EMAIL.PORT,
-      secure: APP_CONFIG.EMAIL.SECURE,
-      user: APP_CONFIG.EMAIL.USER ? '***configured***' : 'NOT SET',
-      pass: APP_CONFIG.EMAIL.PASS ? '***configured***' : 'NOT SET',
-    });
+    // console.log('[EmailService] Initializing with config:', {
+    //   host: APP_CONFIG.EMAIL.HOST,
+    //   port: APP_CONFIG.EMAIL.PORT,
+    //   secure: APP_CONFIG.EMAIL.SECURE,
+    //   user: APP_CONFIG.EMAIL.USER ? '***configured***' : 'NOT SET',
+    //   pass: APP_CONFIG.EMAIL.PASS ? '***configured***' : 'NOT SET',
+    // });
 
     this.transporter = nodemailer.createTransport({
       host: APP_CONFIG.EMAIL.HOST,

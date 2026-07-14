@@ -76,7 +76,7 @@
 - [✓] `src/server/services/cleanup.ts` — Cleanup service
 - [✓] `src/lib/payments/gateway-router.ts` — Payment gateway router
 - [✓] `src/lib/payments/gateway.ts` — Payment gateway abstraction
-- [ ] `src/app/api/auth/register/` — User registration
+- [✓] `src/app/api/auth/register/` — User registration (reviewed & fixed: rate limiting, generic errors, transactional creation, email normalization, signed verification cookie, password policy, verify rate limiting, OTP hardening)
 - [✓] `src/app/api/auth/validate-credentials/` — Credential validation
 - [✓] `src/app/api/auth/forgot-password/` — Password reset initiation
 - [✓] `src/app/api/auth/reset-password/` — Password reset execution
