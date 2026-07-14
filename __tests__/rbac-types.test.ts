@@ -52,12 +52,14 @@ describe('RBAC Types', () => {
     it('should match expected structure', () => {
       const user: UserWithRoles = {
         id: 'user-123',
+        name: 'Test User',
         email: 'test@example.com',
         roles: [
           {
             id: 'role-123',
             name: 'Admin',
             description: 'Administrator role',
+            priority: 100,
             assignedAt: new Date()
           }
         ]
@@ -77,6 +79,8 @@ describe('RBAC Types', () => {
         id: 'role-123',
         name: 'Admin',
         description: 'Administrator role',
+        isSuperAdmin: true,
+        priority: 100,
         isSystemManaged: true,
         policies: [
           {
@@ -126,6 +130,8 @@ describe('RBAC Types', () => {
         name: 'Admin',
         description: 'Administrator role',
         isDefault: false,
+        isSuperAdmin: true,
+        priority: 100,
         isSystemManaged: true,
         createdAt: new Date(),
         updatedAt: new Date()

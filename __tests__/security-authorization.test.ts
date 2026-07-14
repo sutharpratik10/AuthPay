@@ -3,7 +3,7 @@
  * Testing RBAC permissions, authorization checks, and access control
  */
 
-import { POLICIES } from '@/lib/rbac';
+
 
 describe('Security Tests - Authorization', () => {
   describe('RBAC Permission Checks', () => {
@@ -15,10 +15,10 @@ describe('Security Tests - Authorization', () => {
         return userPolicies.includes(requiredPolicy);
       };
       
-      const userPolicies = [POLICIES.USER_VIEW, POLICIES.PROFILE_UPDATE];
+      const userPolicies = ['user:view', 'profile:update'];
       
-      expect(checkPermission(userPolicies, POLICIES.USER_VIEW)).toBe(true);
-      expect(checkPermission(userPolicies, POLICIES.USER_DELETE)).toBe(false);
+      expect(checkPermission(userPolicies, 'user:view')).toBe(true);
+      expect(checkPermission(userPolicies, 'user:delete')).toBe(false);
     });
 
     it('should support wildcard permissions', () => {
@@ -38,9 +38,9 @@ describe('Security Tests - Authorization', () => {
       const adminPolicies = ['*:*'];
       const managerPolicies = ['user:*'];
       
-      expect(hasPermission(adminPolicies, POLICIES.USER_DELETE)).toBe(true);
-      expect(hasPermission(managerPolicies, POLICIES.USER_VIEW)).toBe(true);
-      expect(hasPermission(managerPolicies, POLICIES.ROLE_CREATE)).toBe(false);
+      expect(hasPermission(adminPolicies, 'user:delete')).toBe(true);
+      expect(hasPermission(managerPolicies, 'user:view')).toBe(true);
+      expect(hasPermission(managerPolicies, 'role:create')).toBe(false);
     });
 
     it('should require all policies for restrictive checks', () => {
@@ -54,19 +54,19 @@ describe('Security Tests - Authorization', () => {
       };
       
       const userPolicies = [
-        POLICIES.USER_VIEW, 
-        POLICIES.USER_UPDATE,
-        POLICIES.PROFILE_VIEW
+        'user:view', 
+        'user:update',
+        'profile:view'
       ];
       
       expect(hasAllPermissions(
         userPolicies, 
-        [POLICIES.USER_VIEW, POLICIES.PROFILE_VIEW]
+        ['user:view', 'profile:view']
       )).toBe(true);
       
       expect(hasAllPermissions(
         userPolicies, 
-        [POLICIES.USER_VIEW, POLICIES.USER_DELETE]
+        ['user:view', 'user:delete']
       )).toBe(false);
     });
 
@@ -80,16 +80,16 @@ describe('Security Tests - Authorization', () => {
         );
       };
       
-      const userPolicies = [POLICIES.USER_VIEW];
+      const userPolicies = ['user:view'];
       
       expect(hasAnyPermission(
         userPolicies, 
-        [POLICIES.USER_VIEW, POLICIES.ADMIN_ACCESS]
+        ['user:view', 'admin:access']
       )).toBe(true);
       
       expect(hasAnyPermission(
         userPolicies, 
-        [POLICIES.USER_DELETE, POLICIES.ADMIN_ACCESS]
+        ['user:delete', 'admin:access']
       )).toBe(false);
     });
   });

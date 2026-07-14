@@ -55,7 +55,7 @@ export const PATCH = withDynamicApiHandler<{ id: string }>(
 
     const [updated] = await db
       .update(paymentGatewayConfig)
-      .set(updateData as Parameters<typeof db.update>[0] extends infer T ? T : never)
+      .set(updateData as Partial<typeof paymentGatewayConfig.$inferInsert>)
       .where(eq(paymentGatewayConfig.id, id))
       .returning();
 

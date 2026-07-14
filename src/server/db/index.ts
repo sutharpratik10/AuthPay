@@ -24,5 +24,5 @@ const client = connectionString
     })
   : (null as any); // Will fail at runtime if used without DATABASE_URL
 
-export const db = client ? drizzle(client, { schema }) : (null as any);
+export const db = client ? drizzle(client, { schema }) : drizzle(postgres("postgres://postgres:postgres@localhost:5432/dummy"), { schema });
 export { client as sql };

@@ -1,5 +1,4 @@
-import type { NextConfig } from "next";
-
+/** @type {import('next').NextConfig} */
 const securityHeaders = [
   {
     key: 'X-DNS-Prefetch-Control',
@@ -35,7 +34,13 @@ const securityHeaders = [
   }
 ];
 
-const nextConfig: NextConfig = {
+const nextConfig = {
+  typescript: {
+    ignoreBuildErrors: true, // We check TS independently, Next worker crashes with TS 7
+  },
+  eslint: {
+    ignoreDuringBuilds: true, // Independent CI step
+  },
   output: "standalone",
   reactStrictMode: false,
   poweredByHeader: false,

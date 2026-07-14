@@ -70,7 +70,7 @@ async function createAdminUser(req: NextRequest) {
       name: name.trim(),
       email: email.toLowerCase(),
       password: hashedPassword,
-      emailVerified: new Date(), // Auto-verify admins created by admins
+      emailVerified: new Date().toISOString(), // Auto-verify admins created by admins
     }).returning();
 
     // 4. Assign Admin role
