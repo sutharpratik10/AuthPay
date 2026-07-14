@@ -1,6 +1,6 @@
 # 📚 Authpay Documentation
 
-Welcome to the comprehensive documentation for the Authpay application - a production-ready Next.js authentication and payment processing platform with advanced Role-Based Access Control (RBAC).
+Welcome to the comprehensive documentation for the Authpay application - a production-ready Next.js 16 authentication and payment processing platform. Built with **TypeScript 7.0.2**, Turbopack, advanced dynamic Role-Based Access Control (RBAC), and a multi-schema PostgreSQL architecture.
 
 ---
 
@@ -178,10 +178,11 @@ Just want to get started quickly:
 
 ### Protect an API Route
 ```typescript
-import { requirePolicy, POLICIES } from "@/lib/rbac";
+import { requirePolicy } from "@/lib/rbac";
 
 export async function POST(req: NextRequest) {
-  const authCheck = await requirePolicy(req, POLICIES.CONTENT_CREATE);
+  // Policies are fully dynamic and fetched from the DB
+  const authCheck = await requirePolicy(req, 'content:create');
   if (!authCheck.authorized) return authCheck.response;
   
   // Your logic here
