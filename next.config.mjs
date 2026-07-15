@@ -38,9 +38,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true, // We check TS independently, Next worker crashes with TS 7
   },
-  eslint: {
-    ignoreDuringBuilds: true, // Independent CI step
-  },
+
   output: "standalone",
   reactStrictMode: false,
   poweredByHeader: false,
@@ -62,6 +60,7 @@ const nextConfig = {
     ],
   },
   turbopack: {
+    root: '.',
     resolveAlias: {
       // Resolve alias fallback for Node.js built-in modules in client bundles
       fs: { browser: './empty.js' },
