@@ -1,5 +1,7 @@
 "use client"
 
+import { initializeAnalytics, initializeMarketing, initializePreferences, setupConsentListeners } from '@/lib/utils/analytics';
+
 import { useEffect, Suspense } from "react";
 import { ThemeProvider } from "@/components/shared/theme-provider";
 import { Navigationbar } from "@/components/layout/navigationbar";
@@ -34,6 +36,15 @@ function OAuthSessionTracker() {
 function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
+
+  // Initialize analytics, marketing, and preferences based on cookie consent.
+  // Each function checks consent internally before doing anything.
+  useEffect(() => {
+    initializeAnalytics();
+    initializeMarketing();
+    initializePreferences();
+    setupConsentListeners();
+  }, []);
 
   // Global error handler for unhandled promise rejections
   useEffect(() => {

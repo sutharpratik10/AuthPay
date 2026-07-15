@@ -153,6 +153,7 @@ export const userPreferences = authSchema.table("user_preferences", {
 	timezoneId: uuid("timezone_id"),
 	twoFactorAuth: boolean("two_factor_auth").default(false),
 	mfaAuth: boolean("mfa_auth").default(false),
+	cookieConsent: jsonb("cookie_consent"),
 }, (table) => [
 	foreignKey({
 		columns: [table.userId],
