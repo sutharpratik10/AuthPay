@@ -1,14 +1,25 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/config/auth";
+import NextAuth from "next-auth";
+import authConfig from "@/config/auth.config";
 import { enforceCookieConsent } from "@/lib/middleware/cookie-consent";
+
+/**
+ * Middleware uses a SEPARATE, lightweight NextAuth instance built from
+ * auth.config.ts (edge-safe). This avoids pulling in Node.js-only modules
+ * (fs, path, crypto, drizzle/db) that the Edge Runtime cannot execute.
+ *
+ * The full auth instance (with DB callbacks, Credentials provider, etc.)
+ * lives in auth.ts and is only used by API routes running in Node.js.
+ */
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const url = req.nextUrl.pathname;
-  
-  // Create the base response using NextResponse.next()
+
+  // Create the base response using NextResponse.next() 
   // Auth.js middleware will handle the auth logic internally.
   const response = NextResponse.next();
-  
+
   // Enforce cookie consent on all responses
   const consentResponse = enforceCookieConsent(req, response);
 

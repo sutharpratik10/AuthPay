@@ -3,7 +3,12 @@ import { db } from "@/server/db";
 import authConfig from "./auth.config";
 import type { Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
-import { randomUUID } from "crypto";
+import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
+import { eq } from "drizzle-orm";
+import { users } from "@/server/db/schema";
+import { SessionService } from "@/server/services/session";
+import { sanitizeEmail, normalizeEmail } from "@/lib/utils/sanitize";
 
 export const {
   handlers: { GET, POST },
@@ -11,19 +16,138 @@ export const {
   signIn,
   signOut,
 } = NextAuth({
-  session: { 
-    strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 hours in seconds (86400)
-  },
-  pages: {
-    signIn: "/auth/login",
-    error: "/auth/error",
-    verifyRequest: "/auth/verify",
-  },
+  ...authConfig,
+  providers: [
+    ...authConfig.providers,
+    Credentials({
+      name: "credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+        skipPasswordCheck: { label: "Skip Password Check", type: "text" }, // For 2FA completion
+      },
+      async authorize(credentials) {
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            return null;
+          }
+
+          const rawEmail = credentials.email as string;
+          const password = credentials.password as string;
+          const skipPasswordCheck = credentials.skipPasswordCheck === 'true';
+
+          // Sanitize and normalize email to match the stored address
+          const sanitizedEmail = sanitizeEmail(rawEmail);
+          if (!sanitizedEmail) {
+            return null;
+          }
+          const email = normalizeEmail(sanitizedEmail);
+
+          const user = await db.query.users.findFirst({
+            where: (usersTable) => eq(usersTable.email, email),
+            with: {
+              userPreferences: true
+            }
+          });
+
+          if (!user) {
+            return null;
+          }
+
+          // If the user has no password and we aren't skipping the check, reject
+          if (!user.password && !skipPasswordCheck) {
+            return null;
+          }
+
+          // Check if account is locked
+          if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+            throw new Error("Account is temporarily locked due to multiple failed login attempts. Please try again later.");
+          }
+
+          // Note: We allow unverified users to log in, but they'll see a verification banner
+          // This provides better UX than blocking them completely
+
+          // Skip password check if this is a 2FA completion or Passwordless
+          if (!skipPasswordCheck) {
+            if (!user.password) {
+              return null; // Should not happen due to above check, but TypeScript safety
+            }
+
+            const isPasswordValid = await bcrypt.compare(
+              password,
+              user.password
+            );
+
+            if (!isPasswordValid) {
+              // Increment failed login attempts
+              const failedAttempts = (user.failedLoginAttempts || 0) + 1;
+              let lockedUntil: string | null = null;
+
+              if (failedAttempts >= 5) {
+                // Lock for 15 minutes
+                lockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+                console.log(`Account locked for user: ${email}`);
+              }
+
+              await db.update(users)
+                .set({
+                  failedLoginAttempts: failedAttempts,
+                  lockedUntil: lockedUntil
+                })
+                .where(eq(users.id, user.id));
+
+              return null;
+            }
+
+            // Reset failed login attempts on successful password match
+            if (user.failedLoginAttempts && user.failedLoginAttempts > 0) {
+              await db.update(users)
+                .set({
+                  failedLoginAttempts: 0,
+                  lockedUntil: null
+                })
+                .where(eq(users.id, user.id));
+            }
+
+            // Check if user has 2FA enabled
+            const has2FA = user.userPreferences?.twoFactorAuth === true;
+            if (has2FA) {
+              // Return null to indicate failed authentication (2FA required)
+              // The frontend will handle checking 2FA status and redirecting
+              return null;
+            }
+          }
+
+          // Create a session record for tracking
+          try {
+            await SessionService.createSession({
+              userId: user.id,
+              userAgent: "NextAuth Session", // You could pass actual user agent here
+              ipAddress: undefined, // You could pass actual IP here
+            });
+          } catch (sessionError) {
+            console.error("Failed to create session record:", sessionError);
+            // Don't fail authentication just because session creation failed
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            isEmailVerified: user.isEmailVerified ?? false
+          };
+        } catch (error) {
+          console.error("Authentication error:", error);
+          return null;
+        }
+      }
+    })
+  ],
   debug: process.env.NODE_ENV === 'development',
   trustHost: true,
   basePath: "/api/auth",
-  callbacks: {    async signIn({ user, account }) {
+  callbacks: {
+    async signIn({ user, account }) {
       // Allow credentials provider to handle its own logic
       if (account?.provider === "credentials") {
         return true;
@@ -109,7 +233,7 @@ export const {
             return true;
           } else {
             // Create new user with email verified
-            const newUserId = randomUUID();
+            const newUserId = crypto.randomUUID();
             try {
               await db.insert(users).values({
                 id: newUserId,
@@ -175,7 +299,7 @@ export const {
       }
 
       return true;
-    },    async session({ session, token }: { session: Session; token: JWT }) {
+    }, async session({ session, token }: { session: Session; token: JWT }) {
       if (token.error === "SessionExpired") {
         return {} as Session;
       }
@@ -197,7 +321,7 @@ export const {
       }
 
       return session;
-    },    async jwt({ token, user, trigger, session }: { token: JWT; user?: { isEmailVerified?: boolean; role?: string }; trigger?: string; session?: { name?: string } }) {
+    }, async jwt({ token, user, trigger, session }: { token: JWT; user?: { isEmailVerified?: boolean; role?: string }; trigger?: string; session?: { name?: string } }) {
       if (!token.sub) return token;
 
       // Handle session update trigger (when update() is called)
@@ -219,26 +343,26 @@ export const {
           const headersList = await headers();
           const ipAddress = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "127.0.0.1";
           const userAgent = headersList.get("user-agent");
-          
+
           const { parseUserAgent } = await import("@/lib/utils/device");
           const { getLocationFromIP } = await import("@/lib/utils/location");
-          
+
           const deviceData = parseUserAgent(userAgent);
-          
+
           const { cookies } = await import("next/headers");
           const cookieStore = await cookies();
           const gpsLocation = cookieStore.get("client-location")?.value;
-          
+
           let location = "Unknown Location";
           if (gpsLocation) {
             location = decodeURIComponent(gpsLocation);
           } else {
             location = await getLocationFromIP(ipAddress);
           }
-          
+
           const { loginHistory, userPreferences, users } = await import("@/server/db/schema");
           const { eq, and } = await import("drizzle-orm");
-          
+
           // Check if device is new
           const pastLogin = await db.query.loginHistory.findFirst({
             where: (history) => and(
@@ -260,20 +384,20 @@ export const {
             browser: deviceData.browser,
             userAgent,
           });
-          
+
           // Check user preferences for security alerts
           const prefs = await db.query.userPreferences.findFirst({
             where: eq(userPreferences.userId, token.sub as string),
             columns: { securityAlerts: true }
           });
-          
+
           const userRecord = await db.query.users.findFirst({
             where: eq(users.id, token.sub as string),
             columns: { email: true, name: true }
           });
-          
+
           const shouldAlert = prefs?.securityAlerts || isNewDevice;
-          
+
           if (shouldAlert && userRecord?.email) {
             const { emailService } = await import("@/server/services/email");
             // Async send email so we don't block login
@@ -292,9 +416,9 @@ export const {
         // --- End Login Tracking ---
       } else {
         // Only query database if we don't have the verification status or it's been a while
-        const shouldRefresh = !token.isEmailVerified || 
+        const shouldRefresh = !token.isEmailVerified ||
           !token.role ||
-          !token.lastVerifiedCheck || 
+          !token.lastVerifiedCheck ||
           (Date.now() - (token.lastVerifiedCheck as number)) > 5 * 60 * 1000; // 5 minutes
 
         if (shouldRefresh) {
@@ -316,11 +440,11 @@ export const {
 
               token.isEmailVerified = userRecord.isEmailVerified ?? false;
               token.name = userRecord.name;
-              
+
               // Get user's roles from user_roles table
               const { RBACService } = await import("@/lib/rbac");
               const userRoles = await RBACService.getUserRoles(token.sub as string);
-              
+
               // Set role to first role or 'user' if no roles
               token.role = userRoles.length > 0 ? userRoles[0] : 'user';
               token.lastVerifiedCheck = Date.now();
@@ -335,5 +459,4 @@ export const {
       return token;
     }
   },
-  ...authConfig,
 });
