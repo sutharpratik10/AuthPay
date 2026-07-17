@@ -4,7 +4,7 @@
 
 **Goal:** Build the shared test infrastructure — Dockerized ephemeral Postgres, committed `.env.test`, seed mechanism, and a separate Jest integration harness with a passing smoke test — that all later test plans build on.
 
-**Architecture:** A `postgres:16-alpine` container on host port 5433 holds the throwaway `authpay_test` database. A Jest `globalSetup` (plain JS) brings the container up, pushes the Drizzle schema, and seeds it; `globalTeardown` destroys it. Integration tests load `.env.test` via `setupFiles` so `src/server/db` connects to the test DB. The existing unit `jest.config.json` is untouched except for ignoring the new integration/e2e paths, so `npm test` behavior is unchanged.
+**Architecture:** A `postgres:16-alpine` container on host port 5434 holds the throwaway `authpay_test` database. A Jest `globalSetup` (plain JS) brings the container up, pushes the Drizzle schema, and seeds it; `globalTeardown` destroys it. Integration tests load `.env.test` via `setupFiles` so `src/server/db` connects to the test DB. The existing unit `jest.config.json` is untouched except for ignoring the new integration/e2e paths, so `npm test` behavior is unchanged.
 
 **Tech Stack:** Jest 30 + ts-jest, Docker Compose v2, drizzle-kit push, ts-node, postgres.js.
 
@@ -17,7 +17,7 @@
 ## Global Constraints
 
 - `npm test` must keep running **unit tests only** (existing `jest.config.json`); integration and E2E tests must never be picked up by it.
-- Test database URL is exactly `postgresql://postgres:postgres@localhost:5433/authpay_test`. Never point any test at the dev/prod `DATABASE_URL`.
+- Test database URL is exactly `postgresql://postgres:postgres@localhost:5434/authpay_test`. Never point any test at the dev/prod `DATABASE_URL`.
 - `.env.test` contains dummy values only and is committed to git (`.gitignore` currently ignores `.env*` — add an explicit exception).
 - No real external calls (Razorpay, Stripe, SMTP, OAuth) from any test layer.
 - Path alias `@/` maps to `src/` (matches `jest.config.json` `moduleNameMapper`).
@@ -33,7 +33,7 @@
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: container `authpay-test-db` (postgres:16-alpine) serving database `authpay_test` on `localhost:5433` with credentials `postgres`/`postgres`; managed via `docker compose -f docker-compose.test.yml up -d --wait` / `down -v`.
+- Produces: container `authpay-test-db` (postgres:16-alpine) serving database `authpay_test` on `localhost:5434` with credentials `postgres`/`postgres`; managed via `docker compose -f docker-compose.test.yml up -d --wait` / `down -v`.
 
 - [ ] **Step 1: Create `docker-compose.test.yml`**
 
@@ -47,7 +47,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: authpay_test
     ports:
-      - "5433:5432"
+      - "5434:5432"
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:
@@ -89,7 +89,7 @@ git commit -m "test: add dockerized ephemeral postgres for integration tests"
 
 **Interfaces:**
 - Consumes: Task 1's running container; existing `scripts/db-seed.ts` (exports `seed()`).
-- Produces: `.env.test` with `DATABASE_URL="postgresql://postgres:postgres@localhost:5433/authpay_test"`; `SEED_ENV_FILE` support in `db-seed.ts`; `scripts/test-seed.ts` runnable as `npx ts-node -P tsconfig.scripts.json scripts/test-seed.ts`.
+- Produces: `.env.test` with `DATABASE_URL="postgresql://postgres:postgres@localhost:5434/authpay_test"`; `SEED_ENV_FILE` support in `db-seed.ts`; `scripts/test-seed.ts` runnable as `npx ts-node -P tsconfig.scripts.json scripts/test-seed.ts`.
 
 - [ ] **Step 1: Add the `.gitignore` exception**
 
@@ -120,7 +120,7 @@ to:
 NODE_ENV="test"
 
 # Ephemeral Docker Postgres (docker-compose.test.yml)
-DATABASE_URL="postgresql://postgres:postgres@localhost:5433/authpay_test"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5434/authpay_test"
 DB_USE_CA=false
 DB_SSLMODE="disable"
 
@@ -202,11 +202,11 @@ seed();
 Run: `docker compose -f docker-compose.test.yml up -d --wait`
 Expected: container healthy.
 
-Run: `DATABASE_URL="postgresql://postgres:postgres@localhost:5433/authpay_test" DB_SSLMODE=disable DB_USE_CA=false npx drizzle-kit push --force`
+Run: `DATABASE_URL="postgresql://postgres:postgres@localhost:5434/authpay_test" DB_SSLMODE=disable DB_USE_CA=false npx drizzle-kit push --force`
 Expected: tables created (`[✓] Changes applied` or similar; no SSL errors).
 
 Run: `npx ts-node -P tsconfig.scripts.json scripts/test-seed.ts`
-Expected output ends with: `🎉 Database seeding completed successfully!` and the logged `DATABASE_URL` line shows `...localhost:5433/authpay_test` — **verify it is NOT your dev database URL**.
+Expected output ends with: `🎉 Database seeding completed successfully!` and the logged `DATABASE_URL` line shows `...localhost:5434/authpay_test` — **verify it is NOT your dev database URL**.
 
 - [ ] **Step 6: Verify the existing seed path still works**
 
@@ -261,7 +261,7 @@ const { execSync } = require("child_process");
 const path = require("path");
 
 const root = path.resolve(__dirname, "../..");
-const TEST_DATABASE_URL = "postgresql://postgres:postgres@localhost:5433/authpay_test";
+const TEST_DATABASE_URL = "postgresql://postgres:postgres@localhost:5434/authpay_test";
 
 module.exports = async function globalSetup() {
   try {

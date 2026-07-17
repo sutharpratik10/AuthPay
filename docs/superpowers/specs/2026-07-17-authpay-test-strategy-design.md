@@ -81,7 +81,7 @@ Because the existing unit `jest.config.json` uses `testMatch: **/__tests__/**/*.
 
 ## 4. Test Environment Lifecycle (Data Flow)
 
-- `docker-compose.test.yml`: `postgres:16-alpine`, host port **5433** (avoids clashing with the dev DB), tmpfs-backed storage for speed, healthcheck enabled.
+- `docker-compose.test.yml`: `postgres:16-alpine`, host port **5434** (avoids clashing with the dev DB), tmpfs-backed storage for speed, healthcheck enabled.
 - **Integration lifecycle:** Jest `globalSetup` runs `docker compose -f docker-compose.test.yml up -d --wait`, applies schema via `drizzle-kit push`, runs `scripts/test-seed.ts`. `globalTeardown` runs `docker compose down -v`.
 - **Seed data** (`scripts/test-seed.ts`): admin user, regular user, suspended user, 2FA-enabled user, roles + policies, subscription plans, sandbox gateway config.
 - **Isolation between tests:** a `truncateAll()` helper resets tables between integration test files.
