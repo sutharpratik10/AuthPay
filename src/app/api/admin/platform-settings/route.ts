@@ -66,3 +66,5 @@ export const PATCH = withApiHandler(async (req: NextRequest, { user }) => {
 
   return successResponse(settings, "Platform settings updated");
 });
+
+export const PUT = PATCH;

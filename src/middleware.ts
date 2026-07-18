@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import NextAuth from "next-auth";
 import authConfig from "@/config/auth.config";
 import { enforceCookieConsent } from "@/lib/middleware/cookie-consent";
+import { rscProtectionMiddleware } from "@/lib/middleware/rsc-protection";
+import { ROUTE_POLICIES } from "@/lib/rbac/routing-utils";
 
 /**
  * Middleware uses a SEPARATE, lightweight NextAuth instance built from
@@ -13,14 +15,26 @@ import { enforceCookieConsent } from "@/lib/middleware/cookie-consent";
  */
 const { auth } = NextAuth(authConfig);
 
-export default auth((req) => {
+export default auth(async (req) => {
+  // 1. Run RSC Protection first (blocks malicious payloads)
+  const rscResponse = await rscProtectionMiddleware(req);
+  if (rscResponse) {
+    return rscResponse;
+  }
+
   const url = req.nextUrl.pathname;
 
-  // Create the base response using NextResponse.next() 
-  // Auth.js middleware will handle the auth logic internally.
+  // 2. Enforce authentication for protected routes at the edge
+  if (url.startsWith('/protected') && !req.auth?.user) {
+    const loginUrl = new URL(ROUTE_POLICIES.AUTH_LOGIN.path, req.url);
+    loginUrl.searchParams.set('callbackUrl', url);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // 3. Create the base response using NextResponse.next()
   const response = NextResponse.next();
 
-  // Enforce cookie consent on all responses
+  // 4. Enforce cookie consent on all responses
   const consentResponse = enforceCookieConsent(req, response);
 
   return consentResponse;
