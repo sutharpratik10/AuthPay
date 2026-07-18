@@ -41,6 +41,111 @@ interface SubscriptionHistoryItem {
   provider?: string;
 }
 
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+
+const formatHistoryAmount = (amount?: string | number) => {
+  if (amount == null) return null;
+  // If amount is already a formatted string containing non-digits, return as-is
+  if (typeof amount === 'string' && /[^0-9]/.test(amount)) return amount;
+  const n = typeof amount === 'string' ? Number(amount) : amount;
+  if (Number.isNaN(n)) return String(amount);
+  const major = n / 100;
+  return major.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const HistoryRow = ({
+  sub,
+  onViewInvoice
+}: {
+  sub: SubscriptionHistoryItem;
+  onViewInvoice: (sub: SubscriptionHistoryItem) => void;
+}) => {
+  const [planName, setPlanName] = React.useState(sub.planName);
+  const [amount, setAmount] = React.useState(sub.amount);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if ((!planName || planName === 'N/A' || !amount || amount === 'N/A') && sub.subscriptionId && sub.provider) {
+      let isMounted = true;
+      const fetchDetails = async () => {
+        try {
+          setLoading(true);
+          const isStripe = sub.provider === 'stripe';
+          const endpoint = isStripe
+            ? `/api/payments/stripe-invoices?subscription_id=${encodeURIComponent(sub.subscriptionId!)}&limit=1`
+            : `/api/payments/razorpay-invoices?subscription_id=${encodeURIComponent(sub.subscriptionId!)}`;
+          const response = await fetch(endpoint);
+          if (response.ok && isMounted) {
+            const data = await response.json();
+            if (data?.items && data.items.length > 0) {
+              const invoice = data.items[0];
+              if (!planName || planName === 'N/A') {
+                if (invoice.line_items?.length > 0) {
+                  setPlanName(invoice.line_items[0].name);
+                } else if (invoice.description) {
+                  setPlanName(invoice.description);
+                }
+              }
+              if (!amount || amount === 'N/A') {
+                setAmount(invoice.amount.toString());
+              }
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        } finally {
+          if (isMounted) setLoading(false);
+        }
+      };
+      fetchDetails();
+      return () => { isMounted = false; };
+    }
+  }, [planName, amount, sub.subscriptionId, sub.provider]);
+
+  let status = sub.status || 'N/A';
+  if (sub.expiryDate && new Date(sub.expiryDate) < new Date()) {
+    status = 'Expired';
+  }
+
+  return (
+    <tr className="border-b last:border-0">
+      <td className="px-4 py-2">
+        {planName && planName !== 'N/A' ? planName : (loading ? <span className="text-muted-foreground animate-pulse">Loading...</span> : 'N/A')}
+      </td>
+      <td className="px-4 py-2">{status}</td>
+      <td className="px-4 py-2">
+        {amount && amount !== 'N/A' ? `$${formatHistoryAmount(amount)}` : (loading ? <span className="text-muted-foreground animate-pulse">...</span> : 'N/A')}
+      </td>
+      <td className="px-4 py-2">{sub.startDate ? formatDate(sub.startDate) : 'N/A'}</td>
+      <td className="px-4 py-2">{sub.expiryDate ? formatDate(sub.expiryDate) : (sub.endDate ? formatDate(sub.endDate) : 'N/A')}</td>
+      <td className="px-4 py-2">
+        {sub.invoiceId || sub.subscriptionId ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onViewInvoice(sub)}
+            className="inline-flex items-center gap-1 text-foreground hover:text-muted-foreground font-medium h-auto p-0 hover:bg-transparent"
+          >
+            View Invoice
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+              <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+            </svg>
+          </Button>
+        ) : (
+          <span className="text-muted-foreground">N/A</span>
+        )}
+      </td>
+    </tr>
+  );
+};
+
 export default function ManageSubscriptionPage() {
   const { subscriptionStatus: contextStatus, refreshSubscription } = useSubscription();
   const [subscriptionStatus, setSubscriptionStatus] = React.useState<SubscriptionStatus | null>(null);
@@ -271,23 +376,7 @@ export default function ManageSubscriptionPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const formatHistoryAmount = (amount?: string | number) => {
-    if (amount == null) return null;
-    // If amount is already a formatted string containing non-digits, return as-is
-    if (typeof amount === 'string' && /[^0-9]/.test(amount)) return amount;
-    const n = typeof amount === 'string' ? Number(amount) : amount;
-    if (Number.isNaN(n)) return String(amount);
-    const major = n / 100;
-    return major.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
+  // Removed formatDate and formatHistoryAmount (moved outside)
 
   // Check if subscription has expired - must be before any conditional returns
   const isSubscriptionExpired = React.useMemo(() => {
@@ -502,44 +591,18 @@ export default function ManageSubscriptionPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {subscriptionHistory.map((sub, idx) => {
-                    let status = sub.status || 'N/A';
-                    if (sub.expiryDate && new Date(sub.expiryDate) < new Date()) {
-                      status = 'Expired';
-                    }
-                    return (
-                      <tr key={idx} className="border-b last:border-0">
-                        <td className="px-4 py-2">{sub.planName || 'N/A'}</td>
-                        <td className="px-4 py-2">{status}</td>
-                        <td className="px-4 py-2">{sub.amount ? `$${formatHistoryAmount(sub.amount)}` : 'N/A'}</td>
-                        <td className="px-4 py-2">{sub.startDate ? formatDate(sub.startDate) : 'N/A'}</td>
-                        <td className="px-4 py-2">{sub.expiryDate ? formatDate(sub.expiryDate) : (sub.endDate ? formatDate(sub.endDate) : 'N/A')}</td>
-                        <td className="px-4 py-2">
-                          {sub.invoiceId || sub.subscriptionId ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedInvoiceId(sub.invoiceId || null);
-                                setSelectedSubscriptionId(sub.subscriptionId || null);
-                                setSelectedProvider(sub.provider || null);
-                                setShowInvoiceDialog(true);
-                              }}
-                              className="inline-flex items-center gap-1 text-foreground hover:text-muted-foreground font-medium h-auto p-0 hover:bg-transparent"
-                            >
-                              View Invoice
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                                <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-                              </svg>
-                            </Button>
-                          ) : (
-                            <span className="text-muted-foreground">N/A</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {subscriptionHistory.map((sub, idx) => (
+                    <HistoryRow
+                      key={idx}
+                      sub={sub}
+                      onViewInvoice={(s) => {
+                        setSelectedInvoiceId(s.invoiceId || null);
+                        setSelectedSubscriptionId(s.subscriptionId || null);
+                        setSelectedProvider(s.provider || null);
+                        setShowInvoiceDialog(true);
+                      }}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>
