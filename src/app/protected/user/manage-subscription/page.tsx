@@ -37,6 +37,8 @@ interface SubscriptionHistoryItem {
   amount?: string;
   invoiceId?: string;
   providerSubscriptionId?: string;
+  subscriptionId?: string;
+  provider?: string;
 }
 
 export default function ManageSubscriptionPage() {
@@ -49,6 +51,8 @@ export default function ManageSubscriptionPage() {
   const [cancelling, setCancelling] = React.useState(false);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = React.useState<string | null>(null);
+  const [selectedSubscriptionId, setSelectedSubscriptionId] = React.useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = React.useState<string | null>(null);
   const [showInvoiceDialog, setShowInvoiceDialog] = React.useState(false);
   const [showRefundModal, setShowRefundModal] = React.useState(false);
   const { toast } = useToast();
@@ -185,88 +189,18 @@ export default function ManageSubscriptionPage() {
         if (historyData.success) {
           const history = historyData.data.history || [];
 
-          // Enrich history items with Razorpay plan details and invoices when available
-          // Only call Razorpay APIs for actual Razorpay subscriptions (not Stripe)
-          const enriched = await Promise.all(history.map(async (item: unknown) => {
-            const row = item as Record<string, unknown>; try {
-              const isRazorpay = row.paymentGatewayProvider !== 'stripe';
-
-              if (row.providerSubscriptionId && typeof row.providerSubscriptionId === 'string') {
-                if (isRazorpay) {
-                  const subRes = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(row.providerSubscriptionId)}`);
-                  if (subRes.ok) {
-                    const subJson = await subRes.json();
-                    const planId = subJson?.plan_id || subJson?.plan?.id;
-
-                    // Fetch invoices for this subscription
-                    let latestInvoiceId = null;
-                    try {
-                      const invoicesRes = await fetch(`/api/payments/razorpay-invoices?subscription_id=${encodeURIComponent(row.providerSubscriptionId)}`);
-                      if (invoicesRes.ok) {
-                        const invoicesJson = await invoicesRes.json();
-                        // Get the most recent invoice (first in the items array)
-                        if (invoicesJson?.items && invoicesJson.items.length > 0) {
-                          latestInvoiceId = invoicesJson.items[0]?.id;
-                        }
-                      }
-                    } catch (err) {
-                      console.error('Error fetching invoices:', err);
-                    }
-
-                    if (planId) {
-                      const planRes = await fetch(`/api/payments/razorpay-plans/${encodeURIComponent(String(planId))}`);
-                      if (planRes.ok) {
-                        const planJson = await planRes.json();
-                        const plan = planJson?.data || planJson;
-                        const planName = plan?.name || plan?.item?.name;
-                        const amount = plan?.item?.amount ?? plan?.amount;
-                        return {
-                          ...row,
-                          planName: planName || row.planName,
-                          amount: amount ?? row.amount,
-                          invoiceId: latestInvoiceId,
-                          providerSubscriptionId: row.providerSubscriptionId
-                        };
-                      }
-                    }
-
-                    return {
-                      ...row,
-                      invoiceId: latestInvoiceId,
-                      providerSubscriptionId: row.providerSubscriptionId
-                    };
-                  }
-                } else {
-                  // It's a Stripe subscription
-                  let latestInvoiceId = null;
-                  try {
-                    const invoicesRes = await fetch(`/api/payments/stripe-invoices?subscription_id=${encodeURIComponent(row.providerSubscriptionId)}&limit=1`);
-                    if (invoicesRes.ok) {
-                      const invoicesJson = await invoicesRes.json();
-                      if (invoicesJson?.items && invoicesJson.items.length > 0) {
-                        latestInvoiceId = invoicesJson.items[0]?.id;
-                      }
-                    }
-                  } catch (err) {
-                    console.error('Error fetching stripe invoices:', err);
-                  }
-
-                  return {
-                    ...row,
-                    invoiceId: latestInvoiceId,
-                    providerSubscriptionId: row.providerSubscriptionId
-                  };
-                }
-              }
-            } catch (err) {
-              console.error('Error enriching history item:', err);
-              // ignore and fallback
-            }
-            return row;
+          // Remove redundant heavy network calls for history enrichment!
+          // We already have `planName` and `amount` directly from the database query.
+          // Invoice details are now fetched on-demand when "View Invoice" is clicked.
+          const fastHistory = history.map((row: any) => ({
+            ...row,
+            // we will use subscriptionId and provider for on-demand fetch
+            subscriptionId: row.providerSubscriptionId,
+            provider: row.paymentGatewayProvider
           }));
 
           if (isMounted) {
-            setSubscriptionHistory(enriched);
+            setSubscriptionHistory(fastHistory);
             if (refundsData.success) {
               setRefundRequests(refundsData.requests || []);
             }
@@ -369,11 +303,11 @@ export default function ManageSubscriptionPage() {
     // Inline skeletons while subscription data and history load
     return (
       <div className="space-y-8">
-        <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-slate-50/30 to-gray-50/20 dark:from-gray-800 dark:via-slate-950/20 dark:to-slate-950/10 backdrop-blur-sm">
+        <Card>
           <CardHeader className="pb-6">
             <CardTitle className="flex items-center text-2xl">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 mr-3">
-                <Crown className="h-6 w-6 text-white" />
+              <div className="p-2 rounded-xl bg-primary mr-3">
+                <Crown className="h-6 w-6 text-primary-foreground" />
               </div>
               Current Subscription
               {/* cancel button intentionally hidden on loading skeleton */}
@@ -382,7 +316,7 @@ export default function ManageSubscriptionPage() {
           <CardContent className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="space-y-3 p-4 rounded-xl bg-gray-100/60 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
+                <div key={i} className="space-y-3 p-4 rounded-xl bg-muted/50 border border-border">
                   <div className="h-4 w-32 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-3"></div>
                   <div className="h-6 bg-gray-300 dark:bg-gray-700 rounded animate-pulse w-3/4"></div>
                 </div>
@@ -430,25 +364,25 @@ export default function ManageSubscriptionPage() {
 
   return (
     <div className="space-y-8">
-      <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-slate-50/30 to-gray-50/20 dark:from-gray-800 dark:via-slate-950/20 dark:to-slate-950/10 backdrop-blur-sm">
+      <Card>
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center text-2xl">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-neutral-700 to-neutral-500 mr-3">
-              <Crown className="h-6 w-6 text-white" />
+            <div className="p-2 rounded-xl bg-primary mr-3">
+              <Crown className="h-6 w-6 text-primary-foreground" />
             </div>
             Current Subscription
             {subscriptionStatus?.providerSubscriptionId && ['active', 'on-hold'].includes(subscriptionStatus?.status || '') && !isSubscriptionExpired && (
               <div className="ml-auto flex items-center gap-2">
                 {refundsEnabled && (
                   refundRequests.some(r => r.status === 'pending' || r.status === 'approved') ? (
-                    <span className="inline-flex items-center px-3 py-1.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-sm font-medium">
+                    <span className="inline-flex items-center px-3 py-1.5 rounded bg-secondary text-secondary-foreground border border-border text-sm font-medium">
                       Refund Processing
                     </span>
                   ) : (
                     <button
                       type="button"
                       onClick={() => setShowRefundModal(true)}
-                      className="cursor-pointer inline-flex items-center px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"
+                      className="cursor-pointer inline-flex items-center px-3 py-1.5 rounded bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-border text-sm font-medium"
                     >
                       Request Refund
                     </button>
@@ -457,7 +391,7 @@ export default function ManageSubscriptionPage() {
                 <button
                   type="button"
                   onClick={handleCancelClick}
-                  className="cursor-pointer inline-flex items-center px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white text-sm font-medium"
+                  className="cursor-pointer inline-flex items-center px-3 py-1.5 rounded bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium"
                   disabled={cancelling}
                 >
                   {cancelling ? 'Cancelling...' : 'Cancel subscription'}
@@ -465,18 +399,18 @@ export default function ManageSubscriptionPage() {
               </div>
             )}
             {subscriptionStatus?.status === 'cancelled' && !isSubscriptionExpired && (
-              <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-gray-700 text-white text-sm font-medium">cancelled</span>
+              <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-muted text-muted-foreground border border-border text-sm font-medium">cancelled</span>
             )}
             {isSubscriptionExpired && (
-              <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-red-600 text-white text-sm font-medium">expired</span>
+              <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-muted text-muted-foreground border border-border text-sm font-medium">expired</span>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
+            <div className="space-y-3 p-4 rounded-xl bg-muted/50 border border-border">
               <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Plan</p>
-              <p className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+              <p className="text-xl font-bold text-foreground">
                 {!subscriptionStatus
                   ? "You don't have a subscription yet. Choose a plan to get started!"
                   : isSubscriptionExpired || !['active', 'trialing', 'cancelled', 'on-hold'].includes(subscriptionStatus.status)
@@ -485,23 +419,14 @@ export default function ManageSubscriptionPage() {
               </p>
             </div>
 
-            <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
+            <div className="space-y-3 p-4 rounded-xl bg-muted/50 border border-border">
               <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Status</p>
               <div className="space-y-2">
                 {displayStatus && subscriptionStatus?.planName && subscriptionStatus.planName !== 'No plan is active currently' && (
                   <>
                     <Badge
-                      className={
-                        displayStatus === 'trialing'
-                          ? 'bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 dark:from-yellow-900/30 dark:to-yellow-900/30 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800 px-3 py-1.5 font-semibold'
-                          : displayStatus === 'cancelled'
-                            ? 'bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 dark:from-orange-900/30 dark:to-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800 px-3 py-1.5 font-semibold'
-                            : displayStatus === 'on-hold'
-                              ? 'bg-gradient-to-r from-amber-100 to-amber-200 text-amber-800 dark:from-amber-900/40 dark:to-amber-900/30 dark:text-amber-300 border-amber-300 dark:border-amber-700 px-3 py-1.5 font-semibold'
-                              : displayStatus === 'expired'
-                                ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 dark:from-red-900/30 dark:to-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800 px-3 py-1.5 font-semibold'
-                                : 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300 border-green-200 dark:border-green-800 px-3 py-1.5 font-semibold'
-                      }
+                      variant="secondary"
+                      className="border border-border px-3 py-1.5 font-semibold hover:bg-secondary/80"
                     >
                       {displayStatus === 'expired' ? (
                         <AlertTriangle className="h-4 w-4 mr-1.5" />
@@ -526,7 +451,7 @@ export default function ManageSubscriptionPage() {
             {/* Only show Billing and Next Billing/Valid Until if active/trialing (not cancelled or expired) */}
             {subscriptionStatus && ['active', 'trialing', 'lifetime', 'on-hold'].includes(subscriptionStatus.status) && !isSubscriptionExpired && (
               <>
-                <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
+                <div className="space-y-3 p-4 rounded-xl bg-muted/50 border border-border">
                   <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Billing</p>
                   <p className="text-xl font-bold">
                     {subscriptionStatus.price || 'N/A'}
@@ -535,7 +460,7 @@ export default function ManageSubscriptionPage() {
                     </span>
                   </p>
                 </div>
-                <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
+                <div className="space-y-3 p-4 rounded-xl bg-muted/50 border border-border">
                   <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                     {subscriptionStatus.status === 'lifetime'
                       ? 'Valid Until'
@@ -590,15 +515,17 @@ export default function ManageSubscriptionPage() {
                         <td className="px-4 py-2">{sub.startDate ? formatDate(sub.startDate) : 'N/A'}</td>
                         <td className="px-4 py-2">{sub.expiryDate ? formatDate(sub.expiryDate) : (sub.endDate ? formatDate(sub.endDate) : 'N/A')}</td>
                         <td className="px-4 py-2">
-                          {sub.invoiceId ? (
+                          {sub.invoiceId || sub.subscriptionId ? (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => {
                                 setSelectedInvoiceId(sub.invoiceId || null);
+                                setSelectedSubscriptionId(sub.subscriptionId || null);
+                                setSelectedProvider(sub.provider || null);
                                 setShowInvoiceDialog(true);
                               }}
-                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium h-auto p-0 hover:bg-transparent"
+                              className="inline-flex items-center gap-1 text-foreground hover:text-muted-foreground font-medium h-auto p-0 hover:bg-transparent"
                             >
                               View Invoice
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -707,6 +634,8 @@ export default function ManageSubscriptionPage() {
       {/* Invoice Dialog */}
       <InvoiceDialog
         invoiceId={selectedInvoiceId}
+        subscriptionId={selectedSubscriptionId}
+        provider={selectedProvider}
         open={showInvoiceDialog}
         onOpenChange={setShowInvoiceDialog}
       />
