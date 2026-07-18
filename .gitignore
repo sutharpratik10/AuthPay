@@ -4,14 +4,14 @@
 /node_modules
 /.pnp
 .pnp.*
+
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
+
 
 # next.js
 /.next/
@@ -43,3 +43,5 @@ next-env.d.ts
 Future Implementation plans/App based 2FA.md
 Future Implementation plans/passkey.md
 Future Implementation plans/plans.md
+
+

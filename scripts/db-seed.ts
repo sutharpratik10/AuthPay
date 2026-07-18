@@ -9,8 +9,13 @@ const root = path.resolve(__dirname, '../');
 const envLocal = path.join(root, '.env.local');
 const envDefault = path.join(root, '.env');
 
-// load .env.local if present, else .env
-const chosenEnv = fs.existsSync(envLocal) ? envLocal : envDefault;
+// load SEED_ENV_FILE if set (e.g. ".env.test" for the test DB),
+// else .env.local if present, else .env
+const chosenEnv = process.env.SEED_ENV_FILE
+  ? path.join(root, process.env.SEED_ENV_FILE)
+  : fs.existsSync(envLocal)
+    ? envLocal
+    : envDefault;
 
 config({ path: chosenEnv, override: true });
 

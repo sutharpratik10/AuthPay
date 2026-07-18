@@ -23,7 +23,7 @@ export default {
   schema: "./src/server/db/schema/*",
   out: "./src/server/db/migrations",
   dialect: "postgresql",
-  schemaFilter: ["public", "auth", "core"],
+  schemaFilter: ["public", "auth", "core", "rbac", "billing", "logs"],
   dbCredentials: {
     host: u.hostname,
     port: Number(u.port) || 5432,
