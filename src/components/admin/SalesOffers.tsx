@@ -7,6 +7,9 @@ interface Plan {
   id: string;
   name: string;
   price: string;
+  billingCycle: string;
+  stripePriceId?: string | null;
+  razorpaySubscriptionPlanId?: string | null;
 }
 
 interface FreeTrialConfig {
@@ -138,21 +141,56 @@ export default function SalesOffers() {
         </p>
 
         <form onSubmit={handleSave} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Subscription Plan for Trial</label>
-            <select
-              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              value={formData.planId}
-              onChange={(e) => setFormData({ ...formData, planId: e.target.value })}
-              required
-            >
-              <option value="" disabled>Select a plan...</option>
-              {plans.map((plan) => (
-                <option key={plan.id} value={plan.id}>
-                  {plan.name} (${plan.price})
-                </option>
-              ))}
-            </select>
+          <div className="space-y-3">
+            <label className="text-sm font-medium">Select Subscription Plan for Trial</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto p-1">
+              {plans.length === 0 ? (
+                <div className="text-sm text-muted-foreground col-span-2 p-4 border rounded-lg bg-gray-50/50 dark:bg-gray-900/50 text-center">
+                  No subscription plans available.
+                </div>
+              ) : (
+                plans.map((plan) => {
+                  const isSelected = formData.planId === plan.id;
+                  const provider = plan.stripePriceId ? "Stripe" : (plan.razorpaySubscriptionPlanId ? "Razorpay" : "Unknown");
+                  
+                  return (
+                    <div
+                      key={plan.id}
+                      onClick={() => setFormData({ ...formData, planId: plan.id })}
+                      className={`relative cursor-pointer rounded-xl border p-4 transition-all duration-200 ${
+                        isSelected 
+                          ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary" 
+                          : "border-gray-200 dark:border-gray-800 bg-background hover:border-primary/50 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="font-semibold text-base">{plan.name}</div>
+                        {isSelected && (
+                          <div className="h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-xl font-bold mb-3">
+                        ${plan.price} <span className="text-sm font-normal text-muted-foreground">/{plan.billingCycle || 'cycle'}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className={`text-xs px-2 py-1 rounded-md font-medium ${
+                          provider === 'Stripe' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' :
+                          provider === 'Razorpay' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                          'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                        }`}>
+                          {provider}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            {!formData.planId && plans.length > 0 && (
+              <p className="text-xs text-destructive mt-1">Please select a plan to proceed.</p>
+            )}
           </div>
 
           <div className="space-y-2">
