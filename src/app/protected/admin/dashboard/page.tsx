@@ -1,41 +1,28 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/config/auth';
 import { getAuthorizedRoute, ROUTE_POLICIES } from '@/lib/rbac/routing-utils';
-import { getRevenueData, getUserGrowthData, getChurnRateData, getDashboardLayout, getAvailableWidgets, getOverviewStats } from './actions/analytics';
+import { getOverviewStats } from './actions/analytics';
 import { MetricSummaryCard } from '@/components/analytics/MetricSummaryCard';
-import { DashboardGrid } from '@/components/analytics/DashboardGrid';
 
 export default async function AdminDashboardPage(props: { searchParams: { range?: string } }) {
   // Server-side authentication and authorization
   const session = await auth();
-  
+
   if (!session?.user?.id) {
     redirect('/auth/login');
   }
-  
+
   const userId = session.user.id;
-  
+
   // Policy-based authorization check
   const { allowed, redirectTo } = await getAuthorizedRoute(userId, ROUTE_POLICIES.ADMIN_DASHBOARD.path);
-  
+
   if (!allowed && redirectTo) {
     redirect(redirectTo);
   }
 
-  const searchParams = await props.searchParams;
-  const range = (searchParams?.range || "30d") as any;
-
-  // Prefetch data in parallel
-  const [revenue, growth, churn, layout, availableWidgets, overviewStats] = await Promise.all([
-    getRevenueData(range),
-    getUserGrowthData(range),
-    getChurnRateData(range),
-    getDashboardLayout(userId),
-    getAvailableWidgets(),
-    getOverviewStats()
-  ]);
-
-  const initialData = { revenue, growth, churn };
+  // Fetch overview stats
+  const overviewStats = await getOverviewStats();
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-8">
@@ -47,13 +34,6 @@ export default async function AdminDashboardPage(props: { searchParams: { range?
       </div>
 
       <MetricSummaryCard stats={overviewStats} />
-
-      <DashboardGrid 
-        userId={userId} 
-        initialLayout={layout} 
-        initialData={initialData}
-        availableWidgets={availableWidgets} 
-      />
     </div>
   );
 }
