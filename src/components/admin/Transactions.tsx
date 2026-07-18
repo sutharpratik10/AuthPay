@@ -21,6 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ChevronDown, Calendar as CalendarIcon, Search, Download, X, RefreshCcwIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils/helpers';
+import { downloadCSV } from '@/lib/utils/export';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -497,6 +498,37 @@ export default function Transactions() {
     return String(v);
   }, []);
 
+  const exportPayments = () => {
+    const dataToExport = filteredPayments.map(p => ({
+      ID: p.id,
+      Amount: p.amount ? (p.amount / 100).toFixed(2) : '0',
+      Currency: p.currency,
+      Status: p.status,
+      Method: p.method,
+      Email: p.email,
+      Date: p.created_at ? format(new Date(p.created_at * 1000), 'yyyy-MM-dd HH:mm:ss') : '',
+      Gateway: p._gateway
+    }));
+    downloadCSV(dataToExport, `payments_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+  };
+
+  const exportInvoices = () => {
+    const dataToExport = filteredInvoices.map(inv => {
+      const amt = Number(inv.amount || 0);
+      return {
+        ID: inv.id,
+        Invoice_Number: getInvoiceVal(inv, 'invoice_number'),
+        Customer_ID: getInvoiceVal(inv, 'customer_id'),
+        Amount: amt ? (amt / 100).toFixed(2) : '0',
+        Currency: getInvoiceVal(inv, 'currency') || 'USD',
+        Status: getInvoiceVal(inv, 'status'),
+        Date: inv.date ? format(new Date(Number(inv.date) * 1000), 'yyyy-MM-dd HH:mm:ss') : '',
+        Gateway: getInvoiceVal(inv, '_gateway')
+      };
+    });
+    downloadCSV(dataToExport, `invoices_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+  };
+
   const openPaymentDialog = (id: string, gateway: string = 'razorpay') => {
     setSelectedPaymentId(id);
     setPaymentDialogOpen(true);
@@ -677,7 +709,7 @@ export default function Transactions() {
                 <RefreshCcwIcon className={cn("w-4 h-4", loading && "animate-spin")} />
                 Refresh
               </Button>
-              <Button variant="outline" onClick={() => { /* TODO: export logic */ }} className="flex items-center gap-2">
+              <Button variant="outline" onClick={exportPayments} className="flex items-center gap-2">
                 <Download className="w-4 h-4" />
                 Export
               </Button>
@@ -911,12 +943,12 @@ export default function Transactions() {
                           {payment.email || '--'}
                         </TableCell>
                         <TableCell>
-                          <Badge 
+                          <Badge
                             variant="outline"
                             className={cn(
                               'text-xs font-medium',
-                              payment._gateway === 'stripe' 
-                                ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300' 
+                              payment._gateway === 'stripe'
+                                ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300'
                                 : 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300'
                             )}
                           >
@@ -979,6 +1011,10 @@ export default function Transactions() {
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <Button variant="outline" onClick={exportInvoices} className="flex items-center gap-2">
+                <Download className="w-4 h-4" />
+                Export
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -1106,12 +1142,12 @@ export default function Transactions() {
                       <TableCell><Badge className="text-xs">{String(getInvoiceVal(inv, 'status') || '--')}</Badge></TableCell>
                       <TableCell className="text-sm">{getInvoiceVal(inv, 'date') ? new Date(Number(getInvoiceVal(inv, 'date')) * 1000).toLocaleString('en-IN') : '--'}</TableCell>
                       <TableCell>
-                        <Badge 
+                        <Badge
                           variant="outline"
                           className={cn(
                             'text-xs font-medium',
-                            getInvoiceVal(inv, '_gateway') === 'stripe' 
-                              ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300' 
+                            getInvoiceVal(inv, '_gateway') === 'stripe'
+                              ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300'
                               : 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300'
                           )}
                         >
@@ -1189,12 +1225,12 @@ export default function Transactions() {
                       <div className="text-sm text-muted-foreground">Payment</div>
                       <div className="mt-1 flex items-center gap-3">
                         <div className="text-lg font-semibold break-all">{paymentDetails.id}</div>
-                        <Badge 
+                        <Badge
                           variant="outline"
                           className={cn(
                             'text-xs font-medium',
-                            paymentDetails._gateway === 'stripe' 
-                              ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300' 
+                            paymentDetails._gateway === 'stripe'
+                              ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300'
                               : 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300'
                           )}
                         >
