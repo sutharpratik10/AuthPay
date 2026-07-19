@@ -175,8 +175,8 @@ export function Navigationbar() {
         {/* Desktop Navigation in the middle - hidden on mobile */}
         <NavigationMenu className="mx-auto hidden md:flex">
           <NavigationMenuList>
-            {/* User Dashboard link only for authenticated users and only on Home page */}
-            {isAuthenticated && pathname === "/" && (
+            {/* User Dashboard link only for authenticated users and not in protected routes */}
+            {isAuthenticated && !pathname?.startsWith("/protected") && (
               <NavigationMenuItem>
                 <NavigationMenuLink className={navigationMenuTriggerStyle()} asChild>
                   <Link href={dashboardPath}>
@@ -373,8 +373,8 @@ export function Navigationbar() {
             <div className="px-3 mt-6 pt-4 border-t border-border/20">
               {mounted && isAuthenticated ? (
                 <div className="space-y-2">
-                  {/* Dashboard link for authenticated users - only on home page */}
-                  {pathname === "/" && (
+                  {/* Dashboard link for authenticated users - only not in protected routes */}
+                  {!pathname?.startsWith("/protected") && (
                     <Link
                       href={dashboardPath}
                       onClick={closeMenu}
