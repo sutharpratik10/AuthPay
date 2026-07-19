@@ -5,24 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow,
-  TableHeadSortable,
-  TableColumnSearch,
-  TablePagination
-} from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table/DataTable';
+import { DataTableColumn } from '@/components/ui/data-table/types';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Plus, Edit, Trash2, Shield, User, Mail, Calendar, Activity, AlertTriangle, Clock } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Shield, User, Mail, Calendar, Activity, AlertTriangle, Clock, Key } from 'lucide-react';
 import { getExpiryStatus } from '@/lib/utils/subscription-utils';
 import { UserPermissionViewer } from './UserPermissionViewer';
 
@@ -70,9 +61,6 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -84,24 +72,6 @@ export default function AdminUsersPage() {
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const { toast } = useToast();
-
-  // Sorting state
-  type SortColumn = 'name' | 'email' | 'role' | 'status' | 'subscription' | 'billingCycle' | 'expiryDate' | 'lastLogin' | 'created' | null;
-  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
-
-  // Column filters
-  const [columnFilters, setColumnFilters] = useState({
-    name: '',
-    email: '',
-    role: '',
-    status: '',
-    subscription: '',
-    billingCycle: '',
-    expiryDate: '',
-    lastLogin: '',
-    created: '',
-  });
 
   // Form state for create/edit
   const [formData, setFormData] = useState({
@@ -138,7 +108,7 @@ export default function AdminUsersPage() {
     try {
       const response = await fetch('/api/admin/subscription-plans');
       const data = await response.json();
-      
+
       if (data.success) {
         setSubscriptionPlans(data.data.plans);
       } else {
@@ -218,13 +188,13 @@ export default function AdminUsersPage() {
   };
 
   // Fetch users
-  const fetchUsers = useCallback(async (page: number = currentPage, search: string = searchTerm) => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '10',
-        search: search,
+        page: '1',
+        limit: '500',
+        search: '',
       });
 
       const response = await fetch(`/api/admin/users?${params}`);
@@ -232,7 +202,6 @@ export default function AdminUsersPage() {
 
       if (data.success) {
         setUsers(data.data.users);
-        setTotalPages(data.data.pagination.pages);
       } else {
         toast({
           title: 'Error',
@@ -246,10 +215,11 @@ export default function AdminUsersPage() {
         title: 'Error',
         description: 'Failed to fetch users',
         variant: 'destructive',
-      });    } finally {
+      });
+    } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, toast]);
+  }, [toast]);
 
   // Create user
   const createUser = async () => {
@@ -354,7 +324,7 @@ export default function AdminUsersPage() {
         // Handle subscription changes
         const currentPlan = subscriptionPlans.find(plan => plan.name === selectedUser.subscriptionName);
         const currentPlanId = currentPlan?.id || '';
-        
+
         if (selectedPlanId !== currentPlanId) {
           if (selectedPlanId && selectedPlanId !== '') {
             // Assign new subscription plan
@@ -450,141 +420,21 @@ export default function AdminUsersPage() {
     setSelectedPlanId('');
   };
 
-  // Handle search
-  const handleSearch = (value: string) => {
-    setSearchTerm(value);
-    setCurrentPage(1);
-    fetchUsers(1, value);
-  };
 
-  // Handle sorting
-  const handleSort = (column: SortColumn) => {
-    if (sortColumn === column) {
-      if (sortDirection === 'asc') {
-        setSortDirection('desc');
-      } else if (sortDirection === 'desc') {
-        setSortColumn(null);
-        setSortDirection(null);
-      }
-    } else {
-      setSortColumn(column);
-      setSortDirection('asc');
-    }
-  };
 
-  // Handle column filter
-  const handleColumnFilter = (column: string, value: string) => {
-    setColumnFilters((prev) => ({ ...prev, [column]: value }));
-  };
-
-  // Filter and sort users
-  const filteredAndSortedUsers = React.useMemo(() => {
-    let filtered = [...users];
-
-    // Apply column filters
-    Object.entries(columnFilters).forEach(([column, filterValue]) => {
-      if (filterValue) {
-        filtered = filtered.filter((user) => {
-          let value = '';
-          switch (column) {
-            case 'name':
-              value = user.name || 'No name';
-              break;
-            case 'email':
-              value = user.email;
-              break;
-            case 'role':
-              value = user.roles?.join(', ') || user.role;
-              break;
-            case 'status':
-              value = user.isActive ? 'Active' : 'Inactive';
-              break;
-            case 'subscription':
-              value = user.subscriptionName || 'No Subscription';
-              break;
-            case 'billingCycle':
-              value = user.subscriptionBillingCycle || '-';
-              break;
-            case 'expiryDate':
-              value = user.subscriptionExpiryDate ? formatDate(user.subscriptionExpiryDate) : 'No Expiry';
-              break;
-            case 'lastLogin':
-              value = user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Never';
-              break;
-            case 'created':
-              value = formatDate(user.createdAt);
-              break;
-          }
-          return value.toLowerCase().includes(filterValue.toLowerCase());
-        });
-      }
+  // Format date helper
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
-
-    // Apply sorting
-    if (sortColumn && sortDirection) {
-      filtered.sort((a, b) => {
-        let aValue: string | number = '';
-        let bValue: string | number = '';
-
-        switch (sortColumn) {
-          case 'name':
-            aValue = a.name || 'No name';
-            bValue = b.name || 'No name';
-            break;
-          case 'email':
-            aValue = a.email;
-            bValue = b.email;
-            break;
-          case 'role':
-            aValue = a.roles?.join(', ') || a.role;
-            bValue = b.roles?.join(', ') || b.role;
-            break;
-          case 'status':
-            aValue = a.isActive ? 'Active' : 'Inactive';
-            bValue = b.isActive ? 'Active' : 'Inactive';
-            break;
-          case 'subscription':
-            aValue = a.subscriptionName || 'No Subscription';
-            bValue = b.subscriptionName || 'No Subscription';
-            break;
-          case 'billingCycle':
-            aValue = a.subscriptionBillingCycle || '';
-            bValue = b.subscriptionBillingCycle || '';
-            break;
-          case 'expiryDate':
-            aValue = a.subscriptionExpiryDate || '';
-            bValue = b.subscriptionExpiryDate || '';
-            break;
-          case 'lastLogin':
-            aValue = a.lastLoginAt || '';
-            bValue = b.lastLoginAt || '';
-            break;
-          case 'created':
-            aValue = a.createdAt;
-            bValue = b.createdAt;
-            break;
-        }
-
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-        }
-
-        return sortDirection === 'asc'
-          ? String(aValue).localeCompare(String(bValue))
-          : String(bValue).localeCompare(String(aValue));
-      });
-    }
-
-    return filtered;
-  }, [users, columnFilters, sortColumn, sortDirection]);
-
-  // Handle page change
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    fetchUsers(page);
   };
+
   // Open edit dialog
-  const openEditDialog = (user: User) => {
+  const openEditDialog = useCallback((user: User) => {
     setSelectedUser(user);
     setFormData({
       email: user.email,
@@ -594,16 +444,16 @@ export default function AdminUsersPage() {
       isActive: user.isActive,
       isEmailVerified: user.isEmailVerified,
     });
-    
+
     // Find the current subscription plan ID for this user
     const currentPlan = subscriptionPlans.find(plan => plan.name === user.subscriptionName);
     setSelectedPlanId(currentPlan?.id || '');
-    
+
     setIsEditDialogOpen(true);
-  };
+  }, [subscriptionPlans]);
 
   // Open delete dialog
-  const openDeleteDialog = (user: User) => {
+  const openDeleteDialog = useCallback((user: User) => {
     // Prevent opening delete dialog for current user
     if (user.id === currentUserId) {
       toast({
@@ -615,8 +465,346 @@ export default function AdminUsersPage() {
     }
     setSelectedUser(user);
     setIsDeleteDialogOpen(true);
+  }, [currentUserId, toast]);
+
+  // Close role edit dialog
+  const closeRoleEditDialog = () => {
+    setIsRoleEditDialogOpen(false);
+    setSelectedUserForRoles(null);
+    setSelectedRoles([]);
   };
-  
+
+  const userColumns: DataTableColumn<User>[] = React.useMemo(() => [
+    {
+      id: 'name',
+      header: 'User',
+      accessorKey: 'name',
+      searchable: true,
+      sortable: true,
+      cell: ({ row }) => (
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+              <User className="h-4 w-4 text-neutral-500" />
+            </div>
+          </div>
+          <div>
+            <div className="font-medium">{row.name || 'No name'}</div>
+            <div className="text-sm text-neutral-500 flex items-center">
+              <Mail className="h-3 w-3 mr-1" />
+              {row.email}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'roles',
+      header: 'Roles',
+      accessorKey: 'role',
+      searchable: true,
+      sortable: true,
+      filterType: 'multi-select',
+      filterOptions: roleOptions,
+      cell: ({ row }) => {
+        const user = row;
+        return (
+          <div className="flex flex-wrap gap-1">
+            {user.roles && user.roles.length > 0 ? (
+              user.roles.map((roleName) => (
+                <Badge
+                  key={roleName}
+                  variant={roleName === 'admin' ? 'default' : 'secondary'}
+                  className="text-xs"
+                >
+                  {roleName === 'admin' ? (
+                    <Shield className="h-3 w-3 mr-1" />
+                  ) : (
+                    <User className="h-3 w-3 mr-1" />
+                  )}
+                  {roleName}
+                </Badge>
+              ))
+            ) : (
+              <Badge variant="secondary">
+                <User className="h-3 w-3 mr-1" />
+                {user.role}
+              </Badge>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      accessorKey: 'isActive',
+      searchable: true,
+      sortable: true,
+      filterType: 'multi-select',
+      filterOptions: [
+        { label: 'Active', value: 'true' },
+        { label: 'Inactive', value: 'false' },
+      ],
+      cell: ({ row }) => {
+        const user = row;
+        return (
+          <div className="flex flex-col space-y-1">
+            <Badge variant={user.isActive ? 'default' : 'destructive'}>
+              <Activity className="h-3 w-3 mr-1" />
+              {user.isActive ? 'Active' : 'Inactive'}
+            </Badge>
+            {user.isEmailVerified && (
+              <Badge variant="outline" className="text-xs">
+                Email Verified
+              </Badge>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      id: 'subscription',
+      header: 'Subscription',
+      accessorKey: 'subscriptionName',
+      searchable: true,
+      sortable: true,
+      cell: ({ row }) => {
+        const user = row;
+        return user.subscriptionName ? (
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            {user.subscriptionName}
+          </Badge>
+        ) : (
+          <span className="text-neutral-400">No Subscription</span>
+        );
+      }
+    },
+    {
+      id: 'billingCycle',
+      header: 'Cycle',
+      accessorKey: 'subscriptionBillingCycle',
+      searchable: true,
+      sortable: true,
+      cell: ({ row }) => {
+        const user = row;
+        return user.subscriptionBillingCycle ? (
+          <span className="text-sm capitalize">{user.subscriptionBillingCycle}</span>
+        ) : (
+          <span className="text-neutral-400">-</span>
+        );
+      }
+    },
+    {
+      id: 'subscriptionStartDate',
+      header: 'Start Date',
+      accessorKey: 'subscriptionStartDate',
+      searchable: true,
+      sortable: true,
+      filterType: 'date',
+      cell: ({ row }) => {
+        const user = row;
+        return user.subscriptionStartDate ? (
+          <div className="text-sm">
+            {formatDate(user.subscriptionStartDate)}
+          </div>
+        ) : (
+          <span className="text-neutral-400">-</span>
+        );
+      }
+    },
+    {
+      id: 'expiryDate',
+      header: 'Expiry Date',
+      accessorKey: 'subscriptionExpiryDate',
+      searchable: true,
+      sortable: true,
+      filterType: 'date',
+      cell: ({ row }) => {
+        const user = row;
+        if (!user.subscriptionExpiryDate) {
+          return <span className="text-neutral-400">No Expiry</span>;
+        }
+
+        const statusInfo = getExpiryStatus(new Date(user.subscriptionExpiryDate));
+        let badgeVariant: "default" | "secondary" | "destructive" | "outline" = "outline";
+        let badgeClass = "";
+        let icon = <Clock className="h-3 w-3 mr-1" />;
+
+        switch (statusInfo.status) {
+          case 'expired':
+            badgeVariant = "destructive";
+            icon = <AlertTriangle className="h-3 w-3 mr-1" />;
+            break;
+          case 'expiring':
+            badgeVariant = "secondary";
+            badgeClass = "bg-orange-50 text-orange-700 border-orange-200";
+            icon = <AlertTriangle className="h-3 w-3 mr-1" />;
+            break;
+          case 'active':
+            badgeVariant = "outline";
+            badgeClass = "bg-green-50 text-green-700 border-green-200";
+            break;
+          case 'lifetime':
+            badgeVariant = "outline";
+            badgeClass = "bg-blue-50 text-blue-700 border-blue-200";
+            break;
+        }
+
+        return (
+          <div className="flex flex-col space-y-1">
+            <div className="text-sm">
+              {formatDate(user.subscriptionExpiryDate)}
+            </div>
+            <Badge variant={badgeVariant} className={`text-xs ${badgeClass}`}>
+              {icon}
+              {statusInfo.message}
+            </Badge>
+          </div>
+        );
+      }
+    },
+    {
+      id: 'lastLogin',
+      header: 'Last Login',
+      accessorKey: 'lastLoginAt',
+      searchable: true,
+      sortable: true,
+      filterType: 'date',
+      cell: ({ row }) => {
+        const user = row;
+        return user.lastLoginAt ? (
+          <div className="text-sm">
+            <Calendar className="h-3 w-3 inline mr-1" />
+            {formatDate(user.lastLoginAt)}
+          </div>
+        ) : (
+          <span className="text-neutral-400">Never</span>
+        );
+      }
+    },
+    {
+      id: 'created',
+      header: 'Created',
+      accessorKey: 'createdAt',
+      searchable: true,
+      sortable: true,
+      filterType: 'date',
+      cell: ({ row }) => (
+        <div className="text-sm">
+          {formatDate(row.createdAt)}
+        </div>
+      )
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      align: 'right',
+      cell: ({ row }) => {
+        const user = row;
+        return (
+          <div className="flex justify-end space-x-2 items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={user.id === currentUserId}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedUserForRoles(user);
+                setSelectedRoles(user.roles || [user.role]);
+                setIsRoleEditDialogOpen(true);
+              }}
+              title="Manage Roles"
+            >
+              <Shield className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedUser(user);
+                setIsPermissionsDialogOpen(true);
+              }}
+              title="View Permissions"
+            >
+              <Key className="h-3 w-3" />
+            </Button>
+
+            <div className="flex items-center space-x-2 border-l border-neutral-200 dark:border-neutral-700 pl-2 ml-2">
+              <Switch
+                checked={user.isSuspended}
+                onCheckedChange={async (checked) => {
+                  try {
+                    setUsers(prevUsers =>
+                      prevUsers.map(u =>
+                        u.id === user.id
+                          ? { ...u, isSuspended: checked }
+                          : u
+                      )
+                    );
+
+                    const res = await fetch(`/api/admin/users/${user.id}/suspend`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ isSuspended: checked })
+                    });
+
+                    if (!res.ok) {
+                      setUsers(prevUsers =>
+                        prevUsers.map(u =>
+                          u.id === user.id
+                            ? { ...u, isSuspended: !checked }
+                            : u
+                        )
+                      );
+                      throw new Error('Failed to update suspension');
+                    }
+                    toast({
+                      title: 'Success',
+                      description: `User ${checked ? 'suspended' : 'unsuspended'} successfully`,
+                      variant: 'success',
+                    });
+                  } catch {
+                    toast({
+                      title: 'Error',
+                      description: 'Failed to update suspension',
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+                id={`suspend-switch-${user.id}`}
+                disabled={user.id === currentUserId}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openEditDialog(user);
+                }}
+              >
+                <Edit className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openDeleteDialog(user);
+                }}
+                disabled={user.id === currentUserId}
+                className={user.id === currentUserId ? "cursor-not-allowed" : "cursor-allowed"}
+              >
+                <Trash2 className="h-3 w-3 text-red-500" />
+              </Button>
+            </div>
+          </div>
+        );
+      }
+    }
+  ], [currentUserId, subscriptionPlans, toast, setUsers, openEditDialog, openDeleteDialog, roleOptions]);
+
   useEffect(() => {
     fetchUsers();
     loadSubscriptionPlans();
@@ -633,93 +821,72 @@ export default function AdminUsersPage() {
     })();
   }, [fetchUsers, loadSubscriptionPlans, loadRoleOptions]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   return (
     <div className="space-y-6">
-      {/* Header with search and create button */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
-          <Input
-            placeholder="Search users by name or email..."
-            value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => resetForm()}>
-              <Plus className="h-4 w-4 mr-2" />
+      {/* Header with create button */}
+      <div className="flex justify-end items-center">      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogTrigger asChild>
+          <Button onClick={() => resetForm()}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create User
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-md bg-white dark:bg-neutral-800">
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+            <DialogDescription>
+              Add a new user to the system with specified role and permissions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="John Doe"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password">Password *</Label>
+              <Input
+                id="password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                placeholder="Enter password"
+              />
+            </div>              <div className="grid gap-2">
+              <Label htmlFor="role">Role</Label>
+              <Select
+                value={formData.role}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as 'admin' | 'user' }))}
+                options={roleOptions}
+                placeholder="Select role"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={createUser}>
               Create User
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md bg-white dark:bg-neutral-800">
-            <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
-              <DialogDescription>
-                Add a new user to the system with specified role and permissions.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="user@example.com"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="John Doe"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="password">Password *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                  placeholder="Enter password"
-                />
-              </div>              <div className="grid gap-2">
-                <Label htmlFor="role">Role</Label>
-                <Select 
-                  value={formData.role} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as 'admin' | 'user' }))}
-                  options={roleOptions}
-                  placeholder="Select role"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={createUser}>
-                Create User
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
 
       {/* Users table */}
@@ -734,405 +901,18 @@ export default function AdminUsersPage() {
           {loading ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>          ) : (
+            </div>) : (
             <>
-              <Table>
-                <TableHeader>
-                  {/* Sortable headers */}
-                  <TableRow>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortColumn === 'name' ? sortDirection : null}
-                      onSort={() => handleSort('name')}
-                    >
-                      User
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortColumn === 'role' ? sortDirection : null}
-                      onSort={() => handleSort('role')}
-                    >
-                      Role
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortColumn === 'status' ? sortDirection : null}
-                      onSort={() => handleSort('status')}
-                    >
-                      Status
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortColumn === 'subscription' ? sortDirection : null}
-                      onSort={() => handleSort('subscription')}
-                    >
-                      Subscription
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortColumn === 'billingCycle' ? sortDirection : null}
-                      onSort={() => handleSort('billingCycle')}
-                    >
-                      Billing Cycle
-                    </TableHeadSortable>
-                    <TableHead>Start Date</TableHead>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortColumn === 'expiryDate' ? sortDirection : null}
-                      onSort={() => handleSort('expiryDate')}
-                    >
-                      Expiry Date
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortColumn === 'lastLogin' ? sortDirection : null}
-                      onSort={() => handleSort('lastLogin')}
-                    >
-                      Last Login
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortColumn === 'created' ? sortDirection : null}
-                      onSort={() => handleSort('created')}
-                    >
-                      Created
-                    </TableHeadSortable>
-                    <TableHead>Roles & Perms</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-
-                  {/* Search row */}
-                  <TableRow>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search user..."
-                        onSearch={(value) => handleColumnFilter('name', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search role..."
-                        onSearch={(value) => handleColumnFilter('role', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search status..."
-                        onSearch={(value) => handleColumnFilter('status', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search subscription..."
-                        onSearch={(value) => handleColumnFilter('subscription', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search cycle..."
-                        onSearch={(value) => handleColumnFilter('billingCycle', value)}
-                      />
-                    </TableHead>
-                    <TableHead></TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search expiry..."
-                        onSearch={(value) => handleColumnFilter('expiryDate', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search login..."
-                        onSearch={(value) => handleColumnFilter('lastLogin', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search date..."
-                        onSearch={(value) => handleColumnFilter('created', value)}
-                      />
-                    </TableHead>
-                    <TableHead></TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>                
-                <TableBody>
-                  {filteredAndSortedUsers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
-                        No users found.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredAndSortedUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="flex items-center space-x-3">
-                          <div className="flex-shrink-0">
-                            <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                              <User className="h-4 w-4 text-neutral-500" />
-                            </div>
-                          </div>
-                          <div>
-                            <div className="font-medium">{user.name || 'No name'}</div>
-                            <div className="text-sm text-neutral-500 flex items-center">
-                              <Mail className="h-3 w-3 mr-1" />
-                              {user.email}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {user.roles && user.roles.length > 0 ? (
-                            user.roles.map((roleName) => (
-                              <Badge 
-                                key={roleName} 
-                                variant={roleName === 'admin' ? 'default' : 'secondary'}
-                                className="text-xs"
-                              >
-                                {roleName === 'admin' ? (
-                                  <Shield className="h-3 w-3 mr-1" />
-                                ) : (
-                                  <User className="h-3 w-3 mr-1" />
-                                )}
-                                {roleName}
-                              </Badge>
-                            ))
-                          ) : (
-                            <Badge variant="secondary">
-                              <User className="h-3 w-3 mr-1" />
-                              {user.role}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col space-y-1">
-                          <Badge variant={user.isActive ? 'default' : 'destructive'}>
-                            <Activity className="h-3 w-3 mr-1" />
-                            {user.isActive ? 'Active' : 'Inactive'}
-                          </Badge>
-                          {user.isEmailVerified && (
-                            <Badge variant="outline" className="text-xs">
-                              Email Verified
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {user.subscriptionName ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                            {user.subscriptionName}
-                          </Badge>
-                        ) : (
-                          <span className="text-neutral-400">No Subscription</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {user.subscriptionBillingCycle ? (
-                          <span className="text-sm capitalize">{user.subscriptionBillingCycle}</span>
-                        ) : (
-                          <span className="text-neutral-400">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {user.subscriptionStartDate ? (
-                          <div className="text-sm">
-                            {formatDate(user.subscriptionStartDate)}
-                          </div>
-                        ) : (
-                          <span className="text-neutral-400">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {user.subscriptionExpiryDate ? (
-                          <div className="flex flex-col space-y-1">
-                            <div className="text-sm">
-                              {formatDate(user.subscriptionExpiryDate)}
-                            </div>
-                            {(() => {
-                              const statusInfo = getExpiryStatus(new Date(user.subscriptionExpiryDate));
-                              let badgeVariant: "default" | "secondary" | "destructive" | "outline" = "outline";
-                              let badgeClass = "";
-                              let icon = <Clock className="h-3 w-3 mr-1" />;
-
-                              switch (statusInfo.status) {
-                                case 'expired':
-                                  badgeVariant = "destructive";
-                                  icon = <AlertTriangle className="h-3 w-3 mr-1" />;
-                                  break;
-                                case 'expiring':
-                                  badgeVariant = "secondary";
-                                  badgeClass = "bg-orange-50 text-orange-700 border-orange-200";
-                                  icon = <AlertTriangle className="h-3 w-3 mr-1" />;
-                                  break;
-                                case 'active':
-                                  badgeVariant = "outline";
-                                  badgeClass = "bg-green-50 text-green-700 border-green-200";
-                                  break;
-                                case 'lifetime':
-                                  badgeVariant = "outline";
-                                  badgeClass = "bg-blue-50 text-blue-700 border-blue-200";
-                                  break;
-                              }
-
-                              return (
-                                <Badge variant={badgeVariant} className={`text-xs ${badgeClass}`}>
-                                  {icon}
-                                  {statusInfo.message}
-                                </Badge>
-                              );
-                            })()}
-                          </div>                        ) : (
-                          <span className="text-neutral-400">No Expiry</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {user.lastLoginAt ? (
-                          <div className="text-sm">
-                            <Calendar className="h-3 w-3 inline mr-1" />
-                            {formatDate(user.lastLoginAt)}
-                          </div>
-                        ) : (
-                          <span className="text-neutral-400">Never</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {formatDate(user.createdAt)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={user.id === currentUserId}
-                            onClick={() => {
-                              setSelectedUserForRoles(user);
-                              setSelectedRoles(user.roles || [user.role]);
-                              setIsRoleEditDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="h-3 w-3 mr-1" />
-                            Roles
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setIsPermissionsDialogOpen(true);
-                            }}
-                          >
-                            <Shield className="h-3 w-3 mr-1" />
-                            Perms
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2 items-center">
-                          {/* Switch for isSuspended */}
-                          <div className="flex items-center space-x-2">
-                            <Switch
-                              checked={user.isSuspended}
-                              onCheckedChange={async (checked) => {
-                                try {
-                                  setUsers(prevUsers =>
-                                    prevUsers.map(u => 
-                                      u.id === user.id 
-                                        ? { ...u, isSuspended: checked }
-                                        : u
-                                    )
-                                  );
-
-                                  const res = await fetch(`/api/admin/users/${user.id}/suspend`, {
-                                    method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ isSuspended: checked })
-                                  });
-                                  
-                                  if (!res.ok) {
-                                    // Revert the optimistic update on error
-                                    setUsers(prevUsers => 
-                                      prevUsers.map(u => 
-                                        u.id === user.id 
-                                          ? { ...u, isSuspended: !checked }
-                                          : u
-                                      )
-                                    );
-                                    throw new Error('Failed to update suspension');
-                                  }
-                                  // Show success toast
-                                  toast({
-                                    title: 'Success',
-                                    description: `User ${checked ? 'suspended' : 'unsuspended'} successfully`,
-                                    variant: 'success',
-                                  });
-                                } catch {
-                                  toast({
-                                    title: 'Error',
-                                    description: 'Failed to update suspension',
-                                    variant: 'destructive',
-                                  });
-                                }
-                              }}
-                              id={`suspend-switch-${user.id}`}
-                              disabled={user.id === currentUserId}
-                              className={
-                                ''
-                              }
-                            >
-                              <span
-                                className={`
-                                  pointer-events-none absolute left-1 top-1 h-4 w-4 rounded-full transition
-                                  ${user.isSuspended ? 'bg-green-600' : 'bg-red-600'}
-                                `}
-                              ></span>
-                            </Switch>
-                            <Label 
-                              htmlFor={`suspend-switch-${user.id}`} 
-                              className="text-xs text-neutral-600 dark:text-neutral-400"
-                            >
-                              {user.isSuspended ? 'Suspended' : 'Active'}
-                            </Label>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditDialog(user)}
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openDeleteDialog(user)}
-                            disabled={user.id === currentUserId}
-                            title={user.id === currentUserId ? "You cannot delete your own account" : "Delete user"}
-                            className={user.id === currentUserId ? "cursor-not-allowed" : "cursor-allowed"}
-                          >
-                            <Trash2 className="h-3 w-3 text-red-500" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                  )}
-                </TableBody>
-              </Table>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <TablePagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  pageSize={10}
-                  totalItems={users.length}
-                  onPageChange={handlePageChange}
-                />
-              )}
+              <DataTable
+                columns={userColumns}
+                data={users}
+                searchable={true}
+                columnSearch={true}
+                pagination={true}
+                export={true}
+                selectable={true}
+                title="Users"
+              />
             </>
           )}
         </CardContent>
@@ -1166,12 +946,12 @@ export default function AdminUsersPage() {
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="John Doe"
               />
-            </div>            
-            
+            </div>
+
             <div className="grid gap-2">
               <Label htmlFor="subscription-plan">Subscription Plan</Label>
-              <Select 
-                value={selectedPlanId} 
+              <Select
+                value={selectedPlanId}
                 onValueChange={setSelectedPlanId}
                 options={[
                   { value: '', label: 'No Subscription' },
@@ -1288,7 +1068,7 @@ export default function AdminUsersPage() {
           <DialogHeader>
             <DialogTitle>Delete User</DialogTitle>
             <DialogDescription>
-              {selectedUser?.id === currentUserId 
+              {selectedUser?.id === currentUserId
                 ? "You cannot delete your own account."
                 : "Are you sure you want to delete this user? This action cannot be undone."
               }
@@ -1313,8 +1093,8 @@ export default function AdminUsersPage() {
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={deleteUser}
               disabled={selectedUser?.id === currentUserId}
             >
@@ -1343,5 +1123,5 @@ export default function AdminUsersPage() {
         </DialogContent>
       </Dialog>
     </div>
-);
+  );
 }

@@ -7,17 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableHeadSortable,
-  TableColumnSearch,
-  TablePagination
-} from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table/DataTable';
+import { DataTableColumn } from '@/components/ui/data-table/types';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -80,9 +71,7 @@ export default function AdminRolesPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -95,19 +84,7 @@ export default function AdminRolesPage() {
 
   const { toast } = useToast();
 
-  // Sorting state
-  type SortColumn = 'name' | 'description' | 'type' | 'userCount' | 'createdAt' | null;
-  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
 
-  // Column filters
-  const [columnFilters, setColumnFilters] = useState({
-    name: '',
-    description: '',
-    type: '',
-    userCount: '',
-    createdAt: '',
-  });
 
   // Form state for create/edit role
   const [formData, setFormData] = useState({
@@ -118,8 +95,8 @@ export default function AdminRolesPage() {
     permissionIds: [] as string[],
   });
 
-  // Fetch roles with pagination and search
-  const fetchRoles = useCallback(async (page: number, search: string) => {
+  // Fetch roles
+  const fetchRoles = useCallback(async () => {
     // Prevent duplicate fetches in React Strict Mode
     if (isFetchingRef.current) {
       console.log('[AdminRolesPage] Fetch already in progress, skipping...');
@@ -130,9 +107,9 @@ export default function AdminRolesPage() {
       isFetchingRef.current = true;
       setLoading(true);
       const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '10',
-        search: search,
+        page: '1',
+        limit: '500',
+        search: '',
       });
 
       const response = await fetch(`/api/admin/roles?${params}`);
@@ -140,7 +117,6 @@ export default function AdminRolesPage() {
 
       if (data.success) {
         setRoles(data.data.roles);
-        setTotalPages(data.data.pagination?.pages || 1);
       } else {
         toast({
           title: 'Error',
@@ -188,12 +164,12 @@ export default function AdminRolesPage() {
 
   useEffect(() => {
     if (activeTab === 'roles' && !hasFetchedRef.current) {
-      fetchRoles(currentPage, searchTerm);
+      fetchRoles();
       hasFetchedRef.current = true;
     } else if (activeTab === 'assignments') {
       fetchUserRoles();
     }
-  }, [activeTab, currentPage, searchTerm, fetchRoles, fetchUserRoles]);
+  }, [activeTab, fetchRoles, fetchUserRoles]);
 
   // Create role
   const createRole = async () => {
@@ -215,7 +191,7 @@ export default function AdminRolesPage() {
         setIsCreateDialogOpen(false);
         resetForm();
         hasFetchedRef.current = false; // Reset to allow refetch
-        fetchRoles(currentPage, searchTerm);
+        fetchRoles();
       } else {
         toast({
           title: 'Error',
@@ -255,7 +231,7 @@ export default function AdminRolesPage() {
         setIsEditDialogOpen(false);
         resetForm();
         hasFetchedRef.current = false; // Reset to allow refetch
-        fetchRoles(currentPage, searchTerm);
+        fetchRoles();
       } else {
         toast({
           title: 'Error',
@@ -292,7 +268,7 @@ export default function AdminRolesPage() {
         });
         setIsDeleteDialogOpen(false);
         hasFetchedRef.current = false; // Reset to allow refetch
-        fetchRoles(currentPage, searchTerm);
+        fetchRoles();
       } else {
         toast({
           title: 'Error',
@@ -321,99 +297,110 @@ export default function AdminRolesPage() {
     });
   };
 
-  // Handle search
-  const handleSearch = (value: string) => {
-    setSearchTerm(value);
-    setCurrentPage(1);
-    fetchRoles(1, value);
-  };
 
-  // Handle sorting
-  const handleSort = (column: SortColumn) => {
-    if (sortColumn === column) {
-      if (sortDirection === 'asc') {
-        setSortDirection('desc');
-      } else if (sortDirection === 'desc') {
-        setSortColumn(null);
-        setSortDirection(null);
-      }
-    } else {
-      setSortColumn(column);
-      setSortDirection('asc');
+  const roleColumns: DataTableColumn<Role>[] = React.useMemo(() => [
+    {
+      id: 'name',
+      header: 'Role',
+      accessorKey: 'name',
+      searchable: true,
+      sortable: true,
+      cell: ({ row }) => (
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+              <Shield className="h-4 w-4 text-neutral-500" />
+            </div>
+          </div>
+          <div>
+            <div className="font-medium">{row.name}</div>
+            {row.isDefault && (
+              <Badge variant="secondary" className="text-xs">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Default
+              </Badge>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'description',
+      header: 'Description',
+      accessorKey: 'description',
+      searchable: true,
+      sortable: true,
+      cell: ({ row }) => (
+        <div className="max-w-xs truncate">
+          {row.description || 'No description'}
+        </div>
+      )
+    },
+    {
+      id: 'type',
+      header: 'Type',
+      accessorKey: 'isSystemManaged',
+      searchable: true,
+      sortable: true,
+      cell: ({ row }) => (
+        <Badge variant={row.isSystemManaged ? 'default' : 'secondary'}>
+          {row.isSystemManaged ? 'System' : 'Custom'}
+        </Badge>
+      )
+    },
+    {
+      id: 'userCount',
+      header: 'Users',
+      accessorKey: 'userCount',
+      searchable: true,
+      sortable: true,
+      cell: ({ row }) => (
+        <div className="flex items-center space-x-1">
+          <Users className="h-4 w-4 text-neutral-400" />
+          <span>{row.userCount}</span>
+        </div>
+      )
+    },
+    {
+      id: 'createdAt',
+      header: 'Created',
+      accessorKey: 'createdAt',
+      searchable: true,
+      sortable: true,
+      filterType: 'date',
+      cell: ({ row }) => (
+        <div className="text-sm">
+          {formatDate(row.createdAt ?? '')}
+        </div>
+      )
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      accessorKey: 'id',
+      searchable: false,
+      sortable: false,
+      align: 'right',
+      cell: ({ row }) => (
+        <div className="flex justify-end space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openEditDialog(row)}
+          >
+            <Edit className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openDeleteDialog(row)}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      )
     }
-  };
-
-  // Handle column filter
-  const handleColumnFilter = (column: string, value: string) => {
-    setColumnFilters((prev) => ({ ...prev, [column]: value }));
-  };
-
-  // Filter and sort roles
-  const filteredAndSortedRoles = React.useMemo(() => {
-    let filtered = [...roles];
-
-    // Apply column filters
-    Object.entries(columnFilters).forEach(([column, filterValue]) => {
-      if (filterValue) {
-        filtered = filtered.filter((role) => {
-          const value = column === 'type'
-            ? (role.isSystemManaged ? 'System' : 'Custom')
-            : column === 'userCount'
-              ? String(role.userCount || 0)
-              : String(role[column as keyof Role] || '');
-          return value.toLowerCase().includes(filterValue.toLowerCase());
-        });
-      }
-    });
-
-    // Apply sorting
-    if (sortColumn && sortDirection) {
-      filtered.sort((a, b) => {
-        let aValue: string | number = '';
-        let bValue: string | number = '';
-
-        switch (sortColumn) {
-          case 'name':
-            aValue = a.name || '';
-            bValue = b.name || '';
-            break;
-          case 'description':
-            aValue = a.description || '';
-            bValue = b.description || '';
-            break;
-          case 'type':
-            aValue = a.isSystemManaged ? 'System' : 'Custom';
-            bValue = b.isSystemManaged ? 'System' : 'Custom';
-            break;
-          case 'userCount':
-            aValue = a.userCount || 0;
-            bValue = b.userCount || 0;
-            break;
-          case 'createdAt':
-            aValue = a.createdAt || '';
-            bValue = b.createdAt || '';
-            break;
-        }
-
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-        }
-
-        return sortDirection === 'asc'
-          ? String(aValue).localeCompare(String(bValue))
-          : String(bValue).localeCompare(String(aValue));
-      });
-    }
-
-    return filtered;
-  }, [roles, columnFilters, sortColumn, sortDirection]);
-
-  // Handle page change
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    hasFetchedRef.current = false; // Reset to allow refetch
-    fetchRoles(page, searchTerm);
-  };
+  ], []);
 
   // Open edit dialog
   const openEditDialog = (role: Role) => {
@@ -448,17 +435,8 @@ export default function AdminRolesPage() {
     <div className="space-y-6">
 
       <>
-        {/* Header with search and create button */}
-        <div className="flex justify-between items-center">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
-            <Input
-              placeholder="Search roles by name or description..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+        {/* Header with create button */}
+        <div className="flex justify-end items-center">
           <div className="flex items-center space-x-3">
             <Button variant="outline" asChild>
               <Link href="/protected/admin/permissions">
@@ -596,166 +574,16 @@ export default function AdminRolesPage() {
               </div>
             ) : (
               <>
-                <Table>
-                  <TableHeader>
-                    {/* Header row with sorting */}
-                    <TableRow>
-                      <TableHeadSortable
-                        sortable
-                        sortDirection={sortColumn === 'name' ? sortDirection : null}
-                        onSort={() => handleSort('name')}
-                      >
-                        Role
-                      </TableHeadSortable>
-                      <TableHeadSortable
-                        sortable
-                        sortDirection={sortColumn === 'description' ? sortDirection : null}
-                        onSort={() => handleSort('description')}
-                      >
-                        Description
-                      </TableHeadSortable>
-                      <TableHeadSortable
-                        sortable
-                        sortDirection={sortColumn === 'type' ? sortDirection : null}
-                        onSort={() => handleSort('type')}
-                      >
-                        Type
-                      </TableHeadSortable>
-                      <TableHeadSortable
-                        sortable
-                        sortDirection={sortColumn === 'userCount' ? sortDirection : null}
-                        onSort={() => handleSort('userCount')}
-                      >
-                        Users
-                      </TableHeadSortable>
-                      <TableHeadSortable
-                        sortable
-                        sortDirection={sortColumn === 'createdAt' ? sortDirection : null}
-                        onSort={() => handleSort('createdAt')}
-                      >
-                        Created
-                      </TableHeadSortable>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-
-                    {/* Search row */}
-                    <TableRow>
-                      <TableHead>
-                        <TableColumnSearch
-                          placeholder="Search role..."
-                          onSearch={(value) => handleColumnFilter('name', value)}
-                        />
-                      </TableHead>
-                      <TableHead>
-                        <TableColumnSearch
-                          placeholder="Search description..."
-                          onSearch={(value) => handleColumnFilter('description', value)}
-                        />
-                      </TableHead>
-                      <TableHead>
-                        <TableColumnSearch
-                          placeholder="Search type..."
-                          onSearch={(value) => handleColumnFilter('type', value)}
-                        />
-                      </TableHead>
-                      <TableHead>
-                        <TableColumnSearch
-                          placeholder="Search count..."
-                          onSearch={(value) => handleColumnFilter('userCount', value)}
-                        />
-                      </TableHead>
-                      <TableHead>
-                        <TableColumnSearch
-                          placeholder="Search date..."
-                          onSearch={(value) => handleColumnFilter('createdAt', value)}
-                        />
-                      </TableHead>
-                      <TableHead className="text-right"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAndSortedRoles.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          No roles found.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredAndSortedRoles.map((role) => (
-                        <TableRow key={role.id}>
-                          <TableCell>
-                            <div className="flex items-center space-x-3">
-                              <div className="flex-shrink-0">
-                                <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                                  <Shield className="h-4 w-4 text-neutral-500" />
-                                </div>
-                              </div>
-                              <div>
-                                <div className="font-medium">{role.name}</div>
-                                {role.isDefault && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    <CheckCircle className="h-3 w-3 mr-1" />
-                                    Default
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="max-w-xs truncate">
-                              {role.description || 'No description'}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={role.isSystemManaged ? 'default' : 'secondary'}>
-                              {role.isSystemManaged ? 'System' : 'Custom'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center space-x-1">
-                              <Users className="h-4 w-4 text-neutral-400" />
-                              <span>{role.userCount}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              {formatDate(role.createdAt ?? '')}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openEditDialog(role)}
-                              >
-                                <Edit className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openDeleteDialog(role)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <TablePagination
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    pageSize={10}
-                    totalItems={roles.length}
-                    onPageChange={handlePageChange}
-                  />
-                )}
+                <DataTable
+                  columns={roleColumns}
+                  data={roles}
+                  searchable={true}
+                  columnSearch={true}
+                  pagination={true}
+                  export={true}
+                  selectable={true}
+                  title="Roles"
+                />
               </>
             )}
           </CardContent>
@@ -924,3 +752,4 @@ export default function AdminRolesPage() {
     </div>
   );
 }
+
