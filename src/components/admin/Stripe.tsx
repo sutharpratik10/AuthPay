@@ -14,16 +14,10 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableHeadSortable,
-  TableColumnSearch,
   TablePagination,
 } from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table/DataTable';
+import { DataTableColumn } from '@/components/ui/data-table/types';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import Loading from '@/components/Loading';
@@ -146,6 +140,248 @@ function subscriptionStatusColor(status: string): 'default' | 'secondary' | 'des
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function StripeAdmin() {
   const { toast } = useToast();
+
+  // Copy state (moved up for column use)
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const copyId = useCallback(async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1600);
+    } catch { /* ignore */ }
+  }, []);
+
+  const productColumns: DataTableColumn<StripeProduct>[] = useMemo(() => [
+    {
+      id: "name",
+      header: "Name",
+      accessorKey: "name",
+      sortable: true,
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => (
+        <div>
+          <p className="font-medium">{row.name}</p>
+          <p className="text-xs text-muted-foreground font-mono">{row.id}</p>
+        </div>
+      )
+    },
+    {
+      id: "default_price",
+      header: "Default Price",
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => {
+        const price = getDefaultPrice(row);
+        return price ? fmtAmount(price.unit_amount, price.currency) : '—';
+      }
+    },
+    {
+      id: "interval",
+      header: "Interval",
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => {
+        const price = getDefaultPrice(row);
+        return price?.recurring
+          ? `${price.recurring.interval_count > 1 ? price.recurring.interval_count + ' ' : ''}${price.recurring.interval}`
+          : '—';
+      }
+    },
+    {
+      id: "active",
+      header: "Active",
+      accessorKey: "active",
+      sortable: true,
+      searchable: true,
+      filterType: "boolean",
+      cell: ({ row }) => (
+        <Badge variant={row.active ? 'default' : 'secondary'}>
+          {row.active ? 'Active' : 'Inactive'}
+        </Badge>
+      )
+    },
+    {
+      id: "created",
+      header: "Created",
+      accessorKey: "created",
+      sortable: true,
+      searchable: true,
+      filterType: "date",
+      cell: ({ row }) => fmtDate(row.created)
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={e => { e.stopPropagation(); copyId(row.id); }}
+          title="Copy product ID"
+        >
+          {copiedId === row.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+        </Button>
+      )
+    }
+  ], [copiedId, copyId]);
+
+  const subscriptionColumns: DataTableColumn<StripeSubscription>[] = useMemo(() => [
+    {
+      id: "id",
+      header: "ID",
+      accessorKey: "id",
+      sortable: true,
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => <span className="font-mono text-xs">{row.id}</span>
+    },
+    {
+      id: "customer",
+      header: "Customer",
+      accessorKey: "customer",
+      sortable: true,
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => (
+        <div>
+          <p className="text-sm">{getCustomerEmail(row.customer)}</p>
+          {getCustomerName(row.customer) !== '—' && (
+            <p className="text-xs text-muted-foreground">{getCustomerName(row.customer)}</p>
+          )}
+        </div>
+      )
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorKey: "status",
+      sortable: true,
+      searchable: true,
+      filterType: "select",
+      options: [
+        { label: "Active", value: "active" },
+        { label: "Trialing", value: "trialing" },
+        { label: "Past Due", value: "past_due" },
+        { label: "Canceled", value: "canceled" },
+        { label: "Unpaid", value: "unpaid" },
+        { label: "Incomplete", value: "incomplete" }
+      ],
+      cell: ({ row }) => (
+        <>
+          <Badge variant={subscriptionStatusColor(row.status)}>
+            {row.status}
+          </Badge>
+          {row.cancel_at_period_end && (
+            <Badge variant="outline" className="ml-1 text-[10px]">cancels at period end</Badge>
+          )}
+        </>
+      )
+    },
+    {
+      id: "amount",
+      header: "Amount",
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => {
+        const price = row.items?.data?.[0]?.price;
+        return (
+          <>
+            {price ? fmtAmount(price.unit_amount, price.currency) : '—'}
+            {price?.recurring && (
+              <span className="text-xs text-muted-foreground ml-1">
+                /{price.recurring.interval}
+              </span>
+            )}
+          </>
+        );
+      }
+    },
+    {
+      id: "current_period_end",
+      header: "Period End",
+      accessorKey: "current_period_end",
+      sortable: true,
+      searchable: true,
+      filterType: "date",
+      cell: ({ row }) => fmtDate(row.current_period_end)
+    },
+    {
+      id: "created",
+      header: "Created",
+      accessorKey: "created",
+      sortable: true,
+      searchable: true,
+      filterType: "date",
+      cell: ({ row }) => fmtDate(row.created)
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={e => { e.stopPropagation(); copyId(row.id); }}
+          title="Copy subscription ID"
+        >
+          {copiedId === row.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+        </Button>
+      )
+    }
+  ], [copiedId, copyId]);
+
+  const customerColumns: DataTableColumn<StripeCustomer>[] = useMemo(() => [
+    {
+      id: "email",
+      header: "Email",
+      accessorKey: "email",
+      sortable: true,
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => row.email || '—'
+    },
+    {
+      id: "name",
+      header: "Name",
+      accessorKey: "name",
+      sortable: true,
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => row.name || '—'
+    },
+    {
+      id: "id",
+      header: "ID",
+      accessorKey: "id",
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.id}</span>
+    },
+    {
+      id: "created",
+      header: "Created",
+      accessorKey: "created",
+      sortable: true,
+      searchable: true,
+      filterType: "date",
+      cell: ({ row }) => fmtDate(row.created)
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={e => { e.stopPropagation(); copyId(row.id); }}
+          title="Copy customer ID"
+        >
+          {copiedId === row.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+        </Button>
+      )
+    }
+  ], [copiedId, copyId]);
 
   // ── Products ──────────────────────────────────────────────────────────────
   const [products, setProducts] = useState<StripeProduct[]>([]);
@@ -300,16 +536,6 @@ export default function StripeAdmin() {
     });
     return list;
   }, [customers, customerColumnFilters, customerSortField, customerSortDir]);
-
-  // Copy state
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const copyId = useCallback(async (id: string) => {
-    try {
-      await navigator.clipboard.writeText(id);
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 1600);
-    } catch { /* ignore */ }
-  }, []);
 
   // ── Data Loaders ──────────────────────────────────────────────────────────
   const loadProducts = useCallback(async (startingAfter?: string) => {
@@ -718,100 +944,18 @@ export default function StripeAdmin() {
           {productsLoading ? (
             <Loading text="Loading products…" size="sm" />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={productSortField === 'name' ? productSortDir : null}
-                    onSort={() => handleProductSort('name')}
-                  >
-                    Name
-                  </TableHeadSortable>
-                  <TableHead>Default Price</TableHead>
-                  <TableHead>Interval</TableHead>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={productSortField === 'active' ? productSortDir : null}
-                    onSort={() => handleProductSort('active')}
-                  >
-                    Active
-                  </TableHeadSortable>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={productSortField === 'created' ? productSortDir : null}
-                    onSort={() => handleProductSort('created')}
-                  >
-                    Created
-                  </TableHeadSortable>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-                <TableRow>
-                  <TableHead>
-                    <TableColumnSearch
-                      placeholder="Search name…"
-                      onSearch={v => setProductColumnFilters(f => ({ ...f, name: v }))}
-                    />
-                  </TableHead>
-                  <TableHead />
-                  <TableHead />
-                  <TableHead />
-                  <TableHead />
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSortedProducts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                      No products found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredSortedProducts.map(product => {
-                    const price = getDefaultPrice(product);
-                    return (
-                      <TableRow
-                        key={product.id}
-                        className="cursor-pointer hover:bg-accent/40"
-                        onClick={() => openProductDetail(product)}
-                      >
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{product.name}</p>
-                            <p className="text-xs text-muted-foreground font-mono">{product.id}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {price ? fmtAmount(price.unit_amount, price.currency) : '—'}
-                        </TableCell>
-                        <TableCell>
-                          {price?.recurring
-                            ? `${price.recurring.interval_count > 1 ? price.recurring.interval_count + ' ' : ''}${price.recurring.interval}`
-                            : '—'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={product.active ? 'default' : 'secondary'}>
-                            {product.active ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{fmtDate(product.created)}</TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={e => { e.stopPropagation(); copyId(product.id); }}
-                            title="Copy product ID"
-                          >
-                            {copiedId === product.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+            <div className="overflow-x-auto">
+              <DataTable selectable={true}
+                columns={productColumns}
+                data={filteredSortedProducts}
+                searchable={true}
+                columnSearch={true}
+                pagination={false}
+                export={true}
+                title="Stripe Products"
+                onRowClick={(row) => openProductDetail(row)}
+              />
+            </div>
           )}
           <TablePagination
             currentPage={productsCursor.length + 1}
@@ -865,120 +1009,18 @@ export default function StripeAdmin() {
           {subsLoading ? (
             <Loading text="Loading subscriptions…" size="sm" />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={subSortField === 'id' ? subSortDir : null}
-                    onSort={() => handleSubSort('id')}
-                  >
-                    ID
-                  </TableHeadSortable>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={subSortField === 'status' ? subSortDir : null}
-                    onSort={() => handleSubSort('status')}
-                  >
-                    Customer / Status
-                  </TableHeadSortable>
-                  <TableHead>Amount</TableHead>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={subSortField === 'current_period_end' ? subSortDir : null}
-                    onSort={() => handleSubSort('current_period_end')}
-                  >
-                    Period End
-                  </TableHeadSortable>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={subSortField === 'created' ? subSortDir : null}
-                    onSort={() => handleSubSort('created')}
-                  >
-                    Created
-                  </TableHeadSortable>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-                <TableRow>
-                  <TableHead>
-                    <TableColumnSearch
-                      placeholder="Search ID…"
-                      onSearch={v => setSubColumnFilters(f => ({ ...f, id: v }))}
-                    />
-                  </TableHead>
-                  <TableHead>
-                    <TableColumnSearch
-                      placeholder="Search email / status…"
-                      onSearch={v => setSubColumnFilters(f => ({ ...f, customer: v, status: v }))}
-                    />
-                  </TableHead>
-                  <TableHead />
-                  <TableHead />
-                  <TableHead />
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSortedSubs.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      No subscriptions found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredSortedSubs.map(sub => {
-                    const price = sub.items?.data?.[0]?.price;
-                    return (
-                      <TableRow
-                        key={sub.id}
-                        className="cursor-pointer hover:bg-accent/40"
-                        onClick={() => openSubDetail(sub)}
-                      >
-                        <TableCell>
-                          <span className="font-mono text-xs">{sub.id}</span>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="text-sm">{getCustomerEmail(sub.customer)}</p>
-                            {getCustomerName(sub.customer) !== '—' && (
-                              <p className="text-xs text-muted-foreground">{getCustomerName(sub.customer)}</p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={subscriptionStatusColor(sub.status)}>
-                            {sub.status}
-                          </Badge>
-                          {sub.cancel_at_period_end && (
-                            <Badge variant="outline" className="ml-1 text-[10px]">cancels at period end</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {price ? fmtAmount(price.unit_amount, price.currency) : '—'}
-                          {price?.recurring && (
-                            <span className="text-xs text-muted-foreground ml-1">
-                              /{price.recurring.interval}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>{fmtDate(sub.current_period_end)}</TableCell>
-                        <TableCell>{fmtDate(sub.created)}</TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={e => { e.stopPropagation(); copyId(sub.id); }}
-                            title="Copy subscription ID"
-                          >
-                            {copiedId === sub.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+            <div className="overflow-x-auto">
+              <DataTable selectable={true}
+                columns={subscriptionColumns}
+                data={filteredSortedSubs}
+                searchable={true}
+                columnSearch={true}
+                pagination={false}
+                export={true}
+                title="Stripe Subscriptions"
+                onRowClick={(row) => openSubDetail(row)}
+              />
+            </div>
           )}
           <TablePagination
             currentPage={subsCursor.length + 1}
@@ -1029,82 +1071,17 @@ export default function StripeAdmin() {
           {customersLoading ? (
             <Loading text="Loading customers…" size="sm" />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={customerSortField === 'email' ? customerSortDir : null}
-                    onSort={() => handleCustomerSort('email')}
-                  >
-                    Email
-                  </TableHeadSortable>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={customerSortField === 'name' ? customerSortDir : null}
-                    onSort={() => handleCustomerSort('name')}
-                  >
-                    Name
-                  </TableHeadSortable>
-                  <TableHead>ID</TableHead>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={customerSortField === 'created' ? customerSortDir : null}
-                    onSort={() => handleCustomerSort('created')}
-                  >
-                    Created
-                  </TableHeadSortable>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-                <TableRow>
-                  <TableHead>
-                    <TableColumnSearch
-                      placeholder="Search email…"
-                      onSearch={v => setCustomerColumnFilters(f => ({ ...f, email: v }))}
-                    />
-                  </TableHead>
-                  <TableHead>
-                    <TableColumnSearch
-                      placeholder="Search name…"
-                      onSearch={v => setCustomerColumnFilters(f => ({ ...f, name: v }))}
-                    />
-                  </TableHead>
-                  <TableHead />
-                  <TableHead />
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSortedCustomers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      No customers found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredSortedCustomers.map(customer => (
-                    <TableRow key={customer.id}>
-                      <TableCell>{customer.email || '—'}</TableCell>
-                      <TableCell>{customer.name || '—'}</TableCell>
-                      <TableCell>
-                        <span className="font-mono text-xs text-muted-foreground">{customer.id}</span>
-                      </TableCell>
-                      <TableCell>{fmtDate(customer.created)}</TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => copyId(customer.id)}
-                          title="Copy customer ID"
-                        >
-                          {copiedId === customer.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+            <div className="overflow-x-auto">
+              <DataTable selectable={true}
+                columns={customerColumns}
+                data={filteredSortedCustomers}
+                searchable={true}
+                columnSearch={true}
+                pagination={false}
+                export={true}
+                title="Stripe Customers"
+              />
+            </div>
           )}
           <TablePagination
             currentPage={customersCursor.length + 1}

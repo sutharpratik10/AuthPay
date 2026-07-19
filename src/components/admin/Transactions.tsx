@@ -3,25 +3,15 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-  TableHeadSortable,
-  TableColumnSearch,
-  TablePagination
-} from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table/DataTable';
+import { DataTableColumn } from '@/components/ui/data-table/types';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronDown, Calendar as CalendarIcon, Search, Download, X, RefreshCcwIcon } from 'lucide-react';
+import { ChevronDown, Calendar as CalendarIcon, Search, X, RefreshCcwIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils/helpers';
-import { downloadCSV } from '@/lib/utils/export';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -72,9 +62,7 @@ export default function Transactions() {
   const [filteredPayments, setFilteredPayments] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const pageSize = 20;
+  const FETCH_LIMIT = 100; // Increased limit since we use DataTable's client-side pagination
 
   // Filters
   const [q, setQ] = useState('');
@@ -84,23 +72,15 @@ export default function Transactions() {
   const [fromDate, setFromDate] = useState<Date | undefined>();
   const [toDate, setToDate] = useState<Date | undefined>();
 
-  // Sorting
-  const [sortField, setSortField] = useState<SortField>('created_at');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  // Column filters for table search
-  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
 
-  const loadPayments = useCallback(async (p = 1) => {
+  const loadPayments = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const skip = (p - 1) * pageSize;
-
       // Build Razorpay params
       const rzpParams = new URLSearchParams({
-        count: String(pageSize),
-        skip: String(skip),
+        count: String(FETCH_LIMIT),
         ...(q && { q }),
         ...(fromDate && { from: String(Math.floor(fromDate.getTime() / 1000)) }),
         ...(toDate && { to: String(Math.floor(toDate.getTime() / 1000)) })
@@ -108,7 +88,7 @@ export default function Transactions() {
 
       // Build Stripe params
       const stripeParams = new URLSearchParams({
-        limit: String(pageSize),
+        limit: String(FETCH_LIMIT),
         ...(q && { q }),
         ...(fromDate && { from: String(Math.floor(fromDate.getTime() / 1000)) }),
         ...(toDate && { to: String(Math.floor(toDate.getTime() / 1000)) })
@@ -164,7 +144,6 @@ export default function Transactions() {
 
       if (allItems.length > 0 || errors.length === 0) {
         setAllPayments(allItems);
-        setTotalCount(allItems.length);
         if (errors.length > 0) {
           // Partial success — show data but note the error
           console.warn('[Transactions] Partial load:', errors.join('; '));
@@ -191,47 +170,13 @@ export default function Transactions() {
     if (gatewayFilters.length > 0) {
       filtered = filtered.filter((item: PaymentItem) => gatewayFilters.includes(String(item._gateway || '').toLowerCase()));
     }
-
-    // Apply column filters
-    Object.entries(columnFilters).forEach(([column, filterValue]) => {
-      if (filterValue) {
-        filtered = filtered.filter((item: PaymentItem) => {
-          const itemValue = String((item as Record<string, unknown>)[column] || '').toLowerCase();
-          return itemValue.includes(filterValue.toLowerCase());
-        });
-      }
-    });
-
-    const getField = (obj: PaymentItem | Record<string, unknown>, f: SortField) => {
-      const o = obj as Record<string, unknown>;
-      const v = o[f];
-      if (v === undefined || v === null) return '';
-      return v;
-    };
-
-    filtered.sort((a, b) => {
-      let aVal: string | number = getField(a, sortField) as string | number;
-      let bVal: string | number = getField(b, sortField) as string | number;
-
-      if (sortField === 'created_at' || sortField === 'amount') {
-        aVal = (aVal as number) || 0;
-        bVal = (bVal as number) || 0;
-      } else {
-        aVal = String(aVal || '').toLowerCase();
-        bVal = String(bVal || '').toLowerCase();
-      }
-
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
     setFilteredPayments(filtered);
-  }, [allPayments, statusFilters, methodFilters, gatewayFilters, sortField, sortDirection, columnFilters]);
+  }, [allPayments, statusFilters, methodFilters, gatewayFilters]);
 
-  // Load data from API when page or search/date filters change
+  // Load data from API when search/date filters change
   useEffect(() => {
-    loadPayments(page);
-  }, [loadPayments, page]);
+    loadPayments();
+  }, [loadPayments]);
 
   // Apply client-side filters and sorting when data or filters change
   useEffect(() => {
@@ -245,26 +190,10 @@ export default function Transactions() {
     setGatewayFilters([]);
     setFromDate(undefined);
     setToDate(undefined);
-    setPage(1);
     // This will trigger a new API call due to dependencies
   };
 
-  const handleSort = (field: SortField) => {
-    if (field === sortField) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-    // No API call needed - applyFiltersAndSort will run via useEffect
-  };
 
-  const handleColumnFilter = (column: string, value: string) => {
-    setColumnFilters(prev => ({
-      ...prev,
-      [column]: value
-    }));
-  };
 
   // Payment details dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -328,49 +257,23 @@ export default function Transactions() {
   const [invoices, setInvoices] = useState<Record<string, unknown>[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [invoicesError, setInvoicesError] = useState<string | null>(null);
-  const [invoicesPage, setInvoicesPage] = useState(1);
-  const [invoicesTotal, setInvoicesTotal] = useState(0);
-  const invoicesPageSize = 20;
+  const INVOICE_FETCH_LIMIT = 100;
   const [invoiceQ, setInvoiceQ] = useState('');
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<string[]>([]);
-  type InvoiceSortField = 'id' | 'invoice_number' | 'customer_id' | 'amount' | 'status' | 'date';
-  const [invoiceSortField, setInvoiceSortField] = useState<InvoiceSortField>('date');
-  const [invoiceSortDirection, setInvoiceSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  // Invoice column filters for table search
-  const [invoiceColumnFilters, setInvoiceColumnFilters] = useState<Record<string, string>>({});
 
-  const handleInvoiceSort = (field: InvoiceSortField) => {
-    if (field === invoiceSortField) {
-      setInvoiceSortDirection(invoiceSortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setInvoiceSortField(field);
-      setInvoiceSortDirection('asc');
-    }
-  };
-
-  const handleInvoiceColumnFilter = (column: string, value: string) => {
-    setInvoiceColumnFilters(prev => ({
-      ...prev,
-      [column]: value
-    }));
-  };
-
-  const loadInvoices = useCallback(async (p = 1) => {
+  const loadInvoices = useCallback(async () => {
     setInvoicesLoading(true);
     setInvoicesError(null);
     try {
-      const skip = (p - 1) * invoicesPageSize;
-
       // Build Razorpay invoice params
       const rzpParams = new URLSearchParams();
-      rzpParams.set('count', String(invoicesPageSize));
-      rzpParams.set('skip', String(skip));
+      rzpParams.set('count', String(INVOICE_FETCH_LIMIT));
       if (invoiceStatusFilter.length > 0) rzpParams.set('status', invoiceStatusFilter[0]);
 
       // Build Stripe invoice params
       const stripeParams = new URLSearchParams();
-      stripeParams.set('limit', String(invoicesPageSize));
+      stripeParams.set('limit', String(INVOICE_FETCH_LIMIT));
       if (invoiceStatusFilter.length > 0) stripeParams.set('status', invoiceStatusFilter[0]);
 
       // Fetch from both gateways in parallel
@@ -413,16 +316,15 @@ export default function Transactions() {
       allItems.sort((a, b) => (Number(b.date) || 0) - (Number(a.date) || 0));
 
       setInvoices(allItems);
-      setInvoicesTotal(allItems.length);
     } catch (err) {
       console.error('Error loading invoices', err);
       setInvoicesError('Failed to load invoices');
     } finally {
       setInvoicesLoading(false);
     }
-  }, [invoicesPageSize, invoiceStatusFilter]);
+  }, [invoiceStatusFilter]);
 
-  useEffect(() => { loadInvoices(invoicesPage); }, [loadInvoices, invoicesPage]);
+  useEffect(() => { loadInvoices(); }, [loadInvoices]);
 
 
   // Client-side filtering and sorting for invoices
@@ -445,35 +347,11 @@ export default function Transactions() {
       ));
     }
 
-    // Apply column filters
-    Object.entries(invoiceColumnFilters).forEach(([column, filterValue]) => {
-      if (filterValue) {
-        arr = arr.filter((inv) => {
-          const itemValue = getInvoiceField(inv, column).toLowerCase();
-          return itemValue.includes(filterValue.toLowerCase());
-        });
-      }
-    });
-
-    arr.sort((a, b) => {
-      let aVal = getInvoiceField(a, invoiceSortField as string);
-      let bVal = getInvoiceField(b, invoiceSortField as string);
-      if (invoiceSortField === 'amount' || invoiceSortField === 'date') {
-        aVal = String(Number(aVal) || 0);
-        bVal = String(Number(bVal) || 0);
-      }
-      aVal = aVal.toLowerCase();
-      bVal = bVal.toLowerCase();
-      if (aVal < bVal) return invoiceSortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return invoiceSortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
     return arr;
-  }, [invoices, invoiceQ, invoiceSortField, invoiceSortDirection, invoiceColumnFilters]);
+  }, [invoices, invoiceQ]);
 
   const toggleInvoiceStatus = (status: string) => {
     setInvoiceStatusFilter(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
-    setInvoicesPage(1);
   };
 
 
@@ -497,37 +375,6 @@ export default function Transactions() {
     if (v === undefined || v === null) return undefined;
     return String(v);
   }, []);
-
-  const exportPayments = () => {
-    const dataToExport = filteredPayments.map(p => ({
-      ID: p.id,
-      Amount: p.amount ? (p.amount / 100).toFixed(2) : '0',
-      Currency: p.currency,
-      Status: p.status,
-      Method: p.method,
-      Email: p.email,
-      Date: p.created_at ? format(new Date(p.created_at * 1000), 'yyyy-MM-dd HH:mm:ss') : '',
-      Gateway: p._gateway
-    }));
-    downloadCSV(dataToExport, `payments_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
-  };
-
-  const exportInvoices = () => {
-    const dataToExport = filteredInvoices.map(inv => {
-      const amt = Number(inv.amount || 0);
-      return {
-        ID: inv.id,
-        Invoice_Number: getInvoiceVal(inv, 'invoice_number'),
-        Customer_ID: getInvoiceVal(inv, 'customer_id'),
-        Amount: amt ? (amt / 100).toFixed(2) : '0',
-        Currency: getInvoiceVal(inv, 'currency') || 'USD',
-        Status: getInvoiceVal(inv, 'status'),
-        Date: inv.date ? format(new Date(Number(inv.date) * 1000), 'yyyy-MM-dd HH:mm:ss') : '',
-        Gateway: getInvoiceVal(inv, '_gateway')
-      };
-    });
-    downloadCSV(dataToExport, `invoices_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
-  };
 
   const openPaymentDialog = (id: string, gateway: string = 'razorpay') => {
     setSelectedPaymentId(id);
@@ -693,6 +540,259 @@ export default function Transactions() {
     </Popover>
   );
 
+  const paymentColumns: DataTableColumn<PaymentItem>[] = useMemo(() => [
+    {
+      id: "id",
+      header: "Payment ID",
+      accessorKey: "id",
+      sortable: true,
+      searchable: true,
+      cell: ({ row }) => (
+        <button
+          type="button"
+          className="text-primary underline hover:text-primary/80"
+          onClick={() => openPaymentDialog(row.id, row._gateway as string)}
+        >
+          {row.id}
+        </button>
+      )
+    },
+    {
+      id: "amount",
+      header: "Amount",
+      accessorKey: "amount",
+      sortable: true,
+      searchable: true,
+      cell: ({ row }) => (
+        row.amount ? (
+          row.currency ?
+            new Intl.NumberFormat('en-IN', {
+              style: 'currency',
+              currency: row.currency
+            }).format(row.amount / 100) :
+            `₹${(row.amount / 100).toFixed(2)}`
+        ) : '--'
+      )
+    },
+    {
+      id: "currency",
+      header: "Currency",
+      accessorKey: "currency",
+      sortable: true,
+      searchable: true,
+      cell: ({ row }) => <span className="text-xs uppercase font-medium">{row.currency || '--'}</span>
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorKey: "status",
+      sortable: true,
+      searchable: true,
+      filterType: "multi-select",
+      options: [
+        { label: "Created", value: "created" },
+        { label: "Authorized", value: "authorized" },
+        { label: "Captured", value: "captured" },
+        { label: "Refunded", value: "refunded" },
+        { label: "Failed", value: "failed" }
+      ],
+      cell: ({ row }) => (
+        row.status ? (
+          <Badge
+            variant={
+              row.status === 'captured' ? 'default' :
+                row.status === 'failed' ? 'destructive' :
+                  row.status === 'authorized' ? 'secondary' :
+                    'outline'
+            }
+            className={cn('text-xs', row.status === 'failed' && 'text-white')}
+          >
+            {row.status.toUpperCase()}
+          </Badge>
+        ) : '--'
+      )
+    },
+    {
+      id: "method",
+      header: "Method",
+      accessorKey: "method",
+      sortable: true,
+      searchable: true,
+      filterType: "multi-select",
+      options: [
+        { label: "Card", value: "card" },
+        { label: "Netbanking", value: "netbanking" },
+        { label: "Wallet", value: "wallet" },
+        { label: "EMI", value: "emi" },
+        { label: "UPI", value: "upi" }
+      ],
+      cell: ({ row }) => <span className="capitalize">{row.method || '--'}</span>
+    },
+    {
+      id: "email",
+      header: "Email",
+      accessorKey: "email",
+      sortable: true,
+      searchable: true,
+      cell: ({ row }) => row.email || '--'
+    },
+    {
+      id: "_gateway",
+      header: "Gateway",
+      accessorKey: "_gateway",
+      sortable: true,
+      searchable: true,
+      filterType: "multi-select",
+      options: [
+        { label: "Razorpay", value: "razorpay" },
+        { label: "Stripe", value: "stripe" }
+      ],
+      cell: ({ row }) => (
+        <Badge
+          variant="outline"
+          className={cn(
+            'text-xs font-medium',
+            row._gateway === 'stripe'
+              ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300'
+              : 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300'
+          )}
+        >
+          {row._gateway === 'stripe' ? 'Stripe' : 'Razorpay'}
+        </Badge>
+      )
+    },
+    {
+      id: "created_at",
+      header: "Created",
+      accessorKey: "created_at",
+      sortable: true,
+      searchable: true,
+      filterType: "date",
+      cell: ({ row }) => (
+        row.created_at ?
+          new Date(row.created_at * 1000).toLocaleString('en-IN', {
+            dateStyle: 'short',
+            timeStyle: 'short'
+          }) : '--'
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
+
+  const invoiceColumns: DataTableColumn<Record<string, unknown>>[] = useMemo(() => [
+    {
+      id: "id",
+      header: "Invoice ID",
+      accessorKey: "id",
+      sortable: true,
+      searchable: true,
+      cell: ({ row }) => <span className="font-mono text-xs">{String(getInvoiceVal(row, 'id') || '--')}</span>
+    },
+    {
+      id: "invoice_number",
+      header: "Number",
+      accessorKey: "invoice_number",
+      sortable: true,
+      searchable: true,
+      cell: ({ row }) => String(getInvoiceVal(row, 'invoice_number') || getInvoiceVal(row, 'receipt') || '--')
+    },
+    {
+      id: "customer_id",
+      header: "Customer",
+      accessorKey: "customer_id",
+      sortable: true,
+      searchable: true,
+      cell: ({ row }) => String(getInvoiceVal(row, 'customer_id') || '--')
+    },
+    {
+      id: "amount",
+      header: "Amount",
+      accessorKey: "amount",
+      sortable: true,
+      searchable: true,
+      cell: ({ row }) => (
+        getInvoiceVal(row, 'amount') ? (getInvoiceVal(row, 'currency') ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: String(getInvoiceVal(row, 'currency')) }).format(Number(getInvoiceVal(row, 'amount')) / 100) : `₹${(Number(getInvoiceVal(row, 'amount')) / 100).toFixed(2)}`) : '--'
+      )
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorKey: "status",
+      sortable: true,
+      searchable: true,
+      filterType: "multi-select",
+      options: [
+        { label: "Draft", value: "draft" },
+        { label: "Issued", value: "issued" },
+        { label: "Partially Paid", value: "partially_paid" },
+        { label: "Paid", value: "paid" },
+        { label: "Cancelled", value: "cancelled" },
+        { label: "Expired", value: "expired" },
+        { label: "Deleted", value: "deleted" }
+      ],
+      cell: ({ row }) => <Badge className="text-xs">{String(getInvoiceVal(row, 'status') || '--')}</Badge>
+    },
+    {
+      id: "date",
+      header: "Date",
+      accessorKey: "date",
+      sortable: true,
+      searchable: true,
+      filterType: "date",
+      cell: ({ row }) => getInvoiceVal(row, 'date') ? new Date(Number(getInvoiceVal(row, 'date')) * 1000).toLocaleString('en-IN') : '--'
+    },
+    {
+      id: "_gateway",
+      header: "Gateway",
+      accessorKey: "_gateway",
+      sortable: true,
+      searchable: true,
+      filterType: "multi-select",
+      options: [
+        { label: "Razorpay", value: "razorpay" },
+        { label: "Stripe", value: "stripe" }
+      ],
+      cell: ({ row }) => (
+        <Badge
+          variant="outline"
+          className={cn(
+            'text-xs font-medium',
+            getInvoiceVal(row, '_gateway') === 'stripe'
+              ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300'
+              : 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300'
+          )}
+        >
+          {getInvoiceVal(row, '_gateway') === 'stripe' ? 'Stripe' : 'Razorpay'}
+        </Badge>
+      )
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-auto p-1 text-sm inline-flex items-center gap-2"
+            onClick={() => openInvoiceDialog(String(getInvoiceVal(row, 'id') || ''))}
+          >
+            Open
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-id', String(getInvoiceVal(row, 'id')))}>
+            {copiedKey === 'invoice-id' ? 'Copied' : 'Copy ID'}
+          </Button>
+          {(getInvoiceVal(row, 'short_url') || getInvoiceVal(row, 'hosted_invoice_url')) && (
+            <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-url', String(getInvoiceVal(row, 'short_url') || getInvoiceVal(row, 'hosted_invoice_url')))}>
+              {copiedKey === 'invoice-url' ? 'Copied' : 'Copy Link'}
+            </Button>
+          )}
+        </div>
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [getInvoiceVal, copyToClipboard, copiedKey]);
+
   return (
     <div className="space-y-6">
 
@@ -705,51 +805,16 @@ export default function Transactions() {
               <p className="text-sm text-muted-foreground mt-1">Monitor and manage payment transactions with advanced filtering</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={() => { setPage(1); loadPayments(1); }} className="flex items-center gap-2">
-                <RefreshCcwIcon className={cn("w-4 h-4", loading && "animate-spin")} />
+              <Button onClick={() => loadPayments()} className="flex items-center gap-2">
+                <RefreshCcwIcon className={cn("w-4 h-4", loading && "animate-spin [animation-direction:reverse]")} />
                 Refresh
-              </Button>
-              <Button variant="outline" onClick={exportPayments} className="flex items-center gap-2">
-                <Download className="w-4 h-4" />
-                Export
               </Button>
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Search and Filters */}
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by payment ID, order ID, or email..."
-                  value={q}
-                  onChange={e => setQ(e.target.value)}
-                  className="pl-10 lg:w-96"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <DatePicker date={fromDate} setDate={setFromDate} placeholder="From date" />
-              <DatePicker date={toDate} setDate={setToDate} placeholder="To date" />
-              <StatusFilterDropdown />
-              <MethodFilterDropdown />
-              <GatewayFilterDropdown />
-              {(statusFilters.length > 0 || methodFilters.length > 0 || gatewayFilters.length > 0 || fromDate || toDate || q) && (
-                <Button
-                  variant="ghost"
-                  onClick={clearFilters}
-                  className="flex items-center gap-2"
-                >
-                  <X className="w-4 h-4" />
-                  Clear all
-                </Button>
-              )}
-            </div>
-          </div>
+          {/* Search and Filters replaced by DataTable */}
           {/* Results */}
 
           {loading ? (
@@ -760,227 +825,23 @@ export default function Transactions() {
           ) : error ? (
             <div className="py-12 text-center space-y-3">
               <p className="text-red-700 font-semibold text-lg">{error}</p>
-              <Button onClick={() => loadPayments(page)} className="mt-4" variant="outline">
+              <Button onClick={() => loadPayments()} className="mt-4" variant="outline">
                 Try again
               </Button>
             </div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'id' ? sortDirection : null}
-                      onSort={() => handleSort('id')}
-                      className="w-48"
-                    >
-                      Payment ID
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'amount' ? sortDirection : null}
-                      onSort={() => handleSort('amount')}
-                      className="w-32"
-                    >
-                      Amount
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'currency' ? sortDirection : null}
-                      onSort={() => handleSort('currency')}
-                      className="w-24"
-                    >
-                      Currency
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'status' ? sortDirection : null}
-                      onSort={() => handleSort('status')}
-                      className="w-32"
-                    >
-                      Status
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'method' ? sortDirection : null}
-                      onSort={() => handleSort('method')}
-                      className="w-32"
-                    >
-                      Method
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'email' ? sortDirection : null}
-                      onSort={() => handleSort('email')}
-                    >
-                      Email
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === '_gateway' ? sortDirection : null}
-                      onSort={() => handleSort('_gateway')}
-                      className="w-32"
-                    >
-                      Gateway
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'created_at' ? sortDirection : null}
-                      onSort={() => handleSort('created_at')}
-                      className="w-44"
-                    >
-                      Created
-                    </TableHeadSortable>
-                  </TableRow>
-                  <TableRow>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search ID..."
-                        onSearch={(value) => handleColumnFilter('id', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search amount..."
-                        onSearch={(value) => handleColumnFilter('amount', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search currency..."
-                        onSearch={(value) => handleColumnFilter('currency', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search status..."
-                        onSearch={(value) => handleColumnFilter('status', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search method..."
-                        onSearch={(value) => handleColumnFilter('method', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search email..."
-                        onSearch={(value) => handleColumnFilter('email', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search gateway..."
-                        onSearch={(value) => handleColumnFilter('_gateway', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search date..."
-                        onSearch={(value) => handleColumnFilter('created_at', value)}
-                      />
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                  {filteredPayments.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
-                        <div className="flex flex-col items-center gap-2">
-                          <Search className="w-8 h-8 opacity-50" />
-                          <p>No transactions found</p>
-                          <p className="text-xs">Try adjusting your filters or search terms</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredPayments.map((payment: PaymentItem) => (
-                      <TableRow key={payment.id} className="hover:bg-muted/30 transition-colors">
-                        <TableCell className="font-mono text-xs">
-                          <button
-                            type="button"
-                            className="text-primary underline hover:text-primary/80"
-                            onClick={() => openPaymentDialog(payment.id, payment._gateway as string)}
-                          >
-                            {payment.id}
-                          </button>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {payment.amount ? (
-                            payment.currency ?
-                              new Intl.NumberFormat('en-IN', {
-                                style: 'currency',
-                                currency: payment.currency
-                              }).format(payment.amount / 100) :
-                              `₹${(payment.amount / 100).toFixed(2)}`
-                          ) : '--'}
-                        </TableCell>
-                        <TableCell className="text-xs uppercase font-medium">
-                          {payment.currency || '--'}
-                        </TableCell>
-                        <TableCell>
-                          {payment.status ? (
-                            <Badge
-                              variant={
-                                payment.status === 'captured' ? 'default' :
-                                  payment.status === 'failed' ? 'destructive' :
-                                    payment.status === 'authorized' ? 'secondary' :
-                                      'outline'
-                              }
-                              className={cn('text-xs', payment.status === 'failed' && 'text-white')}
-                            >
-                              {payment.status.toUpperCase()}
-                            </Badge>
-                          ) : '--'}
-                        </TableCell>
-                        <TableCell className="capitalize">
-                          {payment.method || '--'}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {payment.email || '--'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              'text-xs font-medium',
-                              payment._gateway === 'stripe'
-                                ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300'
-                                : 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300'
-                            )}
-                          >
-                            {payment._gateway === 'stripe' ? 'Stripe' : 'Razorpay'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {payment.created_at ?
-                            new Date(payment.created_at * 1000).toLocaleString('en-IN', {
-                              dateStyle: 'short',
-                              timeStyle: 'short'
-                            }) : '--'
-                          }
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+            <div className="overflow-x-auto">
+              <DataTable selectable={true}
+                columns={paymentColumns}
+                data={filteredPayments}
+                searchable={true}
+                columnSearch={true}
+                pagination={true}
+                export={true}
+              />
             </div>
           )}
         </CardContent>
-
-        {/* Payments pagination footer */}
-        <TablePagination
-          currentPage={page}
-          totalPages={Math.ceil((totalCount || 0) / pageSize)}
-          pageSize={pageSize}
-          totalItems={totalCount}
-          onPageChange={setPage}
-          className="p-4"
-        />
 
       </Card>
 
@@ -992,30 +853,6 @@ export default function Transactions() {
               <CardTitle className="text-2xl font-bold">Invoices</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">Invoices from all payment gateways</p>
             </div>
-            <div className="flex items-center gap-2">
-              <Input placeholder="Search invoices..." value={invoiceQ} onChange={e => setInvoiceQ(e.target.value)} className="w-64" />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2">Status {invoiceStatusFilter.length > 0 && `(${invoiceStatusFilter.length})`} <ChevronDown className="w-4 h-4" /></Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-48">
-                  <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <div className="p-2 space-y-2">
-                    {['draft', 'issued', 'partially_paid', 'paid', 'cancelled', 'expired', 'deleted'].map(s => (
-                      <div key={s} className="flex items-center space-x-2">
-                        <Checkbox id={`inv-status-${s}`} checked={invoiceStatusFilter.includes(s)} onCheckedChange={() => toggleInvoiceStatus(s)} />
-                        <label htmlFor={`inv-status-${s}`} className="text-sm capitalize cursor-pointer">{s.replace('_', ' ')}</label>
-                      </div>
-                    ))}
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button variant="outline" onClick={exportInvoices} className="flex items-center gap-2">
-                <Download className="w-4 h-4" />
-                Export
-              </Button>
-            </div>
           </div>
         </CardHeader>
 
@@ -1025,163 +862,23 @@ export default function Transactions() {
           ) : invoicesError ? (
             <div className="py-12 text-center">
               <p className="text-red-600 font-medium">{invoicesError}</p>
-              <Button onClick={() => loadInvoices(invoicesPage)} className="mt-2">Try again</Button>
+              <Button onClick={() => loadInvoices()} className="mt-2">Try again</Button>
             </div>
           ) : invoices.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">No invoices found</div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={invoiceSortField === 'id' ? invoiceSortDirection : null}
-                      onSort={() => handleInvoiceSort('id')}
-                    >
-                      Invoice ID
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={invoiceSortField === 'invoice_number' ? invoiceSortDirection : null}
-                      onSort={() => handleInvoiceSort('invoice_number')}
-                    >
-                      Number
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={invoiceSortField === 'customer_id' ? invoiceSortDirection : null}
-                      onSort={() => handleInvoiceSort('customer_id')}
-                    >
-                      Customer
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={invoiceSortField === 'amount' ? invoiceSortDirection : null}
-                      onSort={() => handleInvoiceSort('amount')}
-                    >
-                      Amount
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={invoiceSortField === 'status' ? invoiceSortDirection : null}
-                      onSort={() => handleInvoiceSort('status')}
-                    >
-                      Status
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={invoiceSortField === 'date' ? invoiceSortDirection : null}
-                      onSort={() => handleInvoiceSort('date')}
-                    >
-                      Date
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={invoiceSortField === 'date' ? invoiceSortDirection : null}
-                      onSort={() => handleInvoiceSort('date')}
-                    >
-                      Gateway
-                    </TableHeadSortable>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                  <TableRow>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search ID..."
-                        onSearch={(value) => handleInvoiceColumnFilter('id', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search number..."
-                        onSearch={(value) => handleInvoiceColumnFilter('invoice_number', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search customer..."
-                        onSearch={(value) => handleInvoiceColumnFilter('customer_id', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search amount..."
-                        onSearch={(value) => handleInvoiceColumnFilter('amount', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search status..."
-                        onSearch={(value) => handleInvoiceColumnFilter('status', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search date..."
-                        onSearch={(value) => handleInvoiceColumnFilter('date', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search gateway..."
-                        onSearch={(value) => handleInvoiceColumnFilter('_gateway', value)}
-                      />
-                    </TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                  {filteredInvoices.map(inv => (
-                    <TableRow key={String(getInvoiceVal(inv, 'id') || Math.random())} className="hover:bg-muted/30">
-                      <TableCell className="font-mono text-xs">{String(getInvoiceVal(inv, 'id') || '--')}</TableCell>
-                      <TableCell>{String(getInvoiceVal(inv, 'invoice_number') || getInvoiceVal(inv, 'receipt') || '--')}</TableCell>
-                      <TableCell className="text-sm">{String(getInvoiceVal(inv, 'customer_id') || '--')}</TableCell>
-                      <TableCell className="font-medium">{getInvoiceVal(inv, 'amount') ? (getInvoiceVal(inv, 'currency') ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: String(getInvoiceVal(inv, 'currency')) }).format(Number(getInvoiceVal(inv, 'amount')) / 100) : `₹${(Number(getInvoiceVal(inv, 'amount')) / 100).toFixed(2)}`) : '--'}</TableCell>
-                      <TableCell><Badge className="text-xs">{String(getInvoiceVal(inv, 'status') || '--')}</Badge></TableCell>
-                      <TableCell className="text-sm">{getInvoiceVal(inv, 'date') ? new Date(Number(getInvoiceVal(inv, 'date')) * 1000).toLocaleString('en-IN') : '--'}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'text-xs font-medium',
-                            getInvoiceVal(inv, '_gateway') === 'stripe'
-                              ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300'
-                              : 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300'
-                          )}
-                        >
-                          {getInvoiceVal(inv, '_gateway') === 'stripe' ? 'Stripe' : 'Razorpay'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-auto p-1 text-sm inline-flex items-center gap-2"
-                          onClick={() => openInvoiceDialog(String(getInvoiceVal(inv, 'id') || ''))}
-                        >
-                          Open
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-id', String(getInvoiceVal(inv, 'id')))}>{copiedKey === 'invoice-id' ? 'Copied' : 'Copy ID'}</Button>
-                        {(getInvoiceVal(inv, 'short_url') || getInvoiceVal(inv, 'hosted_invoice_url')) && <Button size="sm" variant="ghost" onClick={() => copyToClipboard('invoice-url', String(getInvoiceVal(inv, 'short_url') || getInvoiceVal(inv, 'hosted_invoice_url')))}>{copiedKey === 'invoice-url' ? 'Copied' : 'Copy Link'}</Button>}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="overflow-x-auto">
+              <DataTable selectable={true}
+                columns={invoiceColumns}
+                data={filteredInvoices}
+                searchable={true}
+                columnSearch={true}
+                pagination={true}
+                export={true}
+              />
             </div>
           )}
         </CardContent>
-
-        <TablePagination
-          currentPage={invoicesPage}
-          totalPages={Math.ceil((invoicesTotal || 0) / invoicesPageSize)}
-          pageSize={invoicesPageSize}
-          totalItems={invoicesTotal}
-          onPageChange={setInvoicesPage}
-          className="p-4"
-        />
       </Card>
 
       {/* Payment Details Dialog */}

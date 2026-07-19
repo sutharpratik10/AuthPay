@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table/DataTable';
+import { DataTableColumn } from '@/components/ui/data-table/types';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
@@ -212,11 +214,6 @@ export default function GatewaySettings() {
   // ---- country search in form ----
   const [countrySearch, setCountrySearch] = useState('');
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
-
-  // ---- table filter ----
-  const [filterGateway, setFilterGateway] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [search, setSearch] = useState('');
 
   // ---- delete confirm ----
   const [deleteTarget, setDeleteTarget] = useState<GatewayRule | null>(null);
@@ -481,27 +478,10 @@ export default function GatewaySettings() {
   const disabledCount = rules.filter((r) => !r.isEnabled).length;
 
   // --------------------------------------------------------------------------
-  // Filtered table rows
+  // Sorted table rows
   // --------------------------------------------------------------------------
 
-  const filtered = rules.filter((r) => {
-    if (filterGateway !== 'all' && r.gateway !== filterGateway) return false;
-    if (filterStatus === 'enabled' && !r.isEnabled) return false;
-    if (filterStatus === 'disabled' && r.isEnabled) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      const countryMatch = r.countryCode
-        ? (r.countryCode.toLowerCase().includes(q) || getCountryName(r.countryCode).toLowerCase().includes(q))
-        : 'global'.includes(q);
-      const notesMatch = r.notes?.toLowerCase().includes(q) ?? false;
-      const gwMatch = r.gateway.toLowerCase().includes(q);
-      if (!countryMatch && !notesMatch && !gwMatch) return false;
-    }
-    return true;
-  });
-
-  // Sort: global rule first, then country rules alphabetically
-  const sorted = [...filtered].sort((a, b) => {
+  const sorted = [...rules].sort((a, b) => {
     if (a.countryCode === null) return -1;
     if (b.countryCode === null) return 1;
     return a.countryCode.localeCompare(b.countryCode);
@@ -712,6 +692,229 @@ export default function GatewaySettings() {
   // Render
   // --------------------------------------------------------------------------
 
+  const ruleColumns: DataTableColumn<GatewayRule>[] = useMemo(() => [
+    {
+      id: "countryCode",
+      header: "Country / Scope",
+      accessorKey: "countryCode",
+      sortable: true,
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {row.countryCode === null ? (
+            <>
+              <Globe className="w-4 h-4 text-yellow-400 shrink-0" />
+              <div>
+                <span className="font-medium text-yellow-300">Global Default</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="text-lg leading-none">{countryFlagEmoji(row.countryCode)}</span>
+              <div>
+                <span className="font-medium">{getCountryName(row.countryCode)}</span>
+                <span className="ml-1.5 text-xs text-muted-foreground">{row.countryCode}</span>
+              </div>
+            </>
+          )}
+        </div>
+      )
+    },
+    {
+      id: "gateway",
+      header: "Gateway",
+      accessorKey: "gateway",
+      sortable: true,
+      searchable: true,
+      filterType: "select",
+      options: [
+        { label: "RazorPay", value: "razorpay" },
+        { label: "Stripe", value: "stripe" },
+        { label: "None", value: "none" }
+      ],
+      cell: ({ row }) => (
+        <Badge variant="outline" className={`text-xs ${GATEWAY_COLORS[row.gateway]}`}>
+          {GATEWAY_LABELS[row.gateway]}
+        </Badge>
+      )
+    },
+    {
+      id: "isEnabled",
+      header: "Status",
+      accessorKey: "isEnabled",
+      sortable: true,
+      searchable: true,
+      filterType: "boolean",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={row.isEnabled}
+            onCheckedChange={() => quickToggle(row)}
+            disabled={saving}
+          />
+          <span className={`text-xs ${row.isEnabled ? 'text-green-400' : 'text-red-400'}`}>
+            {row.isEnabled ? 'ON' : 'OFF'}
+          </span>
+        </div>
+      )
+    },
+    {
+      id: "isDefault",
+      header: "Type",
+      accessorKey: "isDefault",
+      sortable: true,
+      searchable: true,
+      filterType: "boolean",
+      cell: ({ row }) => (
+        row.isDefault ? (
+          <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-400 border-yellow-500/20">
+            <Star className="w-2.5 h-2.5 mr-1" /> Default
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/20">
+            Country
+          </Badge>
+        )
+      )
+    },
+    {
+      id: "notes",
+      header: "Notes",
+      accessorKey: "notes",
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground max-w-40 truncate inline-block">
+          {row.notes ?? '—'}
+        </span>
+      )
+    },
+    {
+      id: "updatedAt",
+      header: "Last Updated",
+      accessorKey: "updatedAt",
+      sortable: true,
+      searchable: true,
+      filterType: "date",
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {fmtDate(row.updatedAt)}
+        </span>
+      )
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => openEdit(row)}
+            title="Edit rule"
+          >
+            <Edit className="w-3.5 h-3.5" />
+          </Button>
+          {row.countryCode !== null && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              onClick={() => confirmDelete(row)}
+              title="Delete rule"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          )}
+        </div>
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [saving]);
+
+  const vendorPlanColumns: DataTableColumn<any>[] = useMemo(() => [
+    {
+      id: "gateway",
+      header: "Gateway",
+      accessorKey: "gateway",
+      sortable: true,
+      searchable: true,
+      filterType: "select",
+      options: [
+        { label: "RazorPay", value: "razorpay" },
+        { label: "Stripe", value: "stripe" }
+      ],
+      cell: ({ row }) => (
+        <Badge variant="outline" className={`text-xs ${GATEWAY_COLORS[row.gateway]}`}>
+          {GATEWAY_LABELS[row.gateway]}
+        </Badge>
+      )
+    },
+    {
+      id: "name",
+      header: "Plan Name",
+      accessorKey: "name",
+      sortable: true,
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => (
+        <div className="font-medium">
+          {row.name}
+          <p className="text-xs text-muted-foreground opacity-60 m-0 p-0 font-normal">{row.id}</p>
+        </div>
+      )
+    },
+    {
+      id: "price",
+      header: "Price",
+      accessorKey: "price",
+      sortable: true,
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => (
+        <span className="font-medium">
+          {row.currency}{Number(row.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+      )
+    },
+    {
+      id: "interval",
+      header: "Interval",
+      accessorKey: "interval",
+      sortable: true,
+      searchable: true,
+      filterType: "text",
+      cell: ({ row }) => (
+        <span className="capitalize text-muted-foreground">
+          {row.interval}
+        </span>
+      )
+    },
+    {
+      id: "isVisibleToCustomers",
+      header: "Visibility Toggle",
+      accessorKey: "isVisibleToCustomers",
+      sortable: true,
+      searchable: true,
+      filterType: "boolean",
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-2">
+          <span className={`text-xs ${row.isVisibleToCustomers ? 'text-green-500' : 'text-red-500'}`}>
+            {row.isVisibleToCustomers ? 'ON' : 'OFF'}
+          </span>
+          <Switch
+            checked={row.isVisibleToCustomers}
+            onCheckedChange={() => toggleVendorPlanVisibility(row.dbId, row.isVisibleToCustomers)}
+            disabled={plansLoading}
+          />
+        </div>
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [plansLoading]);
+
   if (loading) return <Loading />;
 
   return (
@@ -903,161 +1106,18 @@ export default function GatewaySettings() {
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <CardTitle className="text-base">Country Rules</CardTitle>
-            <div className="flex flex-wrap gap-2">
-              {/* Search */}
-              <div className="relative">
-                <input
-                  className="h-8 w-48 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  placeholder="Search country / gateway…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              {/* Gateway filter */}
-              <select
-                title="Filter by gateway"
-                className="h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                value={filterGateway}
-                onChange={(e) => setFilterGateway(e.target.value)}
-              >
-                <option value="all">All Gateways</option>
-                <option value="razorpay">RazorPay</option>
-                <option value="stripe">Stripe</option>
-                <option value="none">None</option>
-              </select>
-              {/* Status filter */}
-              <select
-                title="Filter by status"
-                className="h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <option value="all">All Status</option>
-                <option value="enabled">Enabled</option>
-                <option value="disabled">Disabled</option>
-              </select>
-            </div>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Country / Scope</TableHead>
-                <TableHead>Gateway</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead>Last Updated</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sorted.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
-                    {rules.length === 0 ? 'No gateway rules configured yet.' : 'No rules match the current filter.'}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sorted.map((rule) => (
-                  <TableRow key={rule.id} className={rule.countryCode === null ? 'bg-yellow-500/5' : ''}>
-                    {/* Country */}
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {rule.countryCode === null ? (
-                          <>
-                            <Globe className="w-4 h-4 text-yellow-400 shrink-0" />
-                            <div>
-                              <span className="font-medium text-yellow-300">Global Default</span>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <span className="text-lg leading-none">{countryFlagEmoji(rule.countryCode)}</span>
-                            <div>
-                              <span className="font-medium">{getCountryName(rule.countryCode)}</span>
-                              <span className="ml-1.5 text-xs text-muted-foreground">{rule.countryCode}</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-
-                    {/* Gateway */}
-                    <TableCell>
-                      <Badge variant="outline" className={`text-xs ${GATEWAY_COLORS[rule.gateway]}`}>
-                        {GATEWAY_LABELS[rule.gateway]}
-                      </Badge>
-                    </TableCell>
-
-                    {/* Status toggle */}
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={rule.isEnabled}
-                          onCheckedChange={() => quickToggle(rule)}
-                          disabled={saving}
-                        />
-                        <span className={`text-xs ${rule.isEnabled ? 'text-green-400' : 'text-red-400'}`}>
-                          {rule.isEnabled ? 'ON' : 'OFF'}
-                        </span>
-                      </div>
-                    </TableCell>
-
-                    {/* Type */}
-                    <TableCell>
-                      {rule.isDefault ? (
-                        <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-400 border-yellow-500/20">
-                          <Star className="w-2.5 h-2.5 mr-1" /> Default
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/20">
-                          Country
-                        </Badge>
-                      )}
-                    </TableCell>
-
-                    {/* Notes */}
-                    <TableCell className="text-sm text-muted-foreground max-w-40 truncate">
-                      {rule.notes ?? '—'}
-                    </TableCell>
-
-                    {/* Date */}
-                    <TableCell className="text-sm text-muted-foreground">
-                      {fmtDate(rule.updatedAt)}
-                    </TableCell>
-
-                    {/* Actions */}
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => openEdit(rule)}
-                          title="Edit rule"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </Button>
-                        {rule.countryCode !== null && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                            onClick={() => confirmDelete(rule)}
-                            title="Delete rule"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+        <CardContent>
+          <DataTable selectable={true}
+            columns={ruleColumns}
+            data={sorted}
+            searchable={true}
+            columnSearch={true}
+            pagination={true}
+            export={true}
+            title="Country Rules"
+          />
         </CardContent>
       </Card>
 
@@ -1087,67 +1147,19 @@ export default function GatewaySettings() {
             )}
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Gateway</TableHead>
-                <TableHead>Plan Name</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Interval</TableHead>
-                <TableHead className="text-right">Visibility Toggle</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {plansLoading && vendorPlans.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6">
-                    <div className="flex items-center justify-center">
-                      <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : vendorPlans.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No gateway plans found. Creating a plan via the Razorpay or Stripe dashboards will automatically sync them here once loaded.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                vendorPlans.map((plan) => (
-                  <TableRow key={plan.id}>
-                    <TableCell>
-                      <Badge variant="outline" className={`text-xs ${GATEWAY_COLORS[plan.gateway]}`}>
-                        {GATEWAY_LABELS[plan.gateway]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {plan.name}
-                      <p className="text-xs text-muted-foreground opacity-60 m-0 p-0 font-normal">{plan.id}</p>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {plan.currency}{Number(plan.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell className="capitalize text-muted-foreground">
-                      {plan.interval}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <span className={`text-xs ${plan.isVisibleToCustomers ? 'text-green-500' : 'text-red-500'}`}>
-                          {plan.isVisibleToCustomers ? 'ON' : 'OFF'}
-                        </span>
-                        <Switch
-                          checked={plan.isVisibleToCustomers}
-                          onCheckedChange={() => toggleVendorPlanVisibility(plan.dbId, plan.isVisibleToCustomers)}
-                          disabled={plansLoading}
-                        />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+        <CardContent className="">
+          {plansLoading && vendorPlans.length === 0 ? (
+            <div className="flex justify-center items-center py-10">
+              <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <DataTable selectable={true}
+              columns={vendorPlanColumns}
+              data={vendorPlans}
+              searchable={true}
+              pagination={true}
+            />
+          )}
         </CardContent>
       </Card>
 
