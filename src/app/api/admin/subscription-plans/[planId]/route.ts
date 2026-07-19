@@ -179,6 +179,5 @@ async function deleteSubscriptionPlan(req: NextRequest, context?: unknown) {
   }
 }
 
-// Export the route handlers wrapped with admin policy checking
-export const PUT = withPolicy(updateSubscriptionPlan, API_POLICIES.SUBSCRIPTION_MANAGE);
-export const DELETE = withPolicy(deleteSubscriptionPlan, API_POLICIES.SUBSCRIPTION_MANAGE);
+export const PUT = withPolicy(updateSubscriptionPlan, API_POLICIES.ADMIN_ACCESS);
+export const DELETE = withPolicy(deleteSubscriptionPlan, API_POLICIES.ADMIN_ACCESS);

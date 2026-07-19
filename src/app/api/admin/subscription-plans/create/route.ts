@@ -84,4 +84,4 @@ async function createSubscriptionPlan(req: NextRequest) {
 }
 
 // Export the route handler wrapped with admin policy checking
-export const POST = withPolicy(createSubscriptionPlan, API_POLICIES.SUBSCRIPTION_MANAGE);
+export const POST = withPolicy(createSubscriptionPlan, API_POLICIES.ADMIN_ACCESS);
