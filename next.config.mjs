@@ -37,7 +37,8 @@ const securityHeaders = [
 const nextConfig = {
   typescript: {
     ignoreBuildErrors: true, // We check TS independently, Next worker crashes with TS 7
-    reactStrictMode: false,
+  },
+  reactStrictMode: false,
     poweredByHeader: false,
     async headers() {
       return [
@@ -74,7 +75,8 @@ const nextConfig = {
         child_process: { browser: './empty.js' },
       },
     },
-  };
+  },
+};
 
-  export default nextConfig;
+export default nextConfig;
 
