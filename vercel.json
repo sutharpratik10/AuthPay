@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "buildCommand": "npm run db:migrate && npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs"
+}

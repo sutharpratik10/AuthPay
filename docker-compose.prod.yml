@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: authpay-pgbouncer
+    ports:
+      - "6432:6432"
+    environment:
+      - DATABASE_URL=postgres://Authpay_user:secure_password@postgres:5432/Authpay_db
+      - POOL_MODE=transaction
+      - MAX_CLIENT_CONN=5000
+      - DEFAULT_POOL_SIZE=50
+    volumes:
+      # Optional: bind mount userlist.txt if you want strict md5 auth
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    restart: unless-stopped
+    depends_on:
+      - postgres
+
+  haproxy:
+    image: haproxy:2.8
+    container_name: authpay-haproxy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    restart: unless-stopped
+    # Depending on how PM2 is running (host vs docker network), you might need 'network_mode: host' on Linux.
+    # On Windows/Mac, 'host.docker.internal' is used in haproxy.cfg if pointing to the host PM2 cluster.
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: authpay-postgres
+    environment:
+      POSTGRES_USER: Authpay_user
+      POSTGRES_PASSWORD: secure_password
+      POSTGRES_DB: Authpay_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
