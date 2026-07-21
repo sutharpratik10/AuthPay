@@ -37,50 +37,44 @@ const securityHeaders = [
 const nextConfig = {
   typescript: {
     ignoreBuildErrors: true, // We check TS independently, Next worker crashes with TS 7
-  },
-  eslint: {
-    ignoreDuringBuilds: true, // ESLint 9 can crash the Next.js build worker on Vercel
-  },
-
-  output: "standalone",
-  reactStrictMode: false,
-  poweredByHeader: false,
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: securityHeaders,
-      },
-    ];
-  },
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'avatars.githubusercontent.com',
-      },
-      // add other remote patterns as needed
-    ],
-  },
-  turbopack: {
-    root: '.',
-    resolveAlias: {
-      // Resolve alias fallback for Node.js built-in modules in client bundles
-      fs: { browser: './empty.js' },
-      net: { browser: './empty.js' },
-      tls: { browser: './empty.js' },
-      crypto: { browser: './empty.js' },
-      stream: { browser: './empty.js' },
-      path: { browser: './empty.js' },
-      os: { browser: './empty.js' },
-      http: { browser: './empty.js' },
-      https: { browser: './empty.js' },
-      zlib: { browser: './empty.js' },
-      dns: { browser: './empty.js' },
-      child_process: { browser: './empty.js' },
+    reactStrictMode: false,
+    poweredByHeader: false,
+    async headers() {
+      return [
+        {
+          source: '/(.*)',
+          headers: securityHeaders,
+        },
+      ];
     },
-  },
-};
+    images: {
+      remotePatterns: [
+        {
+          protocol: 'https',
+          hostname: 'avatars.githubusercontent.com',
+        },
+        // add other remote patterns as needed
+      ],
+    },
+    turbopack: {
+      root: '.',
+      resolveAlias: {
+        // Resolve alias fallback for Node.js built-in modules in client bundles
+        fs: { browser: './empty.js' },
+        net: { browser: './empty.js' },
+        tls: { browser: './empty.js' },
+        crypto: { browser: './empty.js' },
+        stream: { browser: './empty.js' },
+        path: { browser: './empty.js' },
+        os: { browser: './empty.js' },
+        http: { browser: './empty.js' },
+        https: { browser: './empty.js' },
+        zlib: { browser: './empty.js' },
+        dns: { browser: './empty.js' },
+        child_process: { browser: './empty.js' },
+      },
+    },
+  };
 
-export default nextConfig;
+  export default nextConfig;
 
