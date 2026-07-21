@@ -45,21 +45,36 @@ export async function createAuthSSEStream(
         options.onConnect(userId, controller);
       }
 
-      const heartbeat = setInterval(() => {
-        try {
-          controller.enqueue(`data: ${JSON.stringify({ type: 'heartbeat' })}\n\n`);
-        } catch (e) {
-          // ignore
-        }
-      }, 30_000);
-
-      request.signal.addEventListener('abort', () => {
+      let isCleanedUp = false;
+      const cleanup = () => {
+        if (isCleanedUp) return;
+        isCleanedUp = true;
         clearInterval(heartbeat);
         channel.unsubscribe(userId);
         if (options.onDisconnect) {
           options.onDisconnect(userId);
         }
-      });
+      };
+
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(`data: ${JSON.stringify({ type: 'heartbeat' })}\n\n`);
+        } catch (e) {
+          cleanup();
+        }
+      }, 30_000);
+
+      request.signal.addEventListener('abort', cleanup);
+      
+      // Auto-disconnect after 10 minutes to force a clean reconnect and prevent dev server memory bloat
+      setTimeout(() => {
+        try {
+          controller.close();
+        } catch (e) {
+          // ignore
+        }
+        cleanup();
+      }, 10 * 60 * 1000);
     }
   });
 
