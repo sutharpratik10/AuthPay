@@ -38,6 +38,9 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true, // We check TS independently, Next worker crashes with TS 7
   },
+  eslint: {
+    ignoreDuringBuilds: true, // ESLint 9 can crash the Next.js build worker on Vercel
+  },
 
   output: "standalone",
   reactStrictMode: false,
