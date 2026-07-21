@@ -141,4 +141,17 @@ export const userNotifications = logsSchema.table("user_notifications", {
 	}).onDelete("cascade"),
 ]);
 
-
+export const webPushSubscriptions = logsSchema.table("web_push_subscriptions", {
+	id: uuid('id').defaultRandom().primaryKey(),
+	userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+	endpoint: text('endpoint').notNull(),
+	p256dh: text('p256dh').notNull(),
+	auth: text('auth').notNull(),
+	createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "web_push_subscriptions_user_id_users_id_fk"
+	}).onDelete("cascade"),
+]);

@@ -1,7 +1,18 @@
 import { db } from '@/server/db';
-import { userNotifications, adminNotifications } from '@/server/db/schema/logs';
-import { eq, desc, and } from 'drizzle-orm';
+import { userNotifications, adminNotifications, webPushSubscriptions } from '@/server/db/schema/logs';
+import { eq, desc, and, inArray } from 'drizzle-orm';
 import { sseManager } from '@/server/sse/channel';
+import webpush from 'web-push';
+import { users } from '@/server/db/schema/auth';
+import { userRoles, roles } from '@/server/db/schema/rbac';
+
+const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@authpay.com';
+
+if (vapidPublicKey && vapidPrivateKey) {
+  webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+}
 
 export class NotificationService {
   /**
@@ -36,6 +47,36 @@ export class NotificationService {
       unreadCount
     });
 
+    // 3. Send WebPush notification
+    if (vapidPublicKey && vapidPrivateKey) {
+      try {
+        const subs = await db.select().from(webPushSubscriptions).where(eq(webPushSubscriptions.userId, userId));
+        const payload = JSON.stringify({
+          title,
+          body: content,
+          url: link || '/'
+        });
+
+        for (const sub of subs) {
+          try {
+            await webpush.sendNotification(
+              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+              payload
+            );
+          } catch (e: any) {
+            if (e.statusCode === 410 || e.statusCode === 404) {
+              // Subscription expired or unsubscribed, remove from DB
+              await db.delete(webPushSubscriptions).where(eq(webPushSubscriptions.id, sub.id));
+            } else {
+              console.error('WebPush error for user', userId, e);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to process web push for user', userId, e);
+      }
+    }
+
     return notification;
   }
 
@@ -66,6 +107,44 @@ export class NotificationService {
       type: 'admin_notification',
       data: notification,
     });
+
+    // 3. Send WebPush notification to admins
+    if (vapidPublicKey && vapidPrivateKey) {
+      try {
+        const adminUsers = await db
+          .select({ id: users.id })
+          .from(users)
+          .innerJoin(userRoles, eq(users.id, userRoles.userId))
+          .innerJoin(roles, eq(userRoles.roleId, roles.id))
+          .where(eq(roles.name, 'admin'));
+
+        const adminIds = adminUsers.map((u) => u.id);
+        
+        if (adminIds.length > 0) {
+          const subs = await db.select().from(webPushSubscriptions).where(inArray(webPushSubscriptions.userId, adminIds));
+          const payload = JSON.stringify({
+            title,
+            body: content,
+            url: link || '/protected/admin/dashboard'
+          });
+
+          for (const sub of subs) {
+            try {
+              await webpush.sendNotification(
+                { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                payload
+              );
+            } catch (e: any) {
+              if (e.statusCode === 410 || e.statusCode === 404) {
+                await db.delete(webPushSubscriptions).where(eq(webPushSubscriptions.id, sub.id));
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to process web push for admins', e);
+      }
+    }
 
     return notification;
   }

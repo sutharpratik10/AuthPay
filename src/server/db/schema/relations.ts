@@ -2,7 +2,7 @@ import { relations } from "drizzle-orm/relations";
 import { users, otpCodes, userPreferences, twoFactorAuth, recoveryCodes, loginHistory } from "./auth";
 import { roles, permissions, rolePermissions, userRoles } from "./rbac";
 import { subscriptionPlans, billings, refundRequests, paymentOrders, userSubscriptions } from "./billing";
-import { adminDashboardStats, userUsageMetrics, auditLogs, errorLogs, userNotifications } from "./logs";
+import { adminDashboardStats, userUsageMetrics, auditLogs, errorLogs, userNotifications, webPushSubscriptions } from "./logs";
 
 export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({
   billings: many(billings),
@@ -48,6 +48,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   loginHistory: many(loginHistory),
   refundRequests: many(refundRequests),
   userSubscriptions: many(userSubscriptions),
+  webPushSubscriptions: many(webPushSubscriptions),
 }));
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
@@ -187,5 +188,12 @@ export const userSubscriptionsRelations = relations(userSubscriptions, ({ one })
   paymentOrder: one(paymentOrders, {
     fields: [userSubscriptions.paymentOrderId],
     references: [paymentOrders.id],
+  }),
+}));
+
+export const webPushSubscriptionsRelations = relations(webPushSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [webPushSubscriptions.userId],
+    references: [users.id],
   }),
 }));

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 
 export function NotificationBell() {
-  const { notifications, unreadCount, markAsRead, markAllAsRead, isConnected } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, isConnected, subscribeToPushNotifications, disablePushNotifications, isPushSupported, isPushEnabled } = useNotifications();
 
   return (
     <Popover>
@@ -29,11 +29,23 @@ export function NotificationBell() {
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between p-4 border-b">
           <h4 className="font-semibold">Notifications</h4>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => markAllAsRead()} className="text-xs h-auto py-1">
-              Mark all read
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => markAllAsRead()} className="text-xs h-auto py-1 px-2">
+                Mark all read
+              </Button>
+            )}
+            {isPushSupported && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={isPushEnabled ? disablePushNotifications : subscribeToPushNotifications} 
+                className="text-[10px] h-6 px-2"
+              >
+                {isPushEnabled ? 'Disable Push' : 'Enable Push'}
+              </Button>
+            )}
+          </div>
         </div>
         <ScrollArea className="h-[300px]">
           {notifications.length === 0 ? (
