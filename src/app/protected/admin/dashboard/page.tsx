@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/config/auth';
 import { getAuthorizedRoute, ROUTE_POLICIES } from '@/lib/rbac/routing-utils';
 import { getOverviewStats } from './actions/analytics';
-import { MetricSummaryCard } from '@/components/analytics/MetricSummaryCard';
+import { LiveMetricCard } from '@/components/analytics/LiveMetricCard';
+import { AdminNotificationPanel } from '@/components/admin/AdminNotificationPanel';
 
 export default async function AdminDashboardPage(props: { searchParams: { range?: string } }) {
   // Server-side authentication and authorization
@@ -33,7 +34,13 @@ export default async function AdminDashboardPage(props: { searchParams: { range?
         </p>
       </div>
 
-      <MetricSummaryCard stats={overviewStats} />
+      <LiveMetricCard initialStats={overviewStats} />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <AdminNotificationPanel />
+        </div>
+      </div>
     </div>
   );
 }

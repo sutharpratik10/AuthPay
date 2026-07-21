@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/accordion"
 import { ModeToggle } from "@/components/shared/mode-toggle"
 import { UserProfileDropdown } from "@/components/user/UserProfileDropdown"
+import { NotificationBell } from "@/components/shared/NotificationBell"
 
 export function Navigationbar() {
   const { data: session, status } = useSession()
@@ -222,7 +223,10 @@ export function Navigationbar() {
           {/* Auth links on desktop - always show buttons first to prevent layout shift */}
           <div className="hidden md:block">
             {mounted && isAuthenticated ? (
-              <UserProfileDropdown />
+              <div className="flex items-center space-x-2">
+                <NotificationBell />
+                <UserProfileDropdown />
+              </div>
             ) : (
               <div className="flex items-center space-x-4">
                 <Link

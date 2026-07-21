@@ -12,6 +12,8 @@ import { useOAuthSessionTracking } from "@/hooks/use-oauth-session-tracking";
 import CookieBanner from "@/components/shared/CookieBanner";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { UserValidationProvider } from "@/contexts/UserValidationContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
+import { NotificationToast } from "@/components/shared/NotificationToast";
 import { SWRConfig } from "swr";
 import { swrConfig } from "@/lib/swr-config";
 
@@ -78,17 +80,20 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           <UserValidationProvider>
             <SubscriptionProvider>
-              {/* Track OAuth sessions with Suspense boundary for useSearchParams */}
-              <Suspense fallback={null}>
-                <OAuthSessionTracker />
-              </Suspense>
-              <Navigationbar />
-              <div className="h-16"></div>
-              <main className="min-h-[calc(100vh-148px)]">
-                {children}
-              </main>
-              <CookieBanner />
-              <Toaster />
+              <NotificationProvider>
+                {/* Track OAuth sessions with Suspense boundary for useSearchParams */}
+                <Suspense fallback={null}>
+                  <OAuthSessionTracker />
+                </Suspense>
+                <Navigationbar />
+                <div className="h-16"></div>
+                <main className="min-h-[calc(100vh-148px)]">
+                  {children}
+                </main>
+                <CookieBanner />
+                <Toaster />
+                <NotificationToast />
+              </NotificationProvider>
             </SubscriptionProvider>
           </UserValidationProvider>
         </AuthProvider>
