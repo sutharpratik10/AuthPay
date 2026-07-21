@@ -14,9 +14,8 @@ import {
 
 export const runtime = "nodejs";
 
-// Light cache — avoid a DB round-trip on every page load.
-// The value changes only when an admin updates the config.
-export const revalidate = 60; // seconds
+// Light cache is handled via Cache-Control headers instead of static generation.
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
