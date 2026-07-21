@@ -16,12 +16,12 @@ if (!connectionString) {
 const ssl = connectionString ? getPostgresSSLConfig() : undefined;
 const client = connectionString
   ? postgres(connectionString, {
-      ...(ssl !== undefined ? { ssl } : {}), // ✅ don't pass `undefined`
-      max: Number(process.env.DB_POOL_MAX ?? 50),
-      idle_timeout: Number(process.env.DB_IDLE_TIMEOUT ?? 20),
-      connect_timeout: Number(process.env.DB_CONNECT_TIMEOUT ?? 10),
-      prepare: false,
-    })
+    ...(ssl !== undefined ? { ssl } : {}), // ✅ don't pass `undefined`
+    max: Number(process.env.DB_POOL_MAX ?? 50),
+    idle_timeout: Number(process.env.DB_IDLE_TIMEOUT ?? 20),
+    connect_timeout: Number(process.env.DB_CONNECT_TIMEOUT ?? 10),
+    prepare: false,
+  })
   : (null as any); // Will fail at runtime if used without DATABASE_URL
 
 export const db = client ? drizzle(client, { schema }) : drizzle(postgres("postgres://postgres:postgres@localhost:5432/dummy"), { schema });
