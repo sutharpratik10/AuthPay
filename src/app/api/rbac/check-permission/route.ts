@@ -9,7 +9,7 @@ import { getAuthenticatedUser } from "@/lib/rbac";
 import { RBACService } from "@/lib/rbac";
 import { rateLimiters } from '@/lib/middleware/rate-limit';
 
-export const POST = rateLimiters.api(async (req: NextRequest): Promise<NextResponse> => {
+export const POST = rateLimiters.withGlobalLimit(async (req: NextRequest): Promise<NextResponse> => {
   const authCheck = await getAuthenticatedUser(req);
   if (!authCheck.authorized) {
     return authCheck.response ?? NextResponse.json(

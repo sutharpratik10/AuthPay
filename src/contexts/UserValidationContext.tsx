@@ -89,14 +89,14 @@ export function UserValidationProvider({ children }: { children: React.ReactNode
         };
 
     // Debug logging
-    console.log('[UserValidationContext] Data:', {
-        swrKey,
-        dataSuccess: data?.success,
-        userData,
-        isLoading,
-        isValidating,
-        hasError: !!error
-    });
+    // console.log('[UserValidationContext] Data:', {
+    //     swrKey,
+    //     dataSuccess: data?.success,
+    //     userData,
+    //     isLoading,
+    //     isValidating,
+    //     hasError: !!error
+    // });
 
     // Automatically sign out users who don't exist or should be signed out
     useEffect(() => {

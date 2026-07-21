@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/accordion"
 import { ModeToggle } from "@/components/shared/mode-toggle"
 import { UserProfileDropdown } from "@/components/user/UserProfileDropdown"
+import { NotificationBell } from "@/components/shared/NotificationBell"
 
 export function Navigationbar() {
   const { data: session, status } = useSession()
@@ -175,8 +176,8 @@ export function Navigationbar() {
         {/* Desktop Navigation in the middle - hidden on mobile */}
         <NavigationMenu className="mx-auto hidden md:flex">
           <NavigationMenuList>
-            {/* User Dashboard link only for authenticated users and only on Home page */}
-            {isAuthenticated && pathname === "/" && (
+            {/* User Dashboard link only for authenticated users and not in protected routes */}
+            {isAuthenticated && !pathname?.startsWith("/protected") && (
               <NavigationMenuItem>
                 <NavigationMenuLink className={navigationMenuTriggerStyle()} asChild>
                   <Link href={dashboardPath}>
@@ -222,7 +223,10 @@ export function Navigationbar() {
           {/* Auth links on desktop - always show buttons first to prevent layout shift */}
           <div className="hidden md:block">
             {mounted && isAuthenticated ? (
-              <UserProfileDropdown />
+              <div className="flex items-center space-x-2">
+                <NotificationBell />
+                <UserProfileDropdown />
+              </div>
             ) : (
               <div className="flex items-center space-x-4">
                 <Link
@@ -373,8 +377,8 @@ export function Navigationbar() {
             <div className="px-3 mt-6 pt-4 border-t border-border/20">
               {mounted && isAuthenticated ? (
                 <div className="space-y-2">
-                  {/* Dashboard link for authenticated users - only on home page */}
-                  {pathname === "/" && (
+                  {/* Dashboard link for authenticated users - only not in protected routes */}
+                  {!pathname?.startsWith("/protected") && (
                     <Link
                       href={dashboardPath}
                       onClick={closeMenu}

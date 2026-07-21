@@ -29,7 +29,7 @@ export default function VerifyPage() {
         title="Verify Your Email"
         description={
           isAuthenticated 
-            ? "We've sent a 6-digit verification code to your email address. Please enter it below to verify your account."
+            ? "We've sent an 8-digit verification code to your email address. Please enter it below to verify your account."
             : "Enter the verification code we sent to your email address."
         }
       />

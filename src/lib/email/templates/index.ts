@@ -11,14 +11,17 @@ export { accountDeletionTemplate } from './account-deletion';
 export { twoFactorAuthTemplate } from './two-factor';
 export { securityAlertTemplate } from './security-alert';
 export { subscriptionPurchaseTemplate } from './subscription';
-export {
-  bookingConfirmationCustomerTemplate,
-  bookingNotificationBusinessTemplate
-} from './booking';
+
 export { 
   passwordlessOTPTemplate, 
   magicLinkTemplate 
 } from './passwordless';
+export {
+  refundRequestedTemplate,
+  refundApprovedTemplate,
+  refundCompletedTemplate,
+  refundRejectedTemplate
+} from './refund';
 
 // Export base components for custom templates
 export {

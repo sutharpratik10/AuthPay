@@ -76,8 +76,8 @@ export default function EmailVerificationForm({
       return setError("Please enter your verification code")
     }
 
-    if (requiresAuth && verificationCode.length !== 6) {
-      return setError("Please enter a valid 6-digit verification code")
+    if (requiresAuth && verificationCode.length !== 8) {
+      return setError("Please enter a valid 8-digit verification code")
     }
     
     try {
@@ -141,14 +141,14 @@ export default function EmailVerificationForm({
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && code.length === 6 && !isSubmitting) {
+    if (e.key === 'Enter' && code.length === 8 && !isSubmitting) {
       handleVerify()
     }
   }
 
   // Default description based on context
   const defaultDescription = requiresAuth 
-    ? "We've sent a 6-digit verification code to your email address. Please enter it below to verify your account."
+    ? "We've sent an 8-digit verification code to your email address. Please enter it below to verify your account."
     : "Enter the verification code we sent to your email address."
 
   // Show loading while fetching email
@@ -212,8 +212,8 @@ export default function EmailVerificationForm({
               value={code}
               onChange={(e) => {
                 if (requiresAuth) {
-                  // For authenticated users, restrict to 6 digits
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 6)
+                  // For authenticated users, restrict to 8 digits
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 8)
                   setCode(value)
                 } else {
                   // For non-authenticated users, allow any input
@@ -221,8 +221,8 @@ export default function EmailVerificationForm({
                 }
               }}
               onKeyPress={requiresAuth ? handleKeyPress : undefined}
-              placeholder="Enter 6-digit code"
-              maxLength={6}
+              placeholder="Enter 8-digit code"
+              maxLength={8}
               className={requiresAuth 
                 ? "w-full text-center text-lg font-mono tracking-widest"
                 : "w-full"
@@ -236,7 +236,7 @@ export default function EmailVerificationForm({
             type="button"
             className="w-full bg-white text-black border-1 border-black hover:bg-gray-100 dark:bg-neutral-800 dark:text-white dark:border-white dark:hover:bg-neutral-700 transition-colors"
             onClick={() => handleVerify()}
-            disabled={isSubmitting || loading || !code || (requiresAuth && code.length !== 6)}
+            disabled={isSubmitting || loading || !code || (requiresAuth && code.length !== 8)}
           >
             {isSubmitting ? "Verifying..." : "Verify Email"}
           </Button>

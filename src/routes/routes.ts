@@ -3,6 +3,7 @@ import { AuthService } from '@/server/services/auth';
 import { auth, signOut } from '@/config/auth';
 import { BaseRouteHandler, IRouteHandler } from './BaseRouteHandler';
 import { RegisterSchema, VerifyEmailSchema, ResendVerificationSchema, ForgotPasswordSchema, ResetPasswordSchema } from '@/lib/validations/auth';
+import { createVerificationToken, verifyVerificationToken } from '@/lib/utils/secure-token';
 
 /**
  * Abstract authentication route handler
@@ -46,19 +47,15 @@ class RegistrationRouteHandler extends AuthRouteHandler {
         return this.createErrorResponse(errorMsg, 400);
       }
 
-      // Create a secure verification token (valid for 1 hour)
-      const verificationToken = Buffer.from(
-        JSON.stringify({
-          email: result.user?.email,
-          userId: result.user?.id,
-          exp: Date.now() + 60 * 60 * 1000 // 1 hour expiry
-        })
-      ).toString('base64');
+      // Create a secure signed verification token (valid for 1 hour)
+      const verificationToken = createVerificationToken({
+        email: result.user?.email!,
+        userId: result.user?.id!
+      });
 
       // Create response with verification token in secure cookie
       const response = this.createSuccessResponse({
-        message: 'User registered successfully. Please verify your email.',
-        user: result.user
+        message: 'User registered successfully. Please verify your email.'
       });
 
       // Set secure HTTP-only cookie with verification token
@@ -111,8 +108,23 @@ class VerifyEmailRouteHandler extends BaseRouteHandler {
         return this.createErrorResponse('Verification code is required', 400);
       }
 
+      // Identify the user from the signed verification token or authenticated session
+      // so wrong guesses can increment per-user attemptCount.
+      let userId: string | undefined;
+      const verificationToken = req.cookies.get('verification-token')?.value;
+      if (verificationToken) {
+        const tokenData = verifyVerificationToken(verificationToken);
+        if (tokenData) {
+          userId = tokenData.userId;
+        }
+      }
+      if (!userId) {
+        const session = await auth();
+        userId = session?.user?.id;
+      }
+
       console.log(`[VERIFY] Attempting to verify code: ${code}`);
-      const result = await AuthService.verifyEmail(code);
+      const result = await AuthService.verifyEmail(code, userId);
 
       console.log(`[VERIFY] Verification result:`, result);
       
@@ -151,14 +163,11 @@ class ResendVerificationEmailRouteHandler extends BaseRouteHandler {
         const verificationToken = req.cookies.get('verification-token')?.value;
         
         if (verificationToken) {
-          try {
-            const tokenData = JSON.parse(
-              Buffer.from(verificationToken, 'base64').toString('utf-8')
-            );
-            email = tokenData.email;
-          } catch (decodeError) {
-            console.error('Error decoding verification token:', decodeError);
+          const tokenData = verifyVerificationToken(verificationToken);
+          if (!tokenData) {
+            return this.createErrorResponse('Verification session expired or invalid. Please register again.', 400);
           }
+          email = tokenData.email;
         }
       }
 

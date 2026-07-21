@@ -4,6 +4,8 @@ import { users, twoFactorAuth, recoveryCodes } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { rateLimiters } from '@/lib/middleware/rate-limit';
 import { auth } from '@/config/auth';
+import { sanitizeEmail, normalizeEmail, hasSQLInjectionPatterns } from '@/lib/utils/sanitize';
+import { logSecurityEvent } from '@/lib/utils/validation-middleware';
 
 /**
  * GET /api/auth/check-2fa-status - Check authenticated user's 2FA status
@@ -70,9 +72,28 @@ export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response
       );
     }
 
+    // Security: Check for injection patterns
+    if (hasSQLInjectionPatterns(email)) {
+      logSecurityEvent('sql_injection_attempt', { field: 'email', ip: req.headers.get('x-forwarded-for') });
+      return NextResponse.json(
+        { error: 'Invalid input detected' },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize and normalize email to match the stored address
+    const sanitizedEmail = sanitizeEmail(email);
+    if (!sanitizedEmail) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
+        { status: 400 }
+      );
+    }
+    const normalizedEmail = normalizeEmail(sanitizedEmail);
+
     // Find user and check 2FA status
     const user = await db.query.users.findFirst({
-      where: eq(users.email, email.toLowerCase()),
+      where: eq(users.email, normalizedEmail),
       with: {
         userPreferences: true
       }

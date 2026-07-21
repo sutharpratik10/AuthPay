@@ -8,7 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { subscriptionPlans, userSubscriptions } from "@/server/db/schema";
+import { subscriptionPlans, userSubscriptions, freeTrialSettings } from "@/server/db/schema";
 import { eq, and, count, desc } from "drizzle-orm";
 import Razorpay from "razorpay";
 
@@ -172,10 +172,19 @@ export async function GET() {
 
     console.log(`[API /api/subscription-plans/visible] Returning ${razorpayVisiblePlans.length} Razorpay plans and ${basicPlans.length} Basic plans to customer`);
 
+    // Fetch active free trial settings
+    const [freeTrial] = await db
+      .select()
+      .from(freeTrialSettings)
+      .where(eq(freeTrialSettings.isActive, true))
+      .limit(1)
+      .catch(() => [null]);
+
     return NextResponse.json({
       success: true,
       plans,
       count: plans.length,
+      freeTrial: freeTrial || null,
     });
   } catch (error) {
     console.error("[API /api/subscription-plans/visible] Error:", error);

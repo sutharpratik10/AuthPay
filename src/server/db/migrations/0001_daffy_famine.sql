@@ -1,0 +1,1 @@
+ALTER TABLE "auth"."user_preferences" ADD COLUMN "cookie_consent" jsonb;

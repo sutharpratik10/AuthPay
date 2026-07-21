@@ -35,7 +35,7 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
  * - exists: Whether user exists in database
  * - shouldSignOut: Whether user should be signed out (for deleted/inactive users)
  */
-export const GET = rateLimiters.api(
+export const GET = rateLimiters.withGlobalLimit(
   withApiHandler(
   async (request: NextRequest, { user }) => {
     const logger = createPerformanceLogger(request);

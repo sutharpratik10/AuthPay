@@ -70,9 +70,9 @@ Authpay is designed to solve common challenges in building secure web applicatio
 ## Technology Stack
 
 ### Frontend
-- **Next.js 15**: React framework with App Router
+- **Next.js 16**: React framework with App Router & Turbopack
 - **React 19**: UI library with latest features
-- **TypeScript 5.x**: Type-safe development
+- **TypeScript 7.x**: Fully strictly typed development (`noImplicitAny`)
 - **Tailwind CSS**: Utility-first styling
 - **shadcn/ui**: Accessible component library
 - **React Hook Form**: Form validation and management
@@ -81,8 +81,8 @@ Authpay is designed to solve common challenges in building secure web applicatio
 ### Backend
 - **Next.js API Routes**: Serverless API endpoints
 - **NextAuth.js 5**: Authentication library
-- **Drizzle ORM**: Type-safe database toolkit
-- **PostgreSQL**: Relational database
+- **Drizzle ORM**: Type-safe database toolkit (latest v0.44+)
+- **PostgreSQL**: Multi-schema database architecture (`auth`, `rbac`, `billing`, `core`, `logs`)
 - **Bcrypt**: Password hashing
 - **JWT**: Token-based authentication
 

@@ -1,5 +1,8 @@
 import { relations } from "drizzle-orm/relations";
-import { subscriptionPlans, adminDashboardStats, userUsageMetrics, users, auditLogs, errorLogs, userNotifications, billings, permissions, roles, rolePermissions, otpCodes, userPreferences, userRoles, twoFactorAuth, recoveryCodes, loginHistory } from "./schema";
+import { users, otpCodes, userPreferences, twoFactorAuth, recoveryCodes, loginHistory } from "./auth";
+import { roles, permissions, rolePermissions, userRoles } from "./rbac";
+import { subscriptionPlans, billings, refundRequests, paymentOrders, userSubscriptions } from "./billing";
+import { adminDashboardStats, userUsageMetrics, auditLogs, errorLogs, userNotifications, webPushSubscriptions } from "./logs";
 
 export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({
   billings: many(billings),
@@ -43,6 +46,9 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   userNotifications: many(userNotifications),
   billings: many(billings),
   loginHistory: many(loginHistory),
+  refundRequests: many(refundRequests),
+  userSubscriptions: many(userSubscriptions),
+  webPushSubscriptions: many(webPushSubscriptions),
 }));
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
@@ -133,6 +139,61 @@ export const recoveryCodesRelations = relations(recoveryCodes, ({ one }) => ({
 export const loginHistoryRelations = relations(loginHistory, ({ one }) => ({
   user: one(users, {
     fields: [loginHistory.userId],
+    references: [users.id],
+  }),
+}));
+
+export const refundRequestsRelations = relations(refundRequests, ({ one }) => ({
+  paymentOrder: one(paymentOrders, {
+    fields: [refundRequests.paymentOrderId],
+    references: [paymentOrders.id],
+  }),
+  user: one(users, {
+    fields: [refundRequests.userId],
+    references: [users.id],
+  }),
+  plan: one(subscriptionPlans, {
+    fields: [refundRequests.planId],
+    references: [subscriptionPlans.id],
+  }),
+  approvedByUser: one(users, {
+    fields: [refundRequests.approvedBy],
+    references: [users.id],
+    relationName: "approvedBy"
+  }),
+}));
+
+export const paymentOrdersRelations = relations(paymentOrders, ({ one, many }) => ({
+  user: one(users, {
+    fields: [paymentOrders.userId],
+    references: [users.id],
+  }),
+  plan: one(subscriptionPlans, {
+    fields: [paymentOrders.planId],
+    references: [subscriptionPlans.id],
+  }),
+  refundRequests: many(refundRequests),
+  userSubscriptions: many(userSubscriptions),
+}));
+
+export const userSubscriptionsRelations = relations(userSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [userSubscriptions.userId],
+    references: [users.id],
+  }),
+  plan: one(subscriptionPlans, {
+    fields: [userSubscriptions.planId],
+    references: [subscriptionPlans.id],
+  }),
+  paymentOrder: one(paymentOrders, {
+    fields: [userSubscriptions.paymentOrderId],
+    references: [paymentOrders.id],
+  }),
+}));
+
+export const webPushSubscriptionsRelations = relations(webPushSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [webPushSubscriptions.userId],
     references: [users.id],
   }),
 }));

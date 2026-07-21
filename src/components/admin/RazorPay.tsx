@@ -7,17 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableHeadSortable,
-  TableColumnSearch,
-  TablePagination
-} from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table/DataTable';
+import { DataTableColumn } from '@/components/ui/data-table/types';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
@@ -73,7 +64,7 @@ interface CreatePlanData {
 }
 
 // Razorpay Subscription Interface
-interface RazorpaySubscription {
+interface RazorpaySubscription extends Record<string, unknown> {
   id: string;
   entity: string;
   plan_id: string;
@@ -99,7 +90,7 @@ interface RazorpaySubscription {
   remaining_count?: number;
 }
 
-interface RazorpayInvoice {
+interface RazorpayInvoice extends Record<string, unknown> {
   id: string;
   order_id?: string;
   subscription_id?: string;
@@ -146,7 +137,296 @@ interface RazorpayPlan extends Record<string, unknown> {
   isVisibleToCustomers?: boolean;
 }
 
+
+// ─── Column Definitions ───
+const basicPlanColumns: DataTableColumn<SubscriptionPlan>[] = [
+  {
+    id: "name",
+    header: "Plan Name",
+    accessorKey: "name",
+    sortable: true,
+    searchable: true,
+    cell: ({ row }) => (
+      <div>
+        <div className="font-medium">{row.name}</div>
+        {row.description && <div className="text-xs text-muted-foreground mt-1 line-clamp-1">{row.description}</div>}
+      </div>
+    )
+  },
+  {
+    id: "price",
+    header: "Price",
+    accessorKey: "price",
+    sortable: true,
+    searchable: true,
+    cell: ({ row }) => <span className="font-mono">{row.price}</span>
+  },
+  {
+    id: "billingCycle",
+    header: "Billing Cycle",
+    accessorKey: "billingCycle",
+    sortable: true,
+    searchable: true,
+    cell: ({ row }) => <Badge variant="secondary" className="capitalize">{row.billingCycle}</Badge>
+  },
+  {
+    id: "features",
+    header: "Features",
+    accessorFn: (row) => {
+      let f = [];
+      if (Array.isArray(row.features)) f = row.features;
+      else if (typeof row.features === 'string') {
+        try {
+          const p = JSON.parse(row.features);
+          f = Array.isArray(p) ? p : [row.features];
+        } catch { f = row.features.includes(',') ? row.features.split(',') : [row.features]; }
+      }
+      return f.length;
+    },
+    cell: ({ row }) => {
+      let f = [];
+      if (Array.isArray(row.features)) f = row.features;
+      else if (typeof row.features === 'string') {
+        try {
+          const p = JSON.parse(row.features);
+          f = Array.isArray(p) ? p : [row.features];
+        } catch { f = row.features.includes(',') ? row.features.split(',') : [row.features]; }
+      }
+      return <span className="text-xs bg-muted px-2 py-1 rounded-full">{f.length} features</span>;
+    }
+  },
+  {
+    id: "createdAt",
+    header: "Created",
+    accessorKey: "createdAt",
+    sortable: true,
+    searchable: true,
+    filterType: "date",
+    cell: ({ row }) => <span className="text-sm">{new Date(row.createdAt as string).toLocaleDateString()}</span>
+  },
+  {
+    id: "visibility",
+    header: "Visibility",
+    accessorKey: "isVisibleToCustomers",
+    sortable: true,
+    cell: ({ row }) => (
+      <div className="flex items-center justify-center">
+        <Switch
+          checked={row.isVisibleToCustomers ?? true}
+          onCheckedChange={() => window.dispatchEvent(new CustomEvent('toggle-basic-plan-visibility', { detail: { id: row.id, currentVisibility: row.isVisibleToCustomers ?? true } }))}
+        />
+      </div>
+    )
+  },
+  {
+    id: "actions",
+    header: "Actions",
+    cell: ({ row }) => (
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" size="icon" onClick={() => window.dispatchEvent(new CustomEvent('edit-basic-plan', { detail: row }))}>
+          <Edit className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => window.dispatchEvent(new CustomEvent('delete-basic-plan', { detail: row }))}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    )
+  }
+];
+
+const razorpayPlanColumns: DataTableColumn<RazorpayPlan>[] = [
+  {
+    id: "id",
+    header: "Plan Id",
+    accessorKey: "id",
+    sortable: true,
+    searchable: true,
+    cell: ({ row }) => <button type="button" className="text-primary underline hover:text-primary/80 cursor-pointer" onClick={() => window.dispatchEvent(new CustomEvent('load-razorpay-plan', { detail: row.id }))}>{row.id}</button>
+  },
+  {
+    id: "name",
+    header: "Plan Name",
+    accessorFn: (row) => row.item?.name || '-',
+    sortable: true,
+    searchable: true
+  },
+  {
+    id: "amount",
+    header: "Amount/Unit",
+    accessorFn: (row) => row.item?.amount || row.item?.unit_amount || 0,
+    sortable: true,
+    searchable: true,
+    cell: ({ row }) => {
+      const amt = row.item?.amount || row.item?.unit_amount || 0;
+      return row.item?.currency ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: row.item.currency }).format(amt / 100) : amt;
+    }
+  },
+  {
+    id: "period",
+    header: "Billing Cycle",
+    accessorKey: "period",
+    sortable: true,
+    searchable: true,
+    cell: ({ row }) => row.period || '-'
+  },
+  {
+    id: "created_at",
+    header: "Created At",
+    accessorKey: "created_at",
+    sortable: true,
+    searchable: true,
+    filterType: "date",
+    cell: ({ row }) => row.created_at ? new Date(row.created_at * 1000).toLocaleString() : '-'
+  }
+];
+
+const razorpaySubscriptionColumns: DataTableColumn<RazorpaySubscription>[] = [
+  {
+    id: "id",
+    header: "Sub Id",
+    accessorKey: "id",
+    sortable: true,
+    searchable: true,
+    cell: ({ row }) => <button type="button" className="text-primary underline font-mono text-xs cursor-pointer" onClick={() => window.dispatchEvent(new CustomEvent('load-razorpay-subscription', { detail: row.id }))}>{row.id}</button>
+  },
+  {
+    id: "plan_id",
+    header: "Plan",
+    accessorKey: "plan_id",
+    sortable: true,
+    searchable: true,
+    cell: ({ row }) => <span className="font-mono text-xs">{row.plan_id}</span>
+  },
+  {
+    id: "short_url",
+    header: "Link",
+    accessorKey: "short_url",
+    sortable: true,
+    searchable: true,
+    cell: ({ row }) => row.short_url ? <a href={row.short_url} target="_blank" rel="noreferrer" className="text-primary underline text-xs">Open</a> : '--'
+  },
+  {
+    id: "customer_id",
+    header: "Customer",
+    accessorKey: "customer_id",
+    sortable: true,
+    searchable: true,
+    cell: ({ row }) => <span className="font-mono text-xs">{row.customer_id || '--'}</span>
+  },
+  {
+    id: "current_end",
+    header: "Next Due on",
+    accessorKey: "current_end",
+    sortable: true,
+    cell: ({ row }) => row.current_end ? new Date(row.current_end * 1000).toLocaleDateString() : '--'
+  },
+  {
+    id: "created_at",
+    header: "Created At",
+    accessorKey: "created_at",
+    sortable: true,
+    searchable: true,
+    filterType: "date",
+    cell: ({ row }) => row.created_at ? new Date(row.created_at * 1000).toLocaleString() : '--'
+  },
+  {
+    id: "status",
+    header: "Status",
+    accessorKey: "status",
+    sortable: true,
+    searchable: true,
+    cell: ({ row }) => {
+      const s = row.status;
+      return s === 'active' ? <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Active</Badge>
+        : s === 'created' ? <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Created</Badge>
+          : s === 'authenticated' ? <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">Auth'd</Badge>
+            : s === 'halted' ? <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Halted</Badge>
+              : s === 'pending' ? <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>
+                : s === 'cancelled' || s === 'completed' ? <Badge variant="secondary" className="capitalize">{s}</Badge>
+                  : <Badge variant="outline">{s}</Badge>;
+    }
+  }
+];
+
+const invoiceColumns: DataTableColumn<RazorpayInvoice>[] = [
+  {
+    id: "id",
+    header: "Invoice ID",
+    accessorKey: "id",
+    sortable: true,
+    searchable: true,
+    cell: ({ row }) => <span className="font-mono text-xs">{row.id}</span>
+  },
+  {
+    id: "status",
+    header: "Status",
+    accessorKey: "status",
+    sortable: true,
+    searchable: true,
+    cell: ({ row }) => {
+      return row.status === 'paid' ? <Badge className="bg-green-100 text-green-700">Paid</Badge>
+        : row.status === 'pending' ? <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+          : <span className="text-sm capitalize">{row.status}</span>;
+    }
+  },
+  {
+    id: "amount",
+    header: "Amount",
+    accessorFn: (row) => row.amount || 0,
+    sortable: true,
+    cell: ({ row }) => row.amount ? (row.currency ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: row.currency }).format(row.amount / 100) : row.amount) : '--'
+  },
+  {
+    id: "issued_at",
+    header: "Issued",
+    accessorKey: "issued_at",
+    sortable: true,
+    searchable: true,
+    filterType: "date",
+    cell: ({ row }) => row.issued_at ? new Date(row.issued_at * 1000).toLocaleString() : '--'
+  },
+  {
+    id: "paid_at",
+    header: "Paid",
+    accessorKey: "paid_at",
+    sortable: true,
+    searchable: true,
+    filterType: "date",
+    cell: ({ row }) => row.paid_at ? new Date(row.paid_at * 1000).toLocaleString() : '--'
+  },
+  {
+    id: "short_url",
+    header: "Link",
+    accessorKey: "short_url",
+    cell: ({ row }) => row.short_url ? <a href={row.short_url} target="_blank" rel="noreferrer" className="text-primary underline">Open</a> : '--'
+  }
+];
+
 export default function RazorPay() {
+
+  useEffect(() => {
+    const handleLoadPlan = (e: any) => { loadRazorpayPlan(e.detail); setPlanDialogOpen(true); };
+    const handleLoadSub = (e: any) => { loadRazorpaySubscription(e.detail); setSubscriptionDialogOpen(true); };
+    const handleEditBasic = (e: any) => openEditDialog(e.detail);
+    const handleDeleteBasic = (e: any) => openDeleteDialog(e.detail);
+    const handleToggleVis = (e: any) => toggleBasicPlanVisibility(e.detail.id, e.detail.currentVisibility);
+
+    window.addEventListener('load-razorpay-plan', handleLoadPlan);
+    window.addEventListener('load-razorpay-subscription', handleLoadSub);
+    window.addEventListener('edit-basic-plan', handleEditBasic);
+    window.addEventListener('delete-basic-plan', handleDeleteBasic);
+    window.addEventListener('toggle-basic-plan-visibility', handleToggleVis);
+
+    return () => {
+      window.removeEventListener('load-razorpay-plan', handleLoadPlan);
+      window.removeEventListener('load-razorpay-subscription', handleLoadSub);
+      window.removeEventListener('edit-basic-plan', handleEditBasic);
+      window.removeEventListener('delete-basic-plan', handleDeleteBasic);
+      window.removeEventListener('toggle-basic-plan-visibility', handleToggleVis);
+    };
+  }, []);
+
+
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
@@ -1224,7 +1504,7 @@ export default function RazorPay() {
               One-time payment plans — No automatic recurring charges. Clients pay once and won&apos;t be charged automatically.
             </p>
           </div>
-          <div className="absolute right-3 top-3 flex items-center gap-2 w-auto sm:w-80 md:w-96">
+          <div className="absolute right-6 top-6 flex items-center gap-2">
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={resetForm}>
@@ -1458,206 +1738,27 @@ export default function RazorPay() {
               </DialogContent>
             </Dialog>
 
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search plans by name, description, or billing cycle..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+
           </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={basicPlanSortField === 'name' ? basicPlanSortDirection : null}
-                    onSort={() => handleBasicPlanSort('name')}
-                  >
-                    Plan
-                  </TableHeadSortable>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={basicPlanSortField === 'price' ? basicPlanSortDirection : null}
-                    onSort={() => handleBasicPlanSort('price')}
-                  >
-                    Price
-                  </TableHeadSortable>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={basicPlanSortField === 'billingCycle' ? basicPlanSortDirection : null}
-                    onSort={() => handleBasicPlanSort('billingCycle')}
-                  >
-                    Billing Cycle
-                  </TableHeadSortable>
-                  <TableHead>Features</TableHead>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={basicPlanSortField === 'isActive' ? basicPlanSortDirection : null}
-                    onSort={() => handleBasicPlanSort('isActive')}
-                  >
-                    Status
-                  </TableHeadSortable>
-                  <TableHead>Visible</TableHead>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={basicPlanSortField === 'createdAt' ? basicPlanSortDirection : null}
-                    onSort={() => handleBasicPlanSort('createdAt')}
-                  >
-                    Created
-                  </TableHeadSortable>
-                  <TableHeadSortable
-                    sortable
-                    sortDirection={basicPlanSortField === 'userCountActive' ? basicPlanSortDirection : null}
-                    onSort={() => handleBasicPlanSort('userCountActive')}
-                  >
-                    User Count
-                  </TableHeadSortable>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-                <TableRow>
-                  <TableHead>
-                    <TableColumnSearch
-                      placeholder="Search plan..."
-                      onSearch={(value) => handleBasicPlanColumnFilter('name', value)}
-                    />
-                  </TableHead>
-                  <TableHead>
-                    <TableColumnSearch
-                      placeholder="Search price..."
-                      onSearch={(value) => handleBasicPlanColumnFilter('price', value)}
-                    />
-                  </TableHead>
-                  <TableHead>
-                    <TableColumnSearch
-                      placeholder="Search cycle..."
-                      onSearch={(value) => handleBasicPlanColumnFilter('billingCycle', value)}
-                    />
-                  </TableHead>
-                  <TableHead></TableHead>
-                  <TableHead>
-                    <TableColumnSearch
-                      placeholder="Search status..."
-                      onSearch={(value) => handleBasicPlanColumnFilter('isActive', value)}
-                    />
-                  </TableHead>
-                  <TableHead></TableHead>
-                  <TableHead>
-                    <TableColumnSearch
-                      placeholder="Search date..."
-                      onSearch={(value) => handleBasicPlanColumnFilter('createdAt', value)}
-                    />
-                  </TableHead>
-                  <TableHead>
-                    <TableColumnSearch
-                      placeholder="Search count..."
-                      onSearch={(value) => handleBasicPlanColumnFilter('userCountActive', value)}
-                    />
-                  </TableHead>
-                  <TableHead className="text-right"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAndSortedBasicPlans.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
-                      <div className="text-muted-foreground">
-                        {searchTerm ? 'No plans found matching your search.' : 'No subscription plans found.'}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredAndSortedBasicPlans.map((plan) => (
-                    <TableRow key={plan.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{plan.name}</div>
-                          {plan.description && (
-                            <div className="max-w-xs">{plan.description}</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <DollarSign className="h-4 w-4 text-green-600 mr-1" />
-                          <span className="font-medium">{plan.price}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{plan.billingCycle}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="max-w-xs">
-                          {parseFeatures(plan.features).length > 0 ? (
-                            <div className="text-sm">
-                              <span className="text-muted-foreground">{parseFeatures(plan.features).length} features</span>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {parseFeatures(plan.features).slice(0, 2).join(', ')}{parseFeatures(plan.features).length > 2 && '...'}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">No features</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {plan.isActive ? <Badge className="bg-green-100 text-green-800">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={plan.isVisibleToCustomers ?? true}
-                            onCheckedChange={() => toggleBasicPlanVisibility(plan.id, plan.isVisibleToCustomers ?? true)}
-                          />
-                          <span className="text-sm text-muted-foreground">
-                            {plan.isVisibleToCustomers ?? true ? 'Shown' : 'Hidden'}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm text-muted-foreground">{new Date(plan.createdAt).toLocaleDateString()}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <Users className="h-4 w-4 mr-1" />
-                          <span className="font-medium">{plan.userCountActive ?? 0}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end space-x-2">
-                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(plan)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => { if (!(plan.userCountActive && plan.userCountActive > 0)) openDeleteDialog(plan); }}
-                            className={`text-red-600 hover:text-red-900 ${plan.userCountActive && plan.userCountActive > 0 ? 'cursor-not-allowed opacity-60' : ''}`}
-                            title={plan.userCountActive && plan.userCountActive > 0 ? 'Cannot delete: plan has active users' : 'Delete plan'}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+            <DataTable selectable={true}
+              columns={basicPlanColumns}
+              data={plans.filter(plan => !plan.razorpaySubscriptionPlanId && !plan.razorpaySubscriptionId && !plan.razorpaySubscriptionLink)}
+              searchable={true}
+              columnSearch={true}
+              pagination={true}
+            />
           </div>
         </CardContent>
       </Card>
 
       {/* Razorpay Plans Table */}
       <Card>
-        <CardHeader className="relative">
+        <CardHeader className="relative pb-2">
           <CardTitle>Razorpay Plans</CardTitle>
-          <div className="absolute right-3 top-3 flex items-center gap-2 w-auto sm:w-80 md:w-96">
+          <div className="absolute right-6 top-6 flex items-center gap-2">
             <Dialog open={razorCreateDialogOpen} onOpenChange={setRazorCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={() => { resetRazorCreateForm(); setRazorCreateDialogOpen(true); }}>
@@ -1776,140 +1877,28 @@ export default function RazorPay() {
               </DialogContent>
             </Dialog>
 
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search subscriptions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+
           </div>
         </CardHeader>
-        <CardContent className="overflow-x-auto p-0">
+        <CardContent className="overflow-x-auto">
           {plansLoading ? (
             <div className="flex items-center justify-center min-h-24 py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+              <span className="text-muted-foreground text-center">Loading Razorpay Plans...</span>
             </div>
           ) : plansError ? (
             <div className="text-red-600 p-4">{plansError}</div>
           ) : (
             <div className="w-full">
-              <Table className="min-w-[700px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={razorpayPlanSortField === 'id' ? razorpayPlanSortDirection : null}
-                      onSort={() => handleRazorpayPlanSort('id')}
-                    >
-                      Plan Id
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={razorpayPlanSortField === 'name' ? razorpayPlanSortDirection : null}
-                      onSort={() => handleRazorpayPlanSort('name')}
-                    >
-                      Plan Name
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={razorpayPlanSortField === 'amount' ? razorpayPlanSortDirection : null}
-                      onSort={() => handleRazorpayPlanSort('amount')}
-                    >
-                      Amount/Unit
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={razorpayPlanSortField === 'period' ? razorpayPlanSortDirection : null}
-                      onSort={() => handleRazorpayPlanSort('period')}
-                    >
-                      Billing Cycle
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={razorpayPlanSortField === 'created_at' ? razorpayPlanSortDirection : null}
-                      onSort={() => handleRazorpayPlanSort('created_at')}
-                    >
-                      Created At
-                    </TableHeadSortable>
-                  </TableRow>
-                  <TableRow>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search ID..."
-                        onSearch={(value) => handleRazorpayPlanColumnFilter('id', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search name..."
-                        onSearch={(value) => handleRazorpayPlanColumnFilter('name', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search amount..."
-                        onSearch={(value) => handleRazorpayPlanColumnFilter('amount', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search cycle..."
-                        onSearch={(value) => handleRazorpayPlanColumnFilter('period', value)}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Search date..."
-                        onSearch={(value) => handleRazorpayPlanColumnFilter('created_at', value)}
-                      />
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAndSortedRazorpayPlans.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No plans found.</TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredAndSortedRazorpayPlans.map((p: RazorpayPlan) => (
-                      <TableRow key={p.id}>
-                        <TableCell>
-                          <button
-                            type="button"
-                            className="text-primary underline hover:text-primary/80 cursor-pointer"
-                            onClick={() => { loadRazorpayPlan(p.id); setPlanDialogOpen(true); }}
-                          >
-                            {p.id}
-                          </button>
-                        </TableCell>
-                        <TableCell>{p.item?.name || '-'}</TableCell>
-                        <TableCell>
-                          {p.item?.currency ? (
-                            <span>
-                              {new Intl.NumberFormat('en-IN', { style: 'currency', currency: p.item.currency }).format((p.item.amount || p.item.unit_amount || 0) / 100)}
-                            </span>
-                          ) : (
-                            (p.item?.amount || p.item?.unit_amount || '-')
-                          )}
-                        </TableCell>
-                        <TableCell>{p.period || '-'}</TableCell>
-                        <TableCell>{p.created_at ? new Date(p.created_at * 1000).toLocaleString() : '-'}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-
-              <TablePagination
-                currentPage={plansPage}
-                totalPages={Math.ceil(plansTotal / plansPageSize)}
-                pageSize={plansPageSize}
-                totalItems={plansTotal}
-                onPageChange={setPlansPage}
+              <DataTable selectable={true}
+                columns={razorpayPlanColumns}
+                data={razorpayPlans}
+                searchable={true}
+                columnSearch={true}
+                pagination={true}
               />
+
+
             </div>
           )}
         </CardContent>
@@ -1920,7 +1909,7 @@ export default function RazorPay() {
         <CardHeader>
           <CardTitle>Razorpay Subscriptions</CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto p-0">
+        <CardContent className="overflow-x-auto">
           {subscriptionsLoading ? (
             <div className="flex flex-col items-center justify-center min-h-32 py-8 w-full">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
@@ -1930,206 +1919,15 @@ export default function RazorPay() {
             <div className="text-red-600 p-4">{subscriptionsError}</div>
           ) : (
             <div className="w-full">
-              <Table className="">
-                <TableHeader>
-                  <TableRow>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'id' ? sortDirection : null}
-                      onSort={() => handleSort('id')}
-                    >
-                      Subscription Id
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'plan_id' ? sortDirection : null}
-                      onSort={() => handleSort('plan_id')}
-                    >
-                      Plan Id
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'short_url' ? sortDirection : null}
-                      onSort={() => handleSort('short_url')}
-                    >
-                      Subscription Link
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'customer_id' ? sortDirection : null}
-                      onSort={() => handleSort('customer_id')}
-                    >
-                      Customer Id
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'current_end' ? sortDirection : null}
-                      onSort={() => handleSort('current_end')}
-                    >
-                      Next Due on
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'created_at' ? sortDirection : null}
-                      onSort={() => handleSort('created_at')}
-                    >
-                      Created At
-                    </TableHeadSortable>
-                    <TableHeadSortable
-                      sortable
-                      sortDirection={sortField === 'status' ? sortDirection : null}
-                      onSort={() => handleSort('status')}
-                    >
-                      Status
-                    </TableHeadSortable>
-                  </TableRow>
-                  <TableRow>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Filter ID..."
-                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, id: value }))}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Filter plan..."
-                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, plan_id: value }))}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Filter link..."
-                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, short_url: value }))}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Filter customer..."
-                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, customer_id: value }))}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Filter date..."
-                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, current_end: value }))}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Filter date..."
-                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, created_at: value }))}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <TableColumnSearch
-                        placeholder="Filter status..."
-                        onSearch={(value) => setSubscriptionFilters(f => ({ ...f, status: value }))}
-                      />
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRazorpaySubscriptions.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        No subscriptions found.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    sortedRazorpaySubscriptions.map((subscription) => (
-                      <TableRow key={subscription.id} >
-                        <TableCell>
-                          <button
-                            type="button"
-                            className="text-primary underline hover:text-primary/80 cursor-pointer"
-                            onClick={() => { loadRazorpaySubscription(subscription.id); }}
-                          >
-                            {subscription.id}
-                          </button>
-                        </TableCell>
-                        <TableCell>
-                          <button
-                            type="button"
-                            className="text-primary underline hover:text-primary/80 cursor-pointer"
-                            onClick={() => { loadRazorpayPlan(subscription.plan_id); setPlanDialogOpen(true); }}
-                          >
-                            {subscription.plan_id}
-                          </button>
-                        </TableCell>
-                        <TableCell>
-                          {subscription.short_url ? (
-                            <a
-                              href={subscription.short_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              {subscription.short_url}
-                            </a>
-                          ) : (
-                            <span className="text-muted-foreground">--</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {subscription.customer_id || <span className="text-muted-foreground">--</span>}
-                        </TableCell>
-                        <TableCell>
-                          {subscription.current_end ? (
-                            <span className="text-sm">
-                              {new Date(subscription.current_end * 1000).toLocaleDateString('en-IN', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric'
-                              })}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">--</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">
-                            {new Date(subscription.created_at * 1000).toLocaleString('en-IN', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit',
-                              hour12: true
-                            })}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {subscription.status === 'active' ? (
-                            <Badge className="bg-green-100 text-green-700 border-green-200">
-                              Active
-                            </Badge>
-                          ) : subscription.status === 'created' ? (
-                            <Badge className="bg-gray-100 text-gray-700 border-gray-200">
-                              Created
-                            </Badge>
-                          ) : subscription.status === 'cancelled' ? (
-                            <Badge className="bg-red-100 text-red-700 border-red-200">
-                              Cancelled
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline">
-                              {subscription.status}
-                            </Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-
-              <TablePagination
-                currentPage={subscriptionsPage}
-                totalPages={Math.ceil(subscriptionsTotal / subscriptionsPageSize)}
-                pageSize={subscriptionsPageSize}
-                totalItems={subscriptionsTotal}
-                onPageChange={setSubscriptionsPage}
+              <DataTable selectable={true}
+                columns={razorpaySubscriptionColumns}
+                data={razorpaySubscriptions}
+                searchable={true}
+                columnSearch={true}
+                pagination={true}
               />
+
+
             </div>
           )}
         </CardContent>
@@ -2293,7 +2091,7 @@ export default function RazorPay() {
                         <div className="text-sm">{selectedRazorpaySubscription.status === 'active' ? (
                           <Badge className="bg-green-100 text-green-700 border-green-200">Active</Badge>
                         ) : selectedRazorpaySubscription.status === 'created' ? (
-                          <Badge className="bg-gray-100 text-gray-700 border-gray-200">Created</Badge>
+                          <Badge className="bg-neutral-100 text-neutral-700 border-neutral-200">Created</Badge>
                         ) : selectedRazorpaySubscription.status === 'cancelled' ? (
                           <Badge className="bg-red-100 text-red-700 border-red-200">Cancelled</Badge>
                         ) : (
@@ -2327,32 +2125,13 @@ export default function RazorPay() {
                     <div className="text-sm text-muted-foreground">No invoices found.</div>
                   ) : (
                     <div className="overflow-x-auto mt-2">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="text-left text-muted-foreground">
-                            <th className="pr-4">Invoice ID</th>
-                            <th className="pr-4">Status</th>
-                            <th className="pr-4">Amount</th>
-                            <th className="pr-4">Issued</th>
-                            <th className="pr-4">Paid</th>
-                            <th className="pr-4">Link</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {subscriptionInvoices.map((inv: RazorpayInvoice) => (
-                            <tr key={inv.id} className="border-t">
-                              <td className="py-2 pr-4 font-mono text-xs">{inv.id}</td>
-                              <td className="py-2 pr-4">
-                                {inv.status === 'paid' ? <Badge className="bg-green-100 text-green-700">Paid</Badge> : inv.status === 'pending' ? <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge> : <span className="text-sm">{inv.status}</span>}
-                              </td>
-                              <td className="py-2 pr-4">{inv.amount ? (inv.currency ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: inv.currency }).format(inv.amount / 100) : inv.amount) : '--'}</td>
-                              <td className="py-2 pr-4">{inv.issued_at ? new Date(inv.issued_at * 1000).toLocaleString() : '--'}</td>
-                              <td className="py-2 pr-4">{inv.paid_at ? new Date(inv.paid_at * 1000).toLocaleString() : '--'}</td>
-                              <td className="py-2 pr-4">{inv.short_url ? (<a href={inv.short_url} target="_blank" rel="noreferrer" className="text-primary underline">Open</a>) : '--'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <DataTable selectable={true}
+                        columns={invoiceColumns}
+                        data={subscriptionInvoices}
+                        searchable={true}
+                        columnSearch={false}
+                        pagination={true}
+                      />
                     </div>
                   )}
                 </div>

@@ -55,6 +55,7 @@ const DANGEROUS_PATTERNS: RegExp[] = [
   /\.prototype\s*=/i,
   /Object\.assign\s*\(\s*Object\.prototype/i,
   /Object\.defineProperty\s*\(\s*Object\.prototype/i,
+  /["'](?:__proto__|constructor|prototype)["']\s*:/i,
   
   // Cloud metadata endpoints (SSRF)
   /169\.254\.169\.254/,  // AWS/Azure metadata

@@ -9,10 +9,12 @@ import {
   twoFactorAuthTemplate,
   securityAlertTemplate,
   subscriptionPurchaseTemplate,
-  bookingConfirmationCustomerTemplate,
-  bookingNotificationBusinessTemplate,
   passwordlessOTPTemplate,
   magicLinkTemplate,
+  refundRequestedTemplate,
+  refundApprovedTemplate,
+  refundCompletedTemplate,
+  refundRejectedTemplate,
 } from "@/lib/email/templates";
 
 interface EmailOptions {
@@ -24,13 +26,13 @@ interface EmailOptions {
 class EmailService {
   private transporter: nodemailer.Transporter;
   constructor() {
-    console.log('[EmailService] Initializing with config:', {
-      host: APP_CONFIG.EMAIL.HOST,
-      port: APP_CONFIG.EMAIL.PORT,
-      secure: APP_CONFIG.EMAIL.SECURE,
-      user: APP_CONFIG.EMAIL.USER ? '***configured***' : 'NOT SET',
-      pass: APP_CONFIG.EMAIL.PASS ? '***configured***' : 'NOT SET',
-    });
+    // console.log('[EmailService] Initializing with config:', {
+    //   host: APP_CONFIG.EMAIL.HOST,
+    //   port: APP_CONFIG.EMAIL.PORT,
+    //   secure: APP_CONFIG.EMAIL.SECURE,
+    //   user: APP_CONFIG.EMAIL.USER ? '***configured***' : 'NOT SET',
+    //   pass: APP_CONFIG.EMAIL.PASS ? '***configured***' : 'NOT SET',
+    // });
 
     this.transporter = nodemailer.createTransport({
       host: APP_CONFIG.EMAIL.HOST,
@@ -43,8 +45,8 @@ class EmailService {
     });
   }
   async sendEmail({ to, subject, html }: EmailOptions) {
-    // Mask sensitive info in logs like 6-digit OTP codes
-    const safeSubject = subject.replace(/\b\d{6}\b/g, '******');
+    // Mask sensitive info in logs like 6-8 digit OTP codes
+    const safeSubject = subject.replace(/\b\d{6,8}\b/g, '******');
     console.log('[EmailService] Attempting to send email:', { to, subject: safeSubject });
     try {
       const result = await this.transporter.sendMail({
@@ -185,62 +187,40 @@ class EmailService {
     });
   }
 
-  /**
-   * Send booking confirmation email to customer
-   */
-  async sendBookingConfirmationToCustomer(booking: {
-    customerName: string;
-    customerEmail: string;
-    customerPhone?: string;
-    serviceName: string;
-    date: string;
-    startTime: string;
-    endTime: string;
-    duration: number;
-    price: number;
-    currency: string;
-    businessName: string;
-    businessAddress?: string;
-    businessPhone?: string;
-    businessEmail?: string;
-    bookingId: string;
-    notes?: string;
-  }) {
-    const html = bookingConfirmationCustomerTemplate(booking, getAppName() || 'Our App');
 
+
+  async sendRefundRequestedEmail(email: string, amount: string, planName: string, reason: string) {
+    const html = refundRequestedTemplate(getAppName() || 'Our App', amount, planName, reason);
     return this.sendEmail({
-      to: booking.customerEmail,
-      subject: `Booking Confirmed - ${booking.serviceName} at ${booking.businessName}`,
+      to: email,
+      subject: `Refund Request Received - ${planName}`,
       html,
     });
   }
 
-  /**
-   * Send new booking notification to business owner
-   */
-  async sendBookingNotificationToBusiness(booking: {
-    customerName: string;
-    customerEmail: string;
-    customerPhone?: string;
-    serviceName: string;
-    date: string;
-    startTime: string;
-    endTime: string;
-    duration: number;
-    price: number;
-    currency: string;
-    businessName: string;
-    businessAddress?: string;
-    businessPhone?: string;
-    businessEmail?: string;
-    bookingId: string;
-    notes?: string;
-  }, businessOwnerEmail: string) {
-    const html = bookingNotificationBusinessTemplate(booking, getAppName() || 'Our App');
-
+  async sendRefundApprovedEmail(email: string, amount: string, planName: string) {
+    const html = refundApprovedTemplate(getAppName() || 'Our App', amount, planName);
     return this.sendEmail({
-      to: businessOwnerEmail,
-      subject: `New Booking: ${booking.serviceName} - ${booking.customerName}`,
+      to: email,
+      subject: `Refund Approved - ${planName}`,
+      html,
+    });
+  }
+
+  async sendRefundCompletedEmail(email: string, amount: string, planName: string, refundId: string) {
+    const html = refundCompletedTemplate(getAppName() || 'Our App', amount, planName, refundId);
+    return this.sendEmail({
+      to: email,
+      subject: `Refund Processed - ${planName}`,
+      html,
+    });
+  }
+
+  async sendRefundRejectedEmail(email: string, planName: string, reason: string) {
+    const html = refundRejectedTemplate(getAppName() || 'Our App', planName, reason);
+    return this.sendEmail({
+      to: email,
+      subject: `Update on your Refund Request - ${planName}`,
       html,
     });
   }

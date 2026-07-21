@@ -24,15 +24,18 @@ interface SelectProps {
   placeholder?: string
   className?: string
   disabled?: boolean
+  side?: "top" | "right" | "bottom" | "left"
+  align?: "start" | "center" | "end"
 }
 
 const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
-  ({ value, onValueChange, options, placeholder = "Select...", className, disabled = false }, ref) => {
+  ({ value, onValueChange, options, placeholder = "Select...", className, disabled = false, side, align }, ref) => {
     const selectedOption = options.find(option => option.value === value)
     const [open, setOpen] = React.useState(false)
     const [searchTerm, setSearchTerm] = React.useState("")
+    const [justOpened, setJustOpened] = React.useState(false)
     const searchInputRef = React.useRef<HTMLInputElement>(null)
-    
+
     // Filter options based on search term
     const filteredOptions = React.useMemo(() => {
       if (!searchTerm) return options
@@ -44,10 +47,17 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
 
     // Focus search input when dropdown opens
     React.useEffect(() => {
-      if (open && searchInputRef.current) {
-        setTimeout(() => {
-          searchInputRef.current?.focus()
-        }, 100)
+      if (open) {
+        setJustOpened(true)
+        const timer = setTimeout(() => setJustOpened(false), 250)
+        
+        if (searchInputRef.current) {
+          setTimeout(() => {
+            searchInputRef.current?.focus()
+          }, 100)
+        }
+        
+        return () => clearTimeout(timer)
       } else {
         setSearchTerm("")
       }
@@ -62,15 +72,15 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
     React.useEffect(() => {
       console.log('Select component - value:', value, 'options:', options.map(option => option.value));
     }, [value, options]);
-    
+
     return (
-      <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
         <DropdownMenuTrigger asChild>
           <Button
             ref={ref}
             variant="outline"
             role="combobox"
-            disabled={disabled}            
+            disabled={disabled}
             className={cn(
               "w-full justify-between bg-background text-foreground border-input hover:bg-accent hover:text-accent-foreground",
               (!selectedOption || !value || value === selectedOption.label) && "text-muted-foreground",
@@ -80,7 +90,10 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             {selectedOption && value && value !== '' ? selectedOption.label : placeholder}
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
-        </DropdownMenuTrigger>        <DropdownMenuContent 
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          side={side}
+          align={align}
           className="w-full min-w-[8rem] bg-popover border-border p-0"
           style={{
             width: 'var(--radix-dropdown-menu-trigger-width)'
@@ -104,7 +117,7 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
               />
             </div>
           </div>
-          
+
           {/* Scrollable Options Container */}
           <div className="max-h-60 overflow-y-auto p-1">
             {filteredOptions.length === 0 ? (
@@ -122,7 +135,8 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
                   }}
                   className={cn(
                     "cursor-pointer text-foreground hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
-                    value === option.value && "bg-accent text-accent-foreground"
+                    value === option.value && "bg-accent text-accent-foreground",
+                    justOpened && "pointer-events-none"
                   )}
                 >
                   {option.label}

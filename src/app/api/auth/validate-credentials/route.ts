@@ -4,7 +4,7 @@ import { users, twoFactorAuth } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { rateLimiters } from '@/lib/middleware/rate-limit';
-import { sanitizeEmail, hasSQLInjectionPatterns } from '@/lib/utils/sanitize';
+import { sanitizeEmail, normalizeEmail, hasSQLInjectionPatterns } from '@/lib/utils/sanitize';
 import { logSecurityEvent } from '@/lib/utils/validation-middleware';
 
 /**
@@ -41,12 +41,15 @@ export const POST = rateLimiters.validation(async (request: NextRequest) => {
       );
     }
 
-    // Note: We don't validate password format on login - users should be able to 
+    // Normalize the email to match the stored address
+    const normalizedEmail = normalizeEmail(sanitizedEmail);
+
+    // Note: We don't validate password format on login - users should be able to
     // log in with any password they created, even if it doesn't meet current requirements
 
-    // Find user by email (using sanitized email)
+    // Find user by email (using normalized email)
     const user = await db.query.users.findFirst({
-      where: (usersTable) => eq(usersTable.email, sanitizedEmail),
+      where: (usersTable) => eq(usersTable.email, normalizedEmail),
       with: {
         userPreferences: true
       }
@@ -97,7 +100,7 @@ export const POST = rateLimiters.validation(async (request: NextRequest) => {
       if (failedAttempts >= 5) {
         // Lock for 15 minutes
         lockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-        console.log(`[SECURITY] Account locked for user: ${sanitizedEmail}`);
+        console.log(`[SECURITY] Account locked for user: ${normalizedEmail}`);
       }
 
       await db.update(users)

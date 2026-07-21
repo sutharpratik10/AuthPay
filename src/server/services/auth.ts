@@ -1,12 +1,22 @@
 import { db } from "@/server/db";
-import { users, otpCodes } from "@/server/db/schema";
+import { users, otpCodes, userRoles } from "@/server/db/schema";
 import { EmailQueueService } from "./email-queue";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { eq, and, lt, gt } from "drizzle-orm";
-import { sanitizeEmail, sanitizeName, validatePassword, hasSQLInjectionPatterns } from "@/lib/utils/sanitize";
+import { NotificationService } from "./notification";
+import { sanitizeEmail, normalizeEmail, sanitizeName, validatePassword, hasSQLInjectionPatterns } from "@/lib/utils/sanitize";
 
 type ServiceResult<T extends object = object> = { success: true } & T | { success: false; error: string };
+
+function isUniqueViolationError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code: unknown }).code === '23505'
+  );
+}
 
 export class AuthService {
   /**
@@ -19,6 +29,9 @@ export class AuthService {
       if (!sanitizedEmail) {
         return { success: false, error: "Invalid email format" };
       }
+
+      // Normalize the email to prevent + aliases and Gmail dot variants
+      const normalizedEmail = normalizeEmail(sanitizedEmail);
 
       // Validate password
       const passwordValidation = validatePassword(password);
@@ -35,16 +48,18 @@ export class AuthService {
         return { success: false, error: "Invalid input detected" };
       }
 
-      // Check if user already exists (using sanitized email)
+      // Check if user already exists (using normalized email)
       const existingUser = await db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.email, sanitizedEmail)
+        where: (users, { eq }) => eq(users.email, normalizedEmail)
       });
       if (existingUser) {
-        return { success: false, error: "Email already in use" };
+        console.log(`[Registration] Duplicate registration attempt for user: ${existingUser.id}`);
+        return { success: false, error: "Registration failed. Please try again or contact support." };
       }
+
       // Hash the password
       const hashedPassword = await bcrypt.hash(password, 10);
-      
+
       // Get the default 'User' role (case-insensitive search)
       const defaultRole = await db.query.roles.findFirst({
         where: (rolesTable, { eq, or, sql }) => 
@@ -54,44 +69,54 @@ export class AuthService {
           ),
         columns: { id: true }
       });
-      
+
       if (!defaultRole) {
         return { success: false, error: 'Default user role not found. Please contact administrator.' };
       }
-      
-      // Create the user (using sanitized values)
-      const [newUser] = await db.insert(users).values({
-        id: uuidv4(),
-        email: sanitizedEmail,
-        password: hashedPassword,
-        name: sanitizedName,
-        isEmailVerified: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }).returning();
-      
-      // Assign default role to user via user_roles table
-      const { userRoles } = await import("@/server/db/schema");
-      await db.insert(userRoles).values({
-        userId: newUser.id,
-        roleId: defaultRole.id,
-      });
-      
-      // Generate verification code
+
+      // Generate verification code before the transaction
       const verificationCode = this.generateVerificationCode();
-      // Store verification code with 15-minute expiration
-      await db.insert(otpCodes).values({
-        userId: newUser.id,
-        code: verificationCode,
-        type: "email_verification",
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-        isValid: true,
-        createdAt: new Date(),
+
+      // Run user, role, and OTP inserts atomically
+      const newUser = await db.transaction(async (tx) => {
+        const [createdUser] = await tx.insert(users).values({
+          id: uuidv4(),
+          email: normalizedEmail,
+          password: hashedPassword,
+          name: sanitizedName,
+          isEmailVerified: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }).returning();
+
+        await tx.insert(userRoles).values({
+          userId: createdUser.id,
+          roleId: defaultRole.id,
+        });
+
+        await tx.insert(otpCodes).values({
+          userId: createdUser.id,
+          code: verificationCode,
+          type: "email_verification",
+          expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+          isValid: true,
+          createdAt: new Date(),
+        });
+
+        return createdUser;
       });
-      
+
       // Queue verification email for background sending (non-blocking)
       EmailQueueService.enqueueVerificationEmail(newUser.email, verificationCode);
       
+      // Create Admin Notification
+      await NotificationService.createAdminNotification(
+        "New user registered",
+        `New user registered with email: ${newUser.email}`,
+        "info",
+        "normal"
+      ).catch(err => console.error("Failed to create admin notification:", err));
+
       return {
         success: true,
         user: {
@@ -102,6 +127,10 @@ export class AuthService {
         },
       };
     } catch (error: unknown) {
+      if (isUniqueViolationError(error)) {
+        console.warn('[Registration] Unique violation during registration insert:', error);
+        return { success: false, error: "Registration failed. Please try again or contact support." };
+      }
       console.error("Registration error:", error);
       return { success: false, error: "An unexpected error occurred during registration. Please try again later." };
     }
@@ -109,29 +138,71 @@ export class AuthService {
 
   /**
    * Verify email with OTP code
+   * @param code - The OTP code entered by the user
+   * @param userId - Optional user ID from the signed verification token or session.
+   *                   When provided, the user's active verification record is looked up
+   *                   first so wrong guesses increment attemptCount and lock out after 5 tries.
    */
-  static async verifyEmail(code: string): Promise<ServiceResult<{ user: { email: string; name?: string } }>> {
+  static async verifyEmail(code: string, userId?: string): Promise<ServiceResult<{ user: { email: string; name?: string } }>> {
     try {
-      await this.cleanupExpiredOtpCodes();
-      const otpRecord = await db.query.otpCodes.findFirst({
-        where: (otpCodes, { eq, and }) =>
-          and(
-            eq(otpCodes.code, code),
-            eq(otpCodes.type, "email_verification"),
-            eq(otpCodes.isValid, true)
-          ),
-        with: {
-          user: true,
-        },
-      }) as (typeof otpCodes.$inferSelect & { user: { email: string; name?: string } });
-      if (!otpRecord) {
-        return { success: false, error: "Invalid or expired verification code" };
+      let otpRecord: (typeof otpCodes.$inferSelect & { user: { email: string; name?: string } }) | undefined;
+
+      if (userId) {
+        // Cookie/session-based flow: look up the user's active verification record
+        // and compare the provided code. This lets us count wrong guesses.
+        otpRecord = await db.query.otpCodes.findFirst({
+          where: (otpCodes, { eq, and }) =>
+            and(
+              eq(otpCodes.userId, userId),
+              eq(otpCodes.type, "email_verification"),
+              eq(otpCodes.isValid, true)
+            ),
+          with: {
+            user: true,
+          },
+        }) as (typeof otpCodes.$inferSelect & { user: { email: string; name?: string } }) | undefined;
+
+        if (!otpRecord) {
+          return { success: false, error: "Invalid or expired verification code" };
+        }
+
+        const now = new Date();
+        const isExpired = otpRecord.expiresAt < now;
+        const isMatch = otpRecord.code === code;
+
+        if (!isMatch || isExpired) {
+          const newAttemptCount = (otpRecord.attemptCount ?? 0) + 1;
+          const shouldInvalidate = newAttemptCount >= 5;
+
+          await db.update(otpCodes)
+            .set({
+              attemptCount: newAttemptCount,
+              ...(shouldInvalidate ? { isValid: false } : {}),
+            })
+            .where(eq(otpCodes.id, otpRecord.id));
+
+          return { success: false, error: "Invalid or expired verification code" };
+        }
+      } else {
+        // Direct POST fallback: exact-code lookup, IP-level rate limiting handles brute force
+        await this.cleanupExpiredOtpCodes();
+        otpRecord = await db.query.otpCodes.findFirst({
+          where: (otpCodes, { eq, and }) =>
+            and(
+              eq(otpCodes.code, code),
+              eq(otpCodes.type, "email_verification"),
+              eq(otpCodes.isValid, true)
+            ),
+          with: {
+            user: true,
+          },
+        }) as (typeof otpCodes.$inferSelect & { user: { email: string; name?: string } }) | undefined;
+
+        if (!otpRecord || otpRecord.expiresAt < new Date()) {
+          return { success: false, error: "Invalid or expired verification code" };
+        }
       }
-      if (otpRecord.expiresAt < new Date()) {
-        await db.delete(otpCodes).where(eq(otpCodes.id, otpRecord.id));
-        return { success: false, error: "Verification code has expired" };
-      }
-      
+
       // Update user's email verification status
       await db.update(users)
         .set({
@@ -185,6 +256,9 @@ export class AuthService {
         return { success: false, error: "Invalid email format" };
       }
 
+      // Normalize the email to match the stored address
+      const normalizedEmail = normalizeEmail(sanitizedEmail);
+
       // Security check for injection patterns
       if (hasSQLInjectionPatterns(email)) {
         console.warn('[SECURITY] Potential injection attempt in resend verification');
@@ -192,7 +266,7 @@ export class AuthService {
       }
 
       const user = await db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.email, sanitizedEmail)
+        where: (users, { eq }) => eq(users.email, normalizedEmail)
       });
       if (!user) {
         return { success: false, error: "User not found" };
@@ -251,10 +325,13 @@ export class AuthService {
         };
       }
 
+      // Normalize the email to match the stored address
+      const normalizedEmail = normalizeEmail(sanitizedEmail);
+
       const user = await db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.email, sanitizedEmail)
+        where: (users, { eq }) => eq(users.email, normalizedEmail)
       });
-      
+
       // SECURITY: Always return success even if user doesn't exist
       // This prevents email enumeration attacks
       if (!user) {
@@ -370,10 +447,11 @@ export class AuthService {
           error: "Invalid new password"
         };
       }
-      if (newPassword.length < 8) {
+      const passwordValidation = validatePassword(newPassword);
+      if (!passwordValidation.valid) {
         return {
           success: false,
-          error: "Password must be at least 8 characters long"
+          error: passwordValidation.error || "Invalid new password"
         };
       }
       const verificationResult = await this.verifyPasswordResetCode(code);
@@ -436,10 +514,11 @@ export class AuthService {
         };
       }
       
-      if (newPassword.length < 8) {
+      const passwordValidation = validatePassword(newPassword);
+      if (!passwordValidation.valid) {
         return {
           success: false,
-          error: "Password must be at least 8 characters long"
+          error: passwordValidation.error || "Invalid new password"
         };
       }
 
@@ -507,10 +586,10 @@ export class AuthService {
   }
 
   /**
-   * Generate a 6-digit verification code
+   * Generate an 8-digit verification code
    */
   private static generateVerificationCode(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    return Math.floor(10000000 + Math.random() * 90000000).toString();
   }
   /**
    * Clean up expired OTP codes

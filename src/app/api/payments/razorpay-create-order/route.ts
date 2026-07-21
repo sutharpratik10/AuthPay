@@ -24,48 +24,43 @@ interface CreateOrderBody {
 export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response> => {
   try {
     const body = (await req.json()) as Partial<CreateOrderBody>;
-    const rawAmount = Number(body?.amount);
-    if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
-      return NextResponse.json({ success: false, error: "Invalid amount" }, { status: 400 });
-    }
-
-    const currency = (body?.currency || "INR").toUpperCase();
     const planId = body?.planId ?? null;
+    const currency = (body?.currency || "INR").toUpperCase();
 
-    // (optional) validate plan exists if planId was provided
+    // Require user authentication
+    const session = await auth();
+    if (!session?.user?.id || !session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+    
+    const userId = session.user.id;
+
+    // Validate plan and get secure price from DB
+    let secureAmountMinor = 0;
     if (planId) {
       const plan = await db.query.subscriptionPlans.findFirst({
         where: eq(subscriptionPlans.id, planId),
-        columns: { id: true },
+        columns: { id: true, price: true },
       });
+      
       if (!plan) {
-        return NextResponse.json({ success: false, error: "Invalid planId" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, error: "Invalid planId" },
+          { status: 400 }
+        );
       }
-    }
-
-    // --- Resolve userId from session (fallback via email) ---
-    let userId: string | null = null;
-    try {
-      interface SessionUser {
-        id?: string;
-        email?: string;
-      }
-      interface Session {
-        user?: SessionUser;
-      }
-      const session = await auth() as Session | null;
-      const sid = session?.user?.id as string | undefined;
-      if (sid) {
-        userId = sid;
-      } else if (session?.user?.email) {
-        const user = await db.query.users.findFirst({
-          where: eq(users.email, session.user.email),
-          columns: { id: true },
-        });
-        userId = user?.id ?? null;
-      }
-    } catch {
-      // unauthenticated creates an order without userId
+      
+      // Calculate amount strictly from the database price
+      const priceNumber = parseFloat(String(plan.price).replace(/[^0-9.]/g, '')) || 0;
+      secureAmountMinor = Math.round(priceNumber * 100);
+    } else {
+      return NextResponse.json(
+        { success: false, error: "planId is required for subscription checkout" },
+        { status: 400 }
+      );
     }
 
     // internal order ref (our receipt)
@@ -79,7 +74,7 @@ export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response>
       provider: "razorpay",
       providerOrderId: null,
       providerTransactionId: null,
-      amountMinor: Math.round(rawAmount * 100),
+      amountMinor: secureAmountMinor,
       currency,
       status: "created",
       // (add other fields ONLY if they exist in your schema type)
@@ -96,7 +91,7 @@ export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response>
     const provider = getPaymentProvider("razorpay");
     const providerOrder = await provider.createOrder({
       receipt: internalOrderId,
-      amount: rawAmount,
+      amount: secureAmountMinor / 100, // CreateOrderInput takes major units
       currency,
       notes: { planId, userId },
     });
@@ -116,7 +111,7 @@ export const POST = rateLimiters.api(async (req: NextRequest): Promise<Response>
       providerOrderId: providerOrder.id as string,
       providerTransactionId: null,
       message: "Order created",
-      rawRequest: { amount: rawAmount, currency, planId, internalOrderId },
+      rawRequest: { amountMinor: secureAmountMinor, currency, planId, internalOrderId },
       rawResponse: providerOrder as CreateOrderResult,
       receivedAt: new Date(),
     });

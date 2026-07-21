@@ -40,16 +40,40 @@ export function sanitizeEmail(email: string | undefined | null): string | null {
 }
 
 /**
+ * Normalize an email address to collapse aliases and Gmail dot variants.
+ * This should only be called AFTER the address has passed sanitizeEmail.
+ */
+export function normalizeEmail(email: string): string {
+  const lower = email.trim().toLowerCase();
+  const atIndex = lower.indexOf('@');
+  if (atIndex === -1) return lower;
+
+  let local = lower.slice(0, atIndex);
+  const domain = lower.slice(atIndex + 1);
+
+  const plusIndex = local.indexOf('+');
+  if (plusIndex !== -1) {
+    local = local.slice(0, plusIndex);
+  }
+
+  if (domain === 'gmail.com' || domain === 'googlemail.com') {
+    local = local.replace(/\./g, '');
+  }
+
+  return `${local}@${domain}`;
+}
+
+/**
  * Validate OTP/verification code format
- * Only allows 6-digit numeric codes
+ * Allows 6-8 digit numeric codes (supports legacy 6-digit TOTP and new 8-digit email codes)
  */
 export function sanitizeOTPCode(code: string | undefined | null): string | null {
   if (!code || typeof code !== 'string') return null;
   
   const sanitized = sanitizeString(code);
   
-  // OTP should be exactly 6 digits
-  if (!/^\d{6}$/.test(sanitized)) return null;
+  // OTP should be 6 or 8 digits (legacy TOTP / new email verification & reset codes)
+  if (!/^(\d{6}|\d{8})$/.test(sanitized)) return null;
   
   return sanitized;
 }
@@ -85,6 +109,17 @@ export function validatePassword(password: string | undefined | null): { valid: 
   
   if (password.length > 128) {
     return { valid: false, error: 'Password too long' };
+  }
+
+  // Require at least 3 of 4 character classes
+  let classes = 0;
+  if (/[A-Z]/.test(password)) classes += 1;
+  if (/[a-z]/.test(password)) classes += 1;
+  if (/[0-9]/.test(password)) classes += 1;
+  if (/[^A-Za-z0-9]/.test(password)) classes += 1;
+
+  if (classes < 3) {
+    return { valid: false, error: 'Password must contain at least 3 of the following: uppercase letter, lowercase letter, number, special character' };
   }
   
   return { valid: true };

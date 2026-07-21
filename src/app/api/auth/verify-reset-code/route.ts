@@ -42,7 +42,7 @@ export const POST = rateLimiters.auth(async (request: NextRequest) => {
       )
     }
 
-    // Sanitize OTP code (must be 6 digits)
+    // Sanitize OTP code (must be 8 digits)
     const sanitizedCode = sanitizeOTPCode(code);
     if (!sanitizedCode) {
       return NextResponse.json(

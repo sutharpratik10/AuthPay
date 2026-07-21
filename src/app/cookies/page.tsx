@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { APP_CONFIG } from '@/lib/utils/constants';
 import { Button } from '@/components/ui/button';
+import { useCookieConsent } from '@/hooks/use-cookie-consent';
 
 interface CookieSettings {
   essential: boolean;
@@ -16,94 +17,26 @@ interface CookieSettings {
 
 export default function CookiePolicyPage() {
   const router = useRouter();
+  const { consent, isLoading, saveConsent, acceptAll, rejectAll } = useCookieConsent();
   const [cookieSettings, setCookieSettings] = useState<CookieSettings>({
     essential: true, // Always true, cannot be disabled
     analytics: false,
     marketing: false,
     preferences: false
   });
-  const [isLoading, setIsLoading] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Load existing cookie preferences on component mount
+  // Sync local toggle state from loaded consent
   useEffect(() => {
-    const loadCookiePreferences = () => {
-      try {
-        const savedConsent = localStorage.getItem('cookieConsent');
-        if (savedConsent) {
-          const parsed = JSON.parse(savedConsent);
-          setCookieSettings({
-            essential: true, // Always true
-            analytics: parsed.analytics || false,
-            marketing: parsed.marketing || false,
-            preferences: parsed.preferences || false
-          });
-        }
-      } catch (error) {
-        console.error('Error loading cookie preferences:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadCookiePreferences();
-  }, []);
-
-  // Apply cookie settings to the browser
-  const applyCookieSettings = (settings: CookieSettings) => {
-    try {
-      // Remove all non-essential cookies first
-      if (!settings.analytics) {
-        // Remove analytics cookies
-        document.cookie.split(";").forEach((cookie) => {
-          const eqPos = cookie.indexOf("=");
-          const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-          if (name.includes('_ga') || name.includes('_gid') || name.includes('analytics')) {
-            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-          }
-        });
-      }
-
-      if (!settings.marketing) {
-        // Remove marketing cookies
-        document.cookie.split(";").forEach((cookie) => {
-          const eqPos = cookie.indexOf("=");
-          const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-          if (name.includes('marketing') || name.includes('ads') || name.includes('fb')) {
-            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-          }
-        });
-      }
-
-      if (!settings.preferences) {
-        // Remove preference cookies (except theme)
-        document.cookie.split(";").forEach((cookie) => {
-          const eqPos = cookie.indexOf("=");
-          const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-          if (name.includes('pref') && !name.includes('theme')) {
-            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-          }
-        });
-      }
-
-      // Set consent cookies
-      if (settings.analytics) {
-        document.cookie = 'analytics_consent=true;path=/;max-age=31536000;SameSite=Strict';
-      }
-      if (settings.marketing) {
-        document.cookie = 'marketing_consent=true;path=/;max-age=31536000;SameSite=Strict';
-      }
-      if (settings.preferences) {
-        document.cookie = 'preferences_consent=true;path=/;max-age=31536000;SameSite=Strict';
-      }
-
-      // Always set essential consent
-      document.cookie = 'essential_consent=true;path=/;max-age=31536000;SameSite=Strict';
-
-    } catch (error) {
-      console.error('Error applying cookie settings:', error);
+    if (consent) {
+      setCookieSettings({
+        essential: true,
+        analytics: consent.analytics || false,
+        marketing: consent.marketing || false,
+        preferences: consent.preferences || false,
+      });
     }
-  };
+  }, [consent]);
 
   const handleCookieToggle = (type: keyof CookieSettings) => {
     if (type === 'essential') return; // Essential cookies cannot be disabled
@@ -118,64 +51,21 @@ export default function CookiePolicyPage() {
     });
   };
 
-  const saveCookiePreferences = (settings: CookieSettings) => {
-    try {
-      const consentData = {
-        ...settings,
-        timestamp: new Date().toISOString(),
-        version: '1.0'
-      };
-
-      localStorage.setItem('cookieConsent', JSON.stringify(consentData));
-      applyCookieSettings(settings);
-
-      // Dispatch custom event for other components to listen to
-      window.dispatchEvent(new CustomEvent('cookieConsentUpdated', {
-        detail: consentData
-      }));
-
-      setHasChanges(false);
-      return true;
-    } catch (error) {
-      console.error('Error saving cookie preferences:', error);
-      return false;
-    }
-  };
-
   const handleAcceptAll = () => {
-    const newSettings = {
-      essential: true,
-      analytics: true,
-      marketing: true,
-      preferences: true
-    };
-
-    setCookieSettings(newSettings);
-
-    if (saveCookiePreferences(newSettings)) {
-      router.push('/');
-    }
+    acceptAll();
+    router.push('/');
   };
 
   const handleAcceptSelected = () => {
-    if (saveCookiePreferences(cookieSettings)) {
+    if (saveConsent(cookieSettings)) {
+      setHasChanges(false);
       router.push('/');
     }
   };
 
   const handleRejectAll = () => {
-    const newSettings = {
-      essential: true,
-      analytics: false,
-      marketing: false,
-      preferences: false
-    };
-
-    setCookieSettings(newSettings);
-
-    if (saveCookiePreferences(newSettings)) {
-      router.push('/');
-    }
+    rejectAll();
+    router.push('/');
   };
 
   // Show loading state

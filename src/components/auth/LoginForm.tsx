@@ -36,7 +36,7 @@ export default function LoginForm() {
   const [otpSent, setOtpSent] = useState(false)
   const [otp, setOtp] = useState("")
   const [isSending, setIsSending] = useState(false)
-  
+
   const [emailMessage, setEmailMessage] = useState("")
 
   // Track last checked email to avoid duplicate API calls
@@ -54,27 +54,28 @@ export default function LoginForm() {
         async (position) => {
           try {
             const { latitude, longitude } = position.coords;
-            // Use free reverse geocoding API
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`);
+            // Use free reverse geocoding API (BigDataCloud is client-side friendly)
+            const apiKey = process.env.NEXT_PUBLIC_BIGDATACLOUD_API_KEY || "";
+            const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en&key=${apiKey}`);
             const data = await res.json();
-            
+
             let locationName = "Unknown Location";
-            if (data && data.address) {
-              const city = data.address.city || data.address.town || data.address.village || data.address.county;
-              const country = data.address.country;
+            if (data) {
+              const city = data.city || data.locality || data.principalSubdivision;
+              const country = data.countryName;
               if (city && country) {
                 locationName = `${city}, ${country}`;
               } else if (country) {
                 locationName = country;
               }
             }
-            
+
             if (locationName !== "Unknown Location") {
               // Set cookie for 1 hour
               document.cookie = `client-location=${encodeURIComponent(locationName)}; path=/; max-age=3600; SameSite=Lax`;
             }
           } catch (err) {
-            console.error("Failed to reverse geocode GPS location", err);
+            console.warn("Could not reverse geocode GPS location - ignoring.");
           }
         },
         (error) => {
@@ -357,7 +358,7 @@ export default function LoginForm() {
       if (res.ok && data.success && data.credentials) {
         // Sign in using bypass credentials
         const signInResult = await login(data.credentials.email, data.credentials.password, data.credentials.skipPasswordCheck)
-        
+
         if (signInResult.requires2FA) {
           return // handled by login function
         }

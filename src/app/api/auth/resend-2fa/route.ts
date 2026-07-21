@@ -5,6 +5,8 @@ import { eq, and } from 'drizzle-orm';
 import { emailService } from '@/server/services/email';
 import jwt from 'jsonwebtoken';
 import { rateLimiters } from '@/lib/middleware/rate-limit';
+import { sanitizeEmail, normalizeEmail, hasSQLInjectionPatterns } from '@/lib/utils/sanitize';
+import { logSecurityEvent } from '@/lib/utils/validation-middleware';
 
 interface TempTokenPayload {
   email: string;
@@ -25,7 +27,28 @@ export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response
         { error: 'Email and temporary token are required' },
         { status: 400 }
       );
-    }    // Verify temporary token
+    }
+
+    // Security: Check for injection patterns
+    if (hasSQLInjectionPatterns(email)) {
+      logSecurityEvent('sql_injection_attempt', { field: 'email', ip: req.headers.get('x-forwarded-for') });
+      return NextResponse.json(
+        { error: 'Invalid input detected' },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize and normalize email to match the stored address
+    const sanitizedEmail = sanitizeEmail(email);
+    if (!sanitizedEmail) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
+        { status: 400 }
+      );
+    }
+    const normalizedEmail = normalizeEmail(sanitizedEmail);
+
+    // Verify temporary token
     let decodedToken: TempTokenPayload;
     try {
       decodedToken = jwt.verify(tempToken, process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'fallback-secret') as TempTokenPayload;
@@ -36,7 +59,7 @@ export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response
       );
     }
 
-    if (decodedToken.email !== email) {
+    if (decodedToken.email !== normalizedEmail) {
       return NextResponse.json(
         { error: 'Token email mismatch' },
         { status: 401 }
@@ -45,7 +68,7 @@ export const POST = rateLimiters.auth(async (req: NextRequest): Promise<Response
 
     // Find user
     const user = await db.query.users.findFirst({
-      where: eq(users.email, email.toLowerCase())
+      where: eq(users.email, normalizedEmail)
     });
 
     if (!user) {

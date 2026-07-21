@@ -264,7 +264,7 @@ export default function ForgotPasswordPage() {
   const renderVerifyStep = () => (
     <div className="space-y-6">      <div className="text-center">
         <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-          We&apos;ve sent a 6-digit verification code to <strong>{email}</strong>
+          We&apos;ve sent an 8-digit verification code to <strong>{email}</strong>
         </p>
       </div>
       
@@ -279,11 +279,11 @@ export default function ForgotPasswordPage() {
               type="text"
               value={code}
               onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, '').slice(0, 6)
+                const value = e.target.value.replace(/\D/g, '').slice(0, 8)
                 setCode(value)
               }}
-              placeholder="Enter 6-digit code"
-              maxLength={6}
+              placeholder="Enter 8-digit code"
+              maxLength={8}
               className="text-center text-lg font-mono tracking-widest"
               autoComplete="one-time-code"
               required
@@ -293,7 +293,7 @@ export default function ForgotPasswordPage() {
         
         <Button
           type="submit"
-          disabled={isLoading || code.length !== 6}
+          disabled={isLoading || code.length !== 8}
           className="w-full"
         >
           {isLoading ? "Verifying..." : "Verify Code"}

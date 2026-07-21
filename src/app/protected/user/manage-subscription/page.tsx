@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { InvoiceDialog } from '@/components/shared/InvoiceDialog';
+import { RequestRefundModal } from '@/components/shared/RequestRefundModal';
 
 interface SubscriptionStatus {
   planName: string;
@@ -36,17 +37,129 @@ interface SubscriptionHistoryItem {
   amount?: string;
   invoiceId?: string;
   providerSubscriptionId?: string;
+  subscriptionId?: string;
+  provider?: string;
 }
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+
+const formatHistoryAmount = (amount?: string | number) => {
+  if (amount == null) return null;
+  // If amount is already a formatted string containing non-digits, return as-is
+  if (typeof amount === 'string' && /[^0-9]/.test(amount)) return amount;
+  const n = typeof amount === 'string' ? Number(amount) : amount;
+  if (Number.isNaN(n)) return String(amount);
+  const major = n / 100;
+  return major.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const HistoryRow = ({
+  sub,
+  onViewInvoice
+}: {
+  sub: SubscriptionHistoryItem;
+  onViewInvoice: (sub: SubscriptionHistoryItem) => void;
+}) => {
+  const [planName, setPlanName] = React.useState(sub.planName);
+  const [amount, setAmount] = React.useState(sub.amount);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if ((!planName || planName === 'N/A' || !amount || amount === 'N/A') && sub.subscriptionId && sub.provider) {
+      let isMounted = true;
+      const fetchDetails = async () => {
+        try {
+          setLoading(true);
+          const isStripe = sub.provider === 'stripe';
+          const endpoint = isStripe
+            ? `/api/payments/stripe-invoices?subscription_id=${encodeURIComponent(sub.subscriptionId!)}&limit=1`
+            : `/api/payments/razorpay-invoices?subscription_id=${encodeURIComponent(sub.subscriptionId!)}`;
+          const response = await fetch(endpoint);
+          if (response.ok && isMounted) {
+            const data = await response.json();
+            if (data?.items && data.items.length > 0) {
+              const invoice = data.items[0];
+              if (!planName || planName === 'N/A') {
+                if (invoice.line_items?.length > 0) {
+                  setPlanName(invoice.line_items[0].name);
+                } else if (invoice.description) {
+                  setPlanName(invoice.description);
+                }
+              }
+              if (!amount || amount === 'N/A') {
+                setAmount(invoice.amount.toString());
+              }
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        } finally {
+          if (isMounted) setLoading(false);
+        }
+      };
+      fetchDetails();
+      return () => { isMounted = false; };
+    }
+  }, [planName, amount, sub.subscriptionId, sub.provider]);
+
+  let status = sub.status || 'N/A';
+  if (sub.expiryDate && new Date(sub.expiryDate) < new Date()) {
+    status = 'Expired';
+  }
+
+  return (
+    <tr className="border-b last:border-0">
+      <td className="px-4 py-2">
+        {planName && planName !== 'N/A' ? planName : (loading ? <span className="text-muted-foreground animate-pulse">Loading...</span> : 'N/A')}
+      </td>
+      <td className="px-4 py-2">{status}</td>
+      <td className="px-4 py-2">
+        {amount && amount !== 'N/A' ? `$${formatHistoryAmount(amount)}` : (loading ? <span className="text-muted-foreground animate-pulse">...</span> : 'N/A')}
+      </td>
+      <td className="px-4 py-2">{sub.startDate ? formatDate(sub.startDate) : 'N/A'}</td>
+      <td className="px-4 py-2">{sub.expiryDate ? formatDate(sub.expiryDate) : (sub.endDate ? formatDate(sub.endDate) : 'N/A')}</td>
+      <td className="px-4 py-2">
+        {sub.invoiceId || sub.subscriptionId ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onViewInvoice(sub)}
+            className="inline-flex items-center gap-1 text-foreground hover:text-muted-foreground font-medium h-auto p-0 hover:bg-transparent"
+          >
+            View Invoice
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+              <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+            </svg>
+          </Button>
+        ) : (
+          <span className="text-muted-foreground">N/A</span>
+        )}
+      </td>
+    </tr>
+  );
+};
 
 export default function ManageSubscriptionPage() {
   const { subscriptionStatus: contextStatus, refreshSubscription } = useSubscription();
   const [subscriptionStatus, setSubscriptionStatus] = React.useState<SubscriptionStatus | null>(null);
   const [subscriptionHistory, setSubscriptionHistory] = React.useState<SubscriptionHistoryItem[]>([]);
+  const [refundRequests, setRefundRequests] = React.useState<any[]>([]);
+  const [refundsEnabled, setRefundsEnabled] = React.useState(true);
   const [loading, setLoading] = React.useState(true);
   const [cancelling, setCancelling] = React.useState(false);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = React.useState<string | null>(null);
+  const [selectedSubscriptionId, setSelectedSubscriptionId] = React.useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = React.useState<string | null>(null);
   const [showInvoiceDialog, setShowInvoiceDialog] = React.useState(false);
+  const [showRefundModal, setShowRefundModal] = React.useState(false);
   const { toast } = useToast();
 
   // Debug navigation
@@ -162,97 +275,40 @@ export default function ManageSubscriptionPage() {
       isFetching = true;
 
       try {
-        const historyResponse = await fetch('/api/user/subscription-history');
+        const [historyResponse, refundsResponse, settingsResponse] = await Promise.all([
+          fetch('/api/user/subscription-history'),
+          fetch('/api/user/refunds'),
+          fetch('/api/public/platform-settings')
+        ]);
         const historyData = await historyResponse.json();
+        const refundsData = await refundsResponse.json();
+        const settingsData = await settingsResponse.json();
 
         if (!isMounted) return;
+
+        if (settingsData.success && settingsData.data) {
+          setRefundsEnabled(settingsData.data.refundsEnabled);
+        }
 
         // Process subscription history with enrichment BEFORE setting state
         if (historyData.success) {
           const history = historyData.data.history || [];
 
-          // Enrich history items with Razorpay plan details and invoices when available
-          // Only call Razorpay APIs for actual Razorpay subscriptions (not Stripe)
-          const enriched = await Promise.all(history.map(async (item: unknown) => {
-            const row = item as Record<string, unknown>; try {
-              const isRazorpay = row.paymentGatewayProvider !== 'stripe';
-
-              if (row.providerSubscriptionId && typeof row.providerSubscriptionId === 'string') {
-                if (isRazorpay) {
-                  const subRes = await fetch(`/api/payments/razorpay-subscriptions/${encodeURIComponent(row.providerSubscriptionId)}`);
-                  if (subRes.ok) {
-                    const subJson = await subRes.json();
-                    const planId = subJson?.plan_id || subJson?.plan?.id;
-
-                    // Fetch invoices for this subscription
-                    let latestInvoiceId = null;
-                    try {
-                      const invoicesRes = await fetch(`/api/payments/razorpay-invoices?subscription_id=${encodeURIComponent(row.providerSubscriptionId)}`);
-                      if (invoicesRes.ok) {
-                        const invoicesJson = await invoicesRes.json();
-                        // Get the most recent invoice (first in the items array)
-                        if (invoicesJson?.items && invoicesJson.items.length > 0) {
-                          latestInvoiceId = invoicesJson.items[0]?.id;
-                        }
-                      }
-                    } catch (err) {
-                      console.error('Error fetching invoices:', err);
-                    }
-
-                    if (planId) {
-                      const planRes = await fetch(`/api/payments/razorpay-plans/${encodeURIComponent(String(planId))}`);
-                      if (planRes.ok) {
-                        const planJson = await planRes.json();
-                        const plan = planJson?.data || planJson;
-                        const planName = plan?.name || plan?.item?.name;
-                        const amount = plan?.item?.amount ?? plan?.amount;
-                        return {
-                          ...row,
-                          planName: planName || row.planName,
-                          amount: amount ?? row.amount,
-                          invoiceId: latestInvoiceId,
-                          providerSubscriptionId: row.providerSubscriptionId
-                        };
-                      }
-                    }
-
-                    return {
-                      ...row,
-                      invoiceId: latestInvoiceId,
-                      providerSubscriptionId: row.providerSubscriptionId
-                    };
-                  }
-                } else {
-                  // It's a Stripe subscription
-                  let latestInvoiceId = null;
-                  try {
-                    const invoicesRes = await fetch(`/api/payments/stripe-invoices?subscription_id=${encodeURIComponent(row.providerSubscriptionId)}&limit=1`);
-                    if (invoicesRes.ok) {
-                      const invoicesJson = await invoicesRes.json();
-                      if (invoicesJson?.items && invoicesJson.items.length > 0) {
-                        latestInvoiceId = invoicesJson.items[0]?.id;
-                      }
-                    }
-                  } catch (err) {
-                    console.error('Error fetching stripe invoices:', err);
-                  }
-
-                  return {
-                    ...row,
-                    invoiceId: latestInvoiceId,
-                    providerSubscriptionId: row.providerSubscriptionId
-                  };
-                }
-              }
-            } catch (err) {
-              console.error('Error enriching history item:', err);
-              // ignore and fallback
-            }
-            return row;
+          // Remove redundant heavy network calls for history enrichment!
+          // We already have `planName` and `amount` directly from the database query.
+          // Invoice details are now fetched on-demand when "View Invoice" is clicked.
+          const fastHistory = history.map((row: any) => ({
+            ...row,
+            // we will use subscriptionId and provider for on-demand fetch
+            subscriptionId: row.providerSubscriptionId,
+            provider: row.paymentGatewayProvider
           }));
 
           if (isMounted) {
-            setSubscriptionHistory(enriched);
+            setSubscriptionHistory(fastHistory);
+            if (refundsData.success) {
+              setRefundRequests(refundsData.requests || []);
+            }
           }
         }
       } catch (error) {
@@ -320,23 +376,7 @@ export default function ManageSubscriptionPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const formatHistoryAmount = (amount?: string | number) => {
-    if (amount == null) return null;
-    // If amount is already a formatted string containing non-digits, return as-is
-    if (typeof amount === 'string' && /[^0-9]/.test(amount)) return amount;
-    const n = typeof amount === 'string' ? Number(amount) : amount;
-    if (Number.isNaN(n)) return String(amount);
-    const major = n / 100;
-    return major.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
+  // Removed formatDate and formatHistoryAmount (moved outside)
 
   // Check if subscription has expired - must be before any conditional returns
   const isSubscriptionExpired = React.useMemo(() => {
@@ -352,11 +392,11 @@ export default function ManageSubscriptionPage() {
     // Inline skeletons while subscription data and history load
     return (
       <div className="space-y-8">
-        <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-slate-50/30 to-gray-50/20 dark:from-gray-800 dark:via-slate-950/20 dark:to-slate-950/10 backdrop-blur-sm">
+        <Card>
           <CardHeader className="pb-6">
             <CardTitle className="flex items-center text-2xl">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 mr-3">
-                <Crown className="h-6 w-6 text-white" />
+              <div className="p-2 rounded-xl bg-primary mr-3">
+                <Crown className="h-6 w-6 text-primary-foreground" />
               </div>
               Current Subscription
               {/* cancel button intentionally hidden on loading skeleton */}
@@ -365,7 +405,7 @@ export default function ManageSubscriptionPage() {
           <CardContent className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="space-y-3 p-4 rounded-xl bg-gray-100/60 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
+                <div key={i} className="space-y-3 p-4 rounded-xl bg-muted/50 border border-border">
                   <div className="h-4 w-32 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-3"></div>
                   <div className="h-6 bg-gray-300 dark:bg-gray-700 rounded animate-pulse w-3/4"></div>
                 </div>
@@ -413,61 +453,73 @@ export default function ManageSubscriptionPage() {
 
   return (
     <div className="space-y-8">
-      <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-slate-50/30 to-gray-50/20 dark:from-gray-800 dark:via-slate-950/20 dark:to-slate-950/10 backdrop-blur-sm">
+      <Card>
         <CardHeader className="pb-6">
           <CardTitle className="flex items-center text-2xl">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-neutral-700 to-neutral-500 mr-3">
-              <Crown className="h-6 w-6 text-white" />
+            <div className="p-2 rounded-xl bg-primary mr-3">
+              <Crown className="h-6 w-6 text-primary-foreground" />
             </div>
             Current Subscription
-            {subscriptionStatus?.providerSubscriptionId && subscriptionStatus?.status === 'active' && !isSubscriptionExpired && (
-              <button
-                type="button"
-                onClick={handleCancelClick}
-                className="cursor-pointer ml-auto inline-flex items-center px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white text-sm font-medium"
-                disabled={cancelling}
-              >
-                {cancelling ? 'Cancelling...' : 'Cancel subscription'}
-              </button>
+            {subscriptionStatus?.providerSubscriptionId && ['active', 'on-hold'].includes(subscriptionStatus?.status || '') && !isSubscriptionExpired && (
+              <div className="ml-auto flex items-center gap-2">
+                {refundsEnabled && (
+                  refundRequests.some(r => r.status === 'pending' || r.status === 'approved') ? (
+                    <span className="inline-flex items-center px-3 py-1.5 rounded bg-secondary text-secondary-foreground border border-border text-sm font-medium">
+                      Refund Processing
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowRefundModal(true)}
+                      className="cursor-pointer inline-flex items-center px-3 py-1.5 rounded bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-border text-sm font-medium"
+                    >
+                      Request Refund
+                    </button>
+                  )
+                )}
+                <button
+                  type="button"
+                  onClick={handleCancelClick}
+                  className="cursor-pointer inline-flex items-center px-3 py-1.5 rounded bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium"
+                  disabled={cancelling}
+                >
+                  {cancelling ? 'Cancelling...' : 'Cancel subscription'}
+                </button>
+              </div>
             )}
             {subscriptionStatus?.status === 'cancelled' && !isSubscriptionExpired && (
-              <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-gray-700 text-white text-sm font-medium">cancelled</span>
+              <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-muted text-muted-foreground border border-border text-sm font-medium">cancelled</span>
             )}
             {isSubscriptionExpired && (
-              <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-red-600 text-white text-sm font-medium">expired</span>
+              <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded bg-muted text-muted-foreground border border-border text-sm font-medium">expired</span>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
+            <div className="space-y-3 p-4 rounded-xl bg-muted/50 border border-border">
               <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Plan</p>
-              <p className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+              <p className="text-xl font-bold text-foreground">
                 {!subscriptionStatus
                   ? "You don't have a subscription yet. Choose a plan to get started!"
-                  : isSubscriptionExpired || !['active', 'trialing', 'cancelled'].includes(subscriptionStatus.status)
+                  : isSubscriptionExpired || !['active', 'trialing', 'cancelled', 'on-hold'].includes(subscriptionStatus.status)
                     ? 'No active plan'
                     : (subscriptionStatus.planName || (subscriptionHistory && subscriptionHistory.length > 0 ? subscriptionHistory[0].planName : undefined))}
               </p>
             </div>
 
-            <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
+            <div className="space-y-3 p-4 rounded-xl bg-muted/50 border border-border">
               <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Status</p>
               <div className="space-y-2">
                 {displayStatus && subscriptionStatus?.planName && subscriptionStatus.planName !== 'No plan is active currently' && (
                   <>
                     <Badge
-                      className={
-                        displayStatus === 'trialing'
-                          ? 'bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 dark:from-yellow-900/30 dark:to-yellow-900/30 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800 px-3 py-1.5 font-semibold'
-                          : displayStatus === 'cancelled'
-                            ? 'bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 dark:from-orange-900/30 dark:to-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800 px-3 py-1.5 font-semibold'
-                            : displayStatus === 'expired'
-                              ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 dark:from-red-900/30 dark:to-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800 px-3 py-1.5 font-semibold'
-                              : 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300 border-green-200 dark:border-green-800 px-3 py-1.5 font-semibold'
-                      }
+                      variant="secondary"
+                      className="border border-border px-3 py-1.5 font-semibold hover:bg-secondary/80"
                     >
                       {displayStatus === 'expired' ? (
+                        <AlertTriangle className="h-4 w-4 mr-1.5" />
+                      ) : displayStatus === 'on-hold' ? (
                         <AlertTriangle className="h-4 w-4 mr-1.5" />
                       ) : (
                         <CheckCircle className="h-4 w-4 mr-1.5" />
@@ -486,9 +538,9 @@ export default function ManageSubscriptionPage() {
             </div>
 
             {/* Only show Billing and Next Billing/Valid Until if active/trialing (not cancelled or expired) */}
-            {subscriptionStatus && ['active', 'trialing', 'lifetime'].includes(subscriptionStatus.status) && !isSubscriptionExpired && (
+            {subscriptionStatus && ['active', 'trialing', 'lifetime', 'on-hold'].includes(subscriptionStatus.status) && !isSubscriptionExpired && (
               <>
-                <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
+                <div className="space-y-3 p-4 rounded-xl bg-muted/50 border border-border">
                   <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Billing</p>
                   <p className="text-xl font-bold">
                     {subscriptionStatus.price || 'N/A'}
@@ -497,7 +549,7 @@ export default function ManageSubscriptionPage() {
                     </span>
                   </p>
                 </div>
-                <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
+                <div className="space-y-3 p-4 rounded-xl bg-muted/50 border border-border">
                   <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                     {subscriptionStatus.status === 'lifetime'
                       ? 'Valid Until'
@@ -539,48 +591,67 @@ export default function ManageSubscriptionPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {subscriptionHistory.map((sub, idx) => {
-                    let status = sub.status || 'N/A';
-                    if (sub.expiryDate && new Date(sub.expiryDate) < new Date()) {
-                      status = 'Expired';
-                    }
-                    return (
-                      <tr key={idx} className="border-b last:border-0">
-                        <td className="px-4 py-2">{sub.planName || 'N/A'}</td>
-                        <td className="px-4 py-2">{status}</td>
-                        <td className="px-4 py-2">{sub.amount ? `$${formatHistoryAmount(sub.amount)}` : 'N/A'}</td>
-                        <td className="px-4 py-2">{sub.startDate ? formatDate(sub.startDate) : 'N/A'}</td>
-                        <td className="px-4 py-2">{sub.expiryDate ? formatDate(sub.expiryDate) : (sub.endDate ? formatDate(sub.endDate) : 'N/A')}</td>
-                        <td className="px-4 py-2">
-                          {sub.invoiceId ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedInvoiceId(sub.invoiceId || null);
-                                setShowInvoiceDialog(true);
-                              }}
-                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium h-auto p-0 hover:bg-transparent"
-                            >
-                              View Invoice
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                                <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-                              </svg>
-                            </Button>
-                          ) : (
-                            <span className="text-muted-foreground">N/A</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {subscriptionHistory.map((sub, idx) => (
+                    <HistoryRow
+                      key={idx}
+                      sub={sub}
+                      onViewInvoice={(s) => {
+                        setSelectedInvoiceId(s.invoiceId || null);
+                        setSelectedSubscriptionId(s.subscriptionId || null);
+                        setSelectedProvider(s.provider || null);
+                        setShowInvoiceDialog(true);
+                      }}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Refund History Section */}
+      {refundsEnabled && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Refund History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {refundRequests.length === 0 ? (
+              <p className="text-muted-foreground">No refund requests found.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-2 text-left">Plan</th>
+                      <th className="px-4 py-2 text-left">Refund Amount</th>
+                      <th className="px-4 py-2 text-left">Status</th>
+                      <th className="px-4 py-2 text-left">Reason</th>
+                      <th className="px-4 py-2 text-left">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {refundRequests.map((req, idx) => (
+                      <tr key={idx} className="border-b last:border-0">
+                        <td className="px-4 py-2">{req.plan?.name || 'Unknown Plan'}</td>
+                        <td className="px-4 py-2">{req.currency} {(req.amountMinor / 100).toFixed(2)}</td>
+                        <td className="px-4 py-2">
+                          <Badge variant={req.status === 'completed' ? 'default' : req.status === 'failed' || req.status === 'rejected' ? 'destructive' : 'secondary'} className="capitalize">
+                            {req.status}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-2">{req.reason || 'N/A'}</td>
+                        <td className="px-4 py-2">{new Date(req.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Cancel Subscription Dialog */}
       <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
@@ -626,8 +697,28 @@ export default function ManageSubscriptionPage() {
       {/* Invoice Dialog */}
       <InvoiceDialog
         invoiceId={selectedInvoiceId}
+        subscriptionId={selectedSubscriptionId}
+        provider={selectedProvider}
         open={showInvoiceDialog}
         onOpenChange={setShowInvoiceDialog}
+      />
+
+      <RequestRefundModal
+        isOpen={showRefundModal}
+        onClose={() => setShowRefundModal(false)}
+        providerSubscriptionId={subscriptionStatus?.providerSubscriptionId || null}
+        onSuccess={async () => {
+          try {
+            const res = await fetch('/api/user/refunds');
+            const data = await res.json();
+            if (data.success) {
+              setRefundRequests(data.requests || []);
+            }
+          } catch (e) {
+            console.error('Failed to refresh refunds:', e);
+          }
+          await refreshSubscription();
+        }}
       />
     </div>
   );

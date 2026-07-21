@@ -58,41 +58,44 @@ npm install -D drizzle-kit @types/pg
 
 ```
 src/server/db/
-├── index.ts                 # Database connection
+├── index.ts                 # Database connection with TS 7 strict typings
 ├── schema/
-│   ├── schema.ts           # Main schema file
-│   ├── index.ts            # Schema exports
-│   └── relations.ts        # Table relations
+│   ├── index.ts             # Schema exports & definitions
+│   ├── auth.ts              # Authentication tables (auth schema)
+│   ├── rbac.ts              # RBAC tables (rbac schema)
+│   ├── billing.ts           # Payment/billing tables (billing schema)
+│   └── ...                  # Other domain schemas
 ├── migrations/
-│   ├── 0000_initial.sql
-│   ├── 0001_add_rbac.sql
+│   ├── 0000_petite_thunderbird.sql  # Unified consolidated migration
 │   └── meta/
-└── seed/
-    └── seed-data.ts        # Seed scripts
 ```
+
+### Multi-Schema Architecture
+
+The application organizes tables logically using native PostgreSQL schemas:
+- `auth`: Tables related to user accounts, sessions, passwords.
+- `rbac`: Roles, permissions, and user-role mapping tables.
+- `billing`: Subscriptions, transactions, and payment logic.
+- `logs`: Audit and error logging.
+- `core`: Base application tables.
+
+By isolating modules, AuthPay provides secure boundaries, easier data compliance, and clean Drizzle configurations.
 
 ### Connection Setup
 
 **Location**: `src/server/db/index.ts`
 
 ```typescript
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
-import * as schema from './schema/schema';
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "./schema";
 
-// Create PostgreSQL connection pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+const connectionString = process.env.DATABASE_URL!;
+const client = postgres(connectionString);
 
-// Create Drizzle instance
-export const db = drizzle(pool, { schema });
-
-// Export types
-export type Database = typeof db;
+// Using TS 7 strict typing for the DB instance
+export const db = drizzle(client, { schema }) as NonNullable<ReturnType<typeof drizzle<typeof schema>>>;
+export { client as sql };
 ```
 
 **Environment Variable**:
@@ -553,46 +556,40 @@ CREATE INDEX "user_roles_role_idx" ON "user_roles" ("role_id");
 
 ## Database Scripts
 
-### 1. Test Connection
+### 1. Unified Database Setup
 
-**Location**: `scripts/test-connection.ts`
+**Location**: `scripts/db-seed.ts` & `scripts/setup-db.ts`
 
-```typescript
-import { db } from '@/server/db';
+The database setup logic has been fully unified. Instead of running disjointed scripts, you can now run a single command that verifies the connection, applies migrations, and seeds the entire database (including roles, permissions, admin users, and billing data).
 
-async function testConnection() {
-  try {
-    const result = await db.execute(sql`SELECT NOW()`);
-    console.log('✅ Database connection successful');
-    console.log('Current time:', result.rows[0]);
-  } catch (error) {
-    console.error('❌ Database connection failed:', error);
-  }
-}
-
-testConnection();
+```bash
+# Set up database, run migrations, and inject seed data
+npm run db:setup
 ```
 
-Run: `npx tsx scripts/test-connection.ts`
+Behind the scenes, this executes:
+1. `create-database.ts`: Verifies existence and creates database.
+2. `migrate.ts`: Pushes the latest multi-schema configuration.
+3. `db-seed.ts`: Seeds necessary permissions, default plans, and users.
 
-### 2. Seed RBAC Data
+### 2. Seed Data Injection
 
-**Location**: `scripts/seed-rbac.ts`
+**Location**: `scripts/db-seed.ts`
 
 ```typescript
 import { db } from '@/server/db';
-import { roles, permissions, rolePermissions } from '@/server/db/schema';
+import { roles, permissions, rolePermissions } from '@/server/db/schema/rbac';
 
-async function seedRBAC() {
-  console.log('🌱 Seeding RBAC data...');
+async function seedDatabase() {
+  console.log('🌱 Seeding database...');
 
   // Create roles
   const [adminRole, userRole, authorRole] = await db.insert(roles).values([
     {
       name: 'Admin',
       description: 'Full system access',
-      isDefault: false,
-      isSystemManaged: true,
+      priority: 1,
+      isSuperAdmin: true,
     },
     {
       name: 'User',

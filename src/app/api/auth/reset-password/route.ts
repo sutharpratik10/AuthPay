@@ -1,6 +1,7 @@
 import { AuthService } from '@/server/services/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { rateLimiters } from '@/lib/middleware/rate-limit';
+import { validatePassword } from '@/lib/utils/sanitize';
 
 /**
  * SECURE PASSWORD RESET: Step 3 - Reset password with verified token
@@ -38,9 +39,10 @@ export const POST = rateLimiters.auth(async (req: NextRequest) => {
       );
     }
 
-    if (newPassword.length < 8) {
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
       return NextResponse.json(
-        { error: 'Password must be at least 8 characters long' },
+        { error: passwordValidation.error || 'Invalid new password' },
         { status: 400 }
       );
     }

@@ -27,7 +27,7 @@ import { rateLimiters } from '@/lib/middleware/rate-limit';
  * 
  * Uses policy-based RBAC: checks for 'admin:access' policy
  */
-export const GET = rateLimiters.api(
+export const GET = rateLimiters.withGlobalLimit(
   withApiHandler(
   async (request: NextRequest, { user }) => {
     const logger = createPerformanceLogger(request);

@@ -1,13 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Script from "next/script";
+import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { APP_CONFIG } from "@/lib/utils/constants";
+import PricingAuthModal from "@/components/user/PricingAuthModal";
 import {
   Check,
   Crown,
@@ -49,6 +52,64 @@ interface PricingPageProps {
   onPlanSelected?: (planId: string) => void;
 }
 
+const loadRazorpayScript = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    // Already loaded (e.g. by Next.js <Script> or a prior call)
+    if (typeof window !== "undefined" && (window as any).Razorpay) {
+      resolve(true);
+      return;
+    }
+
+    // Check if a script tag for Razorpay already exists in the DOM
+    // (the Next.js <Script strategy="lazyOnload"> may have injected it)
+    const existing = document.querySelector(
+      'script[src*="checkout.razorpay.com"]'
+    );
+    if (existing) {
+      // Script tag exists but hasn't finished loading yet — wait for it
+      existing.addEventListener("load", () => resolve(true));
+      existing.addEventListener("error", () => resolve(false));
+      // If it already loaded (and we just missed the event), double-check
+      setTimeout(() => {
+        if ((window as any).Razorpay) resolve(true);
+      }, 200);
+      return;
+    }
+
+    // Inject a fresh script tag
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => {
+      console.error(
+        "[Razorpay] Failed to load checkout script. This can happen if an ad-blocker is active or there is a network issue."
+      );
+      resolve(false);
+    };
+    document.body.appendChild(script);
+  });
+};
+
+/** Attempt to load the Razorpay SDK with retries */
+const loadRazorpayWithRetry = async (
+  retries = 3,
+  delayMs = 1000
+): Promise<boolean> => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const loaded = await loadRazorpayScript();
+    if (loaded) return true;
+    if (attempt < retries) {
+      console.warn(
+        `[Razorpay] Load attempt ${attempt}/${retries} failed, retrying in ${delayMs}ms…`
+      );
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  return false;
+};
+
+
 export default function PricingPage({ onPlanSelected }: PricingPageProps) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("yearly");
   const [purchasing, setPurchasing] = useState<string | null>(null);
@@ -56,10 +117,102 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { refreshSubscription } = useSubscription();
+  const { data: session, status: sessionStatus } = useSession();
+  const searchParams = useSearchParams();
+  const [freeTrialConfig, setFreeTrialConfig] = useState<any>(null);
+  const [isEligibleForTrial, setIsEligibleForTrial] = useState<boolean>(true);
+
+  // Auth modal state
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<RazorpayPlan | null>(null);
+  const autoResumeHandled = useRef(false);
 
   useEffect(() => {
     loadPlans();
   }, []);
+
+  // Handle auto-resume after social login OAuth redirect
+  useEffect(() => {
+    if (autoResumeHandled.current) return;
+    const autoPlanId = searchParams?.get("plan");
+    const autoFlag = searchParams?.get("auto");
+
+    if (autoFlag === "true" && autoPlanId && sessionStatus === "authenticated" && plans.length > 0) {
+      autoResumeHandled.current = true;
+      // Find the plan and auto-resume purchase
+      const plan = plans.find(
+        (p) => p.id === autoPlanId || p.dbPlanId === autoPlanId
+      );
+      if (plan) {
+        // Check subscription first, then purchase
+        checkSubscriptionThenPurchase(plan);
+      }
+      // Clean up URL params
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("plan");
+        url.searchParams.delete("auto");
+        window.history.replaceState({}, "", url.toString());
+      }
+    }
+  }, [searchParams, sessionStatus, plans]);
+
+  // Check trial eligibility
+  useEffect(() => {
+    if (sessionStatus === "authenticated") {
+      fetch("/api/user/subscription-history")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.data?.history && data.data.history.length > 0) {
+            setIsEligibleForTrial(false);
+          } else {
+            setIsEligibleForTrial(true);
+          }
+        })
+        .catch(() => setIsEligibleForTrial(false));
+    } else {
+      setIsEligibleForTrial(true);
+    }
+  }, [sessionStatus]);
+
+  // Check subscription status, then purchase if no active sub
+  const checkSubscriptionThenPurchase = async (plan: RazorpayPlan) => {
+    try {
+      const res = await fetch("/api/user/subscription-status");
+      const data = await res.json();
+      if (data.success && data.data?.isActive) {
+        toast({
+          title: "Already Subscribed",
+          description: "You already have an active subscription.",
+          variant: "default",
+        });
+        return;
+      }
+    } catch {
+      // On error, proceed with purchase
+    }
+    handlePurchase(plan);
+  };
+
+  // Gated purchase handler — checks auth before proceeding
+  const handleGatedPurchase = (plan: RazorpayPlan) => {
+    if (sessionStatus === "authenticated") {
+      // Already logged in → check subscription then purchase
+      checkSubscriptionThenPurchase(plan);
+    } else {
+      // Not logged in → open auth modal
+      setSelectedPlan(plan);
+      setShowAuthModal(true);
+    }
+  };
+
+  // Called when auth modal completes successfully (user is logged in, no active sub)
+  const handleAuthSuccess = () => {
+    if (selectedPlan) {
+      handlePurchase(selectedPlan);
+      setSelectedPlan(null);
+    }
+  };
 
   const loadPlans = async () => {
     try {
@@ -70,6 +223,9 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
         if (data?.success) {
           console.log("[PricingPage] Loaded plans:", data.plans);
           setPlans(data.plans || []);
+          if (data.freeTrial) {
+            setFreeTrialConfig(data.freeTrial);
+          }
         } else {
           toast({
             title: "Error",
@@ -115,8 +271,11 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
     return plans.length === 3 && index === 1;
   };
 
-  // Filter plans by billing cycle
+  // Filter plans by billing cycle and exclude zero price "Free" plans
   const filteredPlans = plans.filter(plan => {
+    // Exclude basic "Free" plans since we show the Free Trial banner instead
+    if (plan.amount === 0 || plan.name.toLowerCase() === "free") return false;
+
     if (billingCycle === "monthly") {
       return plan.period === "monthly";
     } else {
@@ -157,6 +316,11 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
         const razorpayKeyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
         if (!razorpayKeyId) {
           throw new Error('Razorpay key not configured');
+        }
+
+        const isLoaded = await loadRazorpayWithRetry();
+        if (!isLoaded) {
+          throw new Error('Failed to load Razorpay SDK. Please disable any ad-blockers and check your internet connection, then try again.');
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -290,6 +454,11 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
           throw new Error('Razorpay key not configured');
         }
 
+        const isLoaded = await loadRazorpayWithRetry();
+        if (!isLoaded) {
+          throw new Error('Failed to load Razorpay SDK. Please disable any ad-blockers and check your internet connection, then try again.');
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const Razorpay = (window as any).Razorpay;
         if (!Razorpay) {
@@ -378,11 +547,55 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
     }
   };
 
+  const handleStartFreeTrial = async () => {
+    if (sessionStatus === "unauthenticated") {
+      setShowAuthModal(true);
+      return;
+    }
+
+    setPurchasing("free-trial");
+    try {
+      const res = await fetch("/api/subscription-plans/free-trial/activate", {
+        method: "POST",
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to activate free trial");
+      }
+
+      toast({
+        title: "Success",
+        description: data.message || "Free trial activated successfully!",
+        variant: "success",
+      });
+
+      refreshSubscription();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setPurchasing(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
-        strategy="lazyOnload"
+        strategy="afterInteractive"
+      />
+
+      {/* Auth Modal */}
+      <PricingAuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        onAuthSuccess={handleAuthSuccess}
+        planName={selectedPlan?.name}
+        planId={selectedPlan?.dbPlanId || selectedPlan?.id}
       />
 
       {/* Hero Section */}
@@ -430,22 +643,51 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
               and get paid — all in one platform.
             </p>
 
-            {/* Social Proof */}
-            <div className="flex flex-col items-center gap-3 pt-4">
-              <div className="flex -space-x-2">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div
-                    key={i}
-                    className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 border-2 border-background flex items-center justify-center text-primary-foreground font-bold text-sm"
-                  >
-                    {String.fromCharCode(64 + i)}
+            {/* Free Trial Featured Banner */}
+            {freeTrialConfig && isEligibleForTrial && (
+              <div className="mt-12 relative max-w-4xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
+                  <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-1.5 rounded-full text-sm font-bold shadow-lg flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    {freeTrialConfig.durationDays}-Day Free Trial
                   </div>
-                ))}
+                </div>
+                <Card className="relative overflow-hidden border-2 border-blue-500/50 hover:border-blue-500 shadow-xl bg-card transition-all duration-300">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-900/10 dark:to-transparent" />
+                  <CardContent className="relative p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-6 text-left">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center shadow-lg shrink-0">
+                        <Star className="h-8 w-8 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold text-foreground">
+                          Try Premium for Free
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Full access to all features for {freeTrialConfig.durationDays} days. No credit card required.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      className="w-full sm:w-auto py-6 px-8 text-base font-semibold rounded-xl transition-all duration-300 bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg hover:shadow-xl hover:scale-105 shrink-0"
+                      disabled={!!purchasing}
+                      onClick={handleStartFreeTrial}
+                    >
+                      {purchasing === "free-trial" ? (
+                        <>
+                          <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                          Activating...
+                        </>
+                      ) : (
+                        <>
+                          Start Free Trial
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
               </div>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-bold text-foreground">2,547</span> developers joined this week
-              </p>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -491,6 +733,7 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
           </div>
         ) : (
           <div className="flex flex-wrap justify-center gap-8 max-w-7xl mx-auto items-stretch">
+
             {filteredPlans.map((plan, index) => {
               const Icon = getPlanIcon(plan.name);
               const badge = plan.badge;
@@ -606,7 +849,7 @@ export default function PricingPage({ onPlanSelected }: PricingPageProps) {
                             : "bg-gradient-to-r from-slate-700 to-slate-600 dark:from-slate-600 dark:to-slate-700 hover:from-slate-800 hover:to-slate-700 dark:hover:from-slate-500 dark:hover:to-slate-600 text-white shadow-lg hover:shadow-xl hover:scale-105"
                             }`}
                           disabled={!!purchasing}
-                          onClick={() => handlePurchase(plan)}
+                          onClick={() => handleGatedPurchase(plan)}
                         >
                           {purchasing === plan.id ? (
                             <>

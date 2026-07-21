@@ -118,27 +118,14 @@ const updateUserRole = withApiHandler(
       userId: string;
       roleName?: string;
       roleNames?: string[];
+      roleIds?: string[];
     }>(req);
     if (parseError) return parseError;
 
-    const { userId, roleName, roleNames } = body!;
+    const { userId, roleName, roleNames, roleIds } = body!;
 
-    // Support both single role and multiple roles
-    const rolesToAssign = roleNames || (roleName ? [roleName] : []);
-
-    // Validate input
-    if (!userId || !rolesToAssign || rolesToAssign.length === 0) {
-      return errorResponse('User ID and at least one role are required', 400);
-    }
-
-    // Check if user exists
-    const existingUser = await db.query.users.findFirst({
-      where: eq(users.id, userId),
-      columns: { id: true, email: true }
-    });
-
-    if (!existingUser) {
-      return errorResponse('User not found', 404);
+    if (!userId) {
+      return errorResponse('User ID is required', 400);
     }
 
     // Get admin user ID for the service call
@@ -147,42 +134,43 @@ const updateUserRole = withApiHandler(
       return errorResponse('Admin access required', 403);
     }
 
-    // Find all roles by name
-    const roleRecords = await db.query.roles.findMany({ 
-      where: or(...rolesToAssign.map((name: string) => eq(roles.name, name)))
-    });
-    
-    if (roleRecords.length !== rolesToAssign.length) {
-      const foundRoles = roleRecords.map(r => r.name);
-      const missingRoles = rolesToAssign.filter((r: string) => !foundRoles.includes(r));
-      return errorResponse(`Role(s) not found: ${missingRoles.join(', ')}`, 400);
+    // Determine the list of role IDs to set
+    let finalRoleIds: string[] = [];
+
+    if (roleIds && roleIds.length > 0) {
+      finalRoleIds = roleIds;
+    } else {
+      // Support backward compatibility with roleName(s)
+      const rolesToAssign = roleNames || (roleName ? [roleName] : []);
+      if (rolesToAssign.length > 0) {
+        const roleRecords = await db.query.roles.findMany({ 
+          where: or(...rolesToAssign.map((name: string) => eq(roles.name, name))),
+          columns: { id: true, name: true }
+        });
+        
+        if (roleRecords.length !== rolesToAssign.length) {
+          const foundRoles = roleRecords.map(r => r.name);
+          const missingRoles = rolesToAssign.filter((r: string) => !foundRoles.includes(r));
+          return errorResponse(`Role(s) not found: ${missingRoles.join(', ')}`, 400);
+        }
+        
+        finalRoleIds = roleRecords.map(r => r.id);
+      } else {
+        return errorResponse('At least one role must be provided', 400);
+      }
     }
 
-    // Get user's current roles
-    const currentRoles = await db.query.userRoles.findMany({
-      where: eq(userRoles.userId, userId),
-      with: { role: { columns: { name: true } } }
-    });
+    // Use RBACService to set roles (handles priority, super admin protection, and audit logging)
+    const { RBACService } = await import('@/lib/rbac/rbac-service');
+    const result = await RBACService.setUserRoles(adminCheck.userId, userId, finalRoleIds);
 
-    // Remove all existing roles
-    await db.delete(userRoles).where(eq(userRoles.userId, userId));
-
-    // Assign new roles via user_roles table
-    await db.insert(userRoles).values(
-      roleRecords.map(roleRecord => ({
-        userId,
-        roleId: roleRecord.id,
-        assignedBy: adminCheck.userId,
-      }))
-    );
+    if (!result.success) {
+      return errorResponse(result.error || 'Failed to update user roles', 400);
+    }
 
     return successResponse(
-      {
-        userId,
-        oldRoles: currentRoles.map(r => r.role.name),
-        newRoles: rolesToAssign
-      },
-      `User roles updated to: ${rolesToAssign.join(', ')}`
+      { userId, roleIds: finalRoleIds },
+      result.message || 'User roles updated successfully'
     );
   },
   { requireAdmin: true }
