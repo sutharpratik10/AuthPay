@@ -4,6 +4,7 @@ import { eq, and, desc, sql, SQL } from "drizzle-orm";
 import { getPaymentProvider } from "@/lib/payments/gateway";
 import { emailService } from "./email";
 import { getAppName } from "@/lib/utils/config";
+import { NotificationService } from "./notification";
 import Razorpay from "razorpay";
 
 export class RefundService {
@@ -134,6 +135,8 @@ export class RefundService {
     if (user && user.email) {
       const formattedAmount = `${order.currency} ${(amountToRefund / 100).toFixed(2)}`;
       emailService.sendRefundRequestedEmail(user.email, formattedAmount, order.plan?.name || 'Subscription', input.reason).catch(e => console.error("[RefundService] Failed to send requested email:", e));
+      NotificationService.createUserNotification(userId, "Refund Requested", `Your refund request for ${formattedAmount} has been received.`, "info").catch(e => console.error(e));
+      NotificationService.createAdminNotification("New Refund Request", `User ${user.email} requested a refund of ${formattedAmount}.`, "info", "high").catch(e => console.error(e));
     }
 
     // Log audit
@@ -342,6 +345,7 @@ export class RefundService {
           const plan = await db.query.subscriptionPlans.findFirst({ where: eq(subscriptionPlans.id, request.planId) });
           const formattedAmount = `${request.currency} ${(request.amountMinor / 100).toFixed(2)}`;
           emailService.sendRefundCompletedEmail(user.email, formattedAmount, plan?.name || 'Plan', result.providerRefundId).catch(e => console.error("[RefundService] Failed to send completed email:", e));
+          NotificationService.createUserNotification(request.userId, "Refund Completed", `Your refund of ${formattedAmount} has been completed successfully.`, "success").catch(e => console.error(e));
         }
       } else if (nextStatus === 'failed') {
         // Refund failed at the gateway — restore the user's subscription access
@@ -397,6 +401,7 @@ export class RefundService {
     const plan = updated.planId ? await db.query.subscriptionPlans.findFirst({ where: eq(subscriptionPlans.id, updated.planId) }) : null;
     if (user && user.email) {
       emailService.sendRefundRejectedEmail(user.email, plan?.name || 'Plan', reason).catch(e => console.error("[RefundService] Failed to send rejected email:", e));
+      NotificationService.createUserNotification(updated.userId, "Refund Rejected", `Your refund request was rejected: ${reason}`, "error").catch(e => console.error(e));
     }
 
     return updated;
@@ -429,6 +434,7 @@ export class RefundService {
       if (user && user.email) {
         const formattedAmount = `${request.currency} ${(request.amountMinor / 100).toFixed(2)}`;
         emailService.sendRefundCompletedEmail(user.email, formattedAmount, plan?.name || 'Plan', gatewayRefundId).catch(e => console.error("[RefundService] Failed to send completed email:", e));
+        NotificationService.createUserNotification(request.userId, "Refund Completed", `Your refund of ${formattedAmount} has been completed successfully.`, "success").catch(e => console.error(e));
       }
     } else if (status === 'failed') {
       await db.update(refundRequests)

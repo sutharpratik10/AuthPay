@@ -4,6 +4,7 @@ import { EmailQueueService } from "./email-queue";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { eq, and, lt, gt } from "drizzle-orm";
+import { NotificationService } from "./notification";
 import { sanitizeEmail, normalizeEmail, sanitizeName, validatePassword, hasSQLInjectionPatterns } from "@/lib/utils/sanitize";
 
 type ServiceResult<T extends object = object> = { success: true } & T | { success: false; error: string };
@@ -107,6 +108,14 @@ export class AuthService {
 
       // Queue verification email for background sending (non-blocking)
       EmailQueueService.enqueueVerificationEmail(newUser.email, verificationCode);
+      
+      // Create Admin Notification
+      await NotificationService.createAdminNotification(
+        "New user registered",
+        `New user registered with email: ${newUser.email}`,
+        "info",
+        "normal"
+      ).catch(err => console.error("Failed to create admin notification:", err));
 
       return {
         success: true,

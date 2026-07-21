@@ -32,6 +32,13 @@ export async function createAuthSSEStream(
 
   const stream = new ReadableStream({
     start(controller) {
+      // Send an immediate connection established message to flush proxy buffers
+      try {
+        controller.enqueue(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
+      } catch (e) {
+        console.error('Failed to send initial SSE message', e);
+      }
+
       channel.subscribe(userId, controller);
 
       if (options.onConnect) {

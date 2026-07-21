@@ -22,7 +22,7 @@ export function useNotificationStream(endpoint: string = '/api/user/notification
   const connect = useCallback(() => {
     if (eventSourceRef.current) return;
 
-    const eventSource = new EventSource(endpoint);
+    const eventSource = new EventSource(endpoint, { withCredentials: true });
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
@@ -33,7 +33,10 @@ export function useNotificationStream(endpoint: string = '/api/user/notification
     eventSource.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
-        if (payload.type === 'notification' || payload.type === 'admin_notification') {
+        if (payload.type === 'connected') {
+          setIsConnected(true);
+          reconnectAttempts.current = 0;
+        } else if (payload.type === 'notification' || payload.type === 'admin_notification') {
           setNotifications((prev) => [payload.data, ...prev]);
           if (payload.unreadCount !== undefined) {
             setUnreadCount(payload.unreadCount);
@@ -73,9 +76,32 @@ export function useNotificationStream(endpoint: string = '/api/user/notification
   }, [endpoint]);
 
   useEffect(() => {
-    connect();
+    let isMounted = true;
+
+    const fetchInitialData = async () => {
+      try {
+        const restEndpoint = endpoint.replace('/stream', '');
+        const res = await fetch(restEndpoint);
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) {
+            setNotifications(data.notifications || []);
+            setUnreadCount(data.unreadCount || 0);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch initial notifications:', err);
+      } finally {
+        if (isMounted) {
+          connect();
+        }
+      }
+    };
+
+    fetchInitialData();
 
     return () => {
+      isMounted = false;
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -84,7 +110,7 @@ export function useNotificationStream(endpoint: string = '/api/user/notification
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [connect]);
+  }, [endpoint, connect]);
 
   const markAsReadLocal = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));

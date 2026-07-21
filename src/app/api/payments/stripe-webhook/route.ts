@@ -28,6 +28,7 @@ import { eq, and, sql } from "drizzle-orm";
 import "@/lib/payments/providers/stripe";
 import { StripeProvider } from "@/lib/payments/providers/stripe";
 import { getPaymentProvider } from "@/lib/payments/gateway";
+import { NotificationService } from "@/server/services/notification";
 
 export const runtime = "nodejs";
 
@@ -190,6 +191,16 @@ async function handleCheckoutSessionCompleted(
       });
     }
   });
+
+  if (order.planId && order.userId) {
+    const plan = await db.query.subscriptionPlans.findFirst({ where: eq(subscriptionPlans.id, order.planId) });
+    await NotificationService.createUserNotification(
+      order.userId,
+      "Subscription Activated",
+      `Your subscription to ${plan?.name || "Plan"} has been successfully activated.`,
+      "success"
+    ).catch(err => console.error(err));
+  }
 }
 
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
@@ -251,6 +262,13 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
         })
         .where(eq(userSubscriptions.id, sub.id));
     });
+
+    await NotificationService.createUserNotification(
+      sub.userId,
+      "Payment Successful",
+      `Your recurring subscription payment of ${invoice.currency.toUpperCase()} ${(invoice.amount_paid / 100).toFixed(2)} was successful.`,
+      "success"
+    ).catch(err => console.error(err));
   }
 }
 
@@ -280,6 +298,13 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       updatedAt: new Date().toISOString(),
     })
     .where(eq(userSubscriptions.id, sub.id));
+
+  await NotificationService.createUserNotification(
+    sub.userId,
+    "Payment Failed",
+    "Your recent subscription payment failed. Please update your payment method to avoid service interruption.",
+    "warning"
+  ).catch(err => console.error(err));
 }
 
 // ---------------------------------------------------------------------------

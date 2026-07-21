@@ -161,4 +161,43 @@ export class NotificationService {
       }
     };
   }
+
+  /**
+   * Get count of unread notifications for admins
+   */
+  static async getAdminUnreadCount(): Promise<number> {
+    const result = await db.select({ id: adminNotifications.id })
+      .from(adminNotifications)
+      .where(eq(adminNotifications.isRead, false));
+    return result.length;
+  }
+
+  /**
+   * Get paginated admin notifications
+   */
+  static async getAdminNotifications(page: number = 1, limit: number = 20) {
+    const offset = (page - 1) * limit;
+
+    const items = await db.select()
+      .from(adminNotifications)
+      .orderBy(desc(adminNotifications.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const totalCountQuery = await db.select({ id: adminNotifications.id })
+      .from(adminNotifications);
+      
+    const totalCount = totalCountQuery.length;
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return {
+      items,
+      pagination: {
+        total: totalCount,
+        pageCount: totalPages,
+        currentPage: page,
+        perPage: limit,
+      }
+    };
+  }
 }
