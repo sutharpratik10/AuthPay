@@ -31,6 +31,7 @@ async function main() {
 
   console.log('Migrations complete!');
   await sql.end();
+  process.exit(0);
 }
 
 main().catch((err) => {
