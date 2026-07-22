@@ -12,21 +12,15 @@ try {
   });
   console.log("\n");
 
-  // 2. Run Migrations
-  console.log("▶️ STEP 2: Running Drizzle Migrations...");
-  execSync('npm run db:migrate', { 
+  // 2. Run Migrations & Seed (Commented out by default to skip executing it)
+  /*
+  console.log("▶️ STEP 2: Running Drizzle Migrations and Seeding...");
+  execSync('npx tsx scripts/migrate-and-seed.ts', { 
     stdio: 'inherit',
     cwd: path.resolve(__dirname, '..')
   });
   console.log("\n");
-
-  // 3. Seed Database
-  console.log("▶️ STEP 3: Seeding Database...");
-  execSync('npm run db:seed', { 
-    stdio: 'inherit',
-    cwd: path.resolve(__dirname, '..')
-  });
-  console.log("\n");
+  */
 
   console.log("✅ Database setup successfully completed!");
 } catch (error) {
