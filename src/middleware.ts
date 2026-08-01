@@ -31,6 +31,16 @@ export default auth(async (req) => {
     return NextResponse.redirect(loginUrl);
   }
 
+  // 3. Prevent authenticated users from accessing auth pages (login/signup)
+  if (url.startsWith('/auth') && req.auth?.user) {
+    // Exclude /auth/verify or other specific auth routes if needed, 
+    // but usually if you're logged in you shouldn't be at /auth/login or /auth/signup
+    if (url.startsWith('/auth/login') || url.startsWith('/auth/signup')) {
+      const dashboardUrl = new URL('/protected', req.url);
+      return NextResponse.redirect(dashboardUrl);
+    }
+  }
+
   // 3. Create the base response using NextResponse.next()
   const response = NextResponse.next();
 
